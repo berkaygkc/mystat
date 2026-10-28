@@ -46,7 +46,8 @@ public enum Theme {
 
     public enum Fonts {
         public static func kicker() -> Font { .system(size: 10.5, weight: .semibold) }
-        public static func headline(_ size: CGFloat = 28) -> Font { .system(size: size, weight: .semibold) }
+        /// Mockup'taki 650 ağırlığı (semibold 0,3 ile bold 0,4 arası).
+        public static func headline(_ size: CGFloat = 28) -> Font { Font(NSFont.systemFont(ofSize: size, weight: NSFont.Weight(0.35))) }
         public static func big(_ size: CGFloat = 34) -> Font { .system(size: size, weight: .light).monospacedDigit() }
         public static func body(_ size: CGFloat = 13.5, _ w: Font.Weight = .regular) -> Font { .system(size: size, weight: w) }
     }

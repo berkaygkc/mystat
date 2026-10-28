@@ -6,10 +6,12 @@ public struct Kicker: View {
     let text: String
     let level: Level
     let pulsing: Bool
+    let tintText: Bool
     @State private var dim = false
 
-    public init(_ text: String, level: Level = .ok, pulsing: Bool = false) {
-        self.text = text; self.level = level; self.pulsing = pulsing
+    /// `tintText`: monitörde olay etiketinin yazısı da renklenir; panelde yalnızca nokta.
+    public init(_ text: String, level: Level = .ok, pulsing: Bool = false, tintText: Bool = true) {
+        self.text = text; self.level = level; self.pulsing = pulsing; self.tintText = tintText
     }
 
     public var body: some View {
@@ -22,7 +24,7 @@ public struct Kicker: View {
                 .onAppear { if pulsing { dim = true } }
             Text(text)
                 .font(Theme.Fonts.kicker()).tracking(1.68)
-                .foregroundStyle(level == .ok ? Theme.ink3 : Theme.levelColor(level))
+                .foregroundStyle(level == .ok || !tintText ? Theme.ink3 : Theme.levelColor(level))
         }
     }
 }

@@ -63,6 +63,8 @@ enum SnapshotMode {
         case "menubar":
             let model = StatusBlockLayout.model(source.snapshot, now: Date(), calendar: .current)
             return AnyView(MenubarStrip(model: model, highlighted: o.section == "open"))
+        case "panel":
+            return AnyView(VStack { HStack { Spacer(); PanelView(source: source) { _, _ in }.padding(.trailing, 140) }.padding(.top, 39); Spacer() })
         default: return AnyView(Text(o.target).font(.largeTitle).foregroundStyle(Theme.ink))
         }
     }
