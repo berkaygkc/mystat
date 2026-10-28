@@ -21,7 +21,7 @@ struct Sidebar<Source: MetricsSource>: View {
             }
             Spacer(minLength: 12)
             if let inc = s.incident { incidentCard(inc, s) }
-            Text("MacBook Pro · M4 Pro\n14 çekirdek · 48 GB · açık 3 gün")
+            Text(s.system.machine?.footer(now: Date()) ?? "")
                 .font(.system(size: 11)).lineSpacing(5).foregroundStyle(Theme.ink3)
                 .padding(.horizontal, 10).padding(.top, 8)
         }

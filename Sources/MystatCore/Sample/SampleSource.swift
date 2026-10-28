@@ -118,7 +118,9 @@ public final class SampleSource: MetricsSource {
             system: SystemState(chipTemp: heat ? 91 : 48, gpuTemp: heat ? 63 : 41, ssdTemp: 38, fanRPM: heat ? 4800 : 0,
                                 thermal: heat ? .warn : .ok, battery: bat ? 62 : 100, charging: !bat, batteryDrain30m: bat ? 25 : nil,
                                 watts: bat ? 38 : load ? 78 : 14, adapter: "140 W USB‑C", health: "%91 · iyi",
-                                capacity: "7.819 / 8.579 mAh", cycles: 75, gpuPercent: load ? 18 : 6, gpuCores: 20),
+                                capacity: "7.819 / 8.579 mAh", cycles: 75, gpuPercent: load ? 18 : 6, gpuCores: 20, onAC: !bat,
+                                machine: MachineInfo(model: "MacBook Pro", chip: "M4 Pro", pCores: 10, eCores: 4, memoryGB: 48,
+                                                     boot: Date().addingTimeInterval(-3 * 86_400 - 600))),
             groups: groups,
             incident: inc ? makeIncident() : nil,
             suggestions: [

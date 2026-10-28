@@ -137,6 +137,24 @@ public struct SystemState: Sendable {
     public var cycles: Int
     public var gpuPercent: Double
     public var gpuCores: Int
+    public var onAC: Bool = true
+    /// Kenar menüsünün alt satırı ("MacBook Pro · M4 Pro / 14 çekirdek · 48 GB · açık 3 gün").
+    public var machine: MachineInfo? = nil
+}
+
+public struct MachineInfo: Sendable, Equatable {
+    public let model: String, chip: String
+    public let pCores: Int, eCores: Int
+    public let memoryGB: Int
+    public let boot: Date
+
+    public init(model: String, chip: String, pCores: Int, eCores: Int, memoryGB: Int, boot: Date) {
+        self.model = model; self.chip = chip; self.pCores = pCores; self.eCores = eCores; self.memoryGB = memoryGB; self.boot = boot
+    }
+
+    public func footer(now: Date) -> String {
+        "\(model) · \(chip)\n\(pCores + eCores) çekirdek · \(memoryGB) GB · açık \(Fmt.uptime(now.timeIntervalSince(boot)))"
+    }
 }
 
 public struct Snapshot: Sendable {

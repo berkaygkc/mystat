@@ -86,3 +86,32 @@ public struct ProcessRecord: Sendable, Equatable {
         self.diskWritten = diskWritten; self.restricted = restricted; self.projectRoot = projectRoot; self.terminal = terminal
     }
 }
+
+/// Pil ve adaptör (IOPowerSources + AppleSmartBattery).
+public struct BatteryReading: Sendable, Equatable {
+    public let percent: Double
+    public let charging: Bool, onAC: Bool
+    public let adapterWatts: Int?
+    public let adapterUSBC: Bool
+    public let cycles: Int?, designCapacity: Int?, maxCapacity: Int?
+
+    public init(percent: Double, charging: Bool, onAC: Bool, adapterWatts: Int?, adapterUSBC: Bool,
+                cycles: Int?, designCapacity: Int?, maxCapacity: Int?) {
+        self.percent = percent; self.charging = charging; self.onAC = onAC; self.adapterWatts = adapterWatts
+        self.adapterUSBC = adapterUSBC; self.cycles = cycles; self.designCapacity = designCapacity; self.maxCapacity = maxCapacity
+    }
+
+    public var adapterText: String { adapterWatts.map { "\($0) W" + (adapterUSBC ? " USB-C" : "") } ?? "—" }
+
+    /// Sağlık = azami / tasarım kapasitesi: ≥ %80 iyi, ≥ %60 orta, altı zayıf.
+    public var healthText: String {
+        guard let d = designCapacity, d > 0, let m = maxCapacity else { return "—" }
+        let pct = min(100, Double(m) / Double(d) * 100)
+        return Fmt.pct(pct) + " · " + (pct >= 80 ? "iyi" : pct >= 60 ? "orta" : "zayıf")
+    }
+
+    public var capacityText: String {
+        guard let d = designCapacity, let m = maxCapacity else { return "—" }
+        return "\(Fmt.int(Double(m))) / \(Fmt.int(Double(d))) mAh"
+    }
+}

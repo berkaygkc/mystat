@@ -14,4 +14,7 @@ public protocol SystemProbe: Sendable {
     func diskIO() -> DiskIOCounters
     func processes() -> [ProcessRecord]
     func listeningPorts(pids: [Int32]) -> [Int32: [Int]]
+    func thermal() -> Level
+    func battery() -> BatteryReading?
+    func machine() -> MachineInfo
 }

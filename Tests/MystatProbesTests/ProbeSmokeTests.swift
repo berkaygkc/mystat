@@ -64,4 +64,17 @@ import Testing
         #expect(ibytes >= ours.rx && ibytes - ours.rx < 1_000_000)
         #expect(obytes >= ours.tx && obytes - ours.tx < 1_000_000)
     }
+    @Test func machineAndPowerArePlausible() {
+        let m = MachineProbe().machine()
+        #expect(m.pCores + m.eCores == ProcessInfo.processInfo.activeProcessorCount)
+        #expect(m.memoryGB == Int(ProcessInfo.processInfo.physicalMemory >> 30))
+        #expect(!m.model.isEmpty && !m.model.contains("(") && m.chip.hasPrefix("M"))
+        #expect(m.boot < Date() && m.boot > Date().addingTimeInterval(-365 * 86_400))
+        let p = PowerProbe()
+        #expect([Level.ok, .warn, .crit].contains(p.thermal()))
+        if let b = p.battery() {   // dizüstü
+            #expect(b.percent >= 0 && b.percent <= 100)
+            #expect((b.cycles ?? 0) >= 0 && (b.designCapacity ?? 1) > 0)
+        }
+    }
 }
