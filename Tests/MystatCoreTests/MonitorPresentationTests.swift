@@ -33,3 +33,13 @@ import Testing
         #expect(f.last == Fact("Isı", "91°", level: .warn))
     }
 }
+
+@MainActor @Suite struct OverviewLedeTests {
+    @Test func ledes() {
+        #expect(MonitorPresentation.overviewLede(SampleSource(seed: 1).snapshot)
+                == "Makine rahat. En yoğun uygulama Brave Browser, Docker 15 container ile sessizce ayakta. Diskte 175 GB boş yer var.")
+        #expect(MonitorPresentation.overviewLede(SampleSource(seed: 1, incident: true).snapshot)
+                == "acmecorp projesinde 4,2 çekirdek kullanıyor; aynı projenin Next.js sunucusu da ona eşlik ediyor. Bellek, disk ve ağ normal.")
+        #expect(MonitorPresentation.cpuCalmLede == "Son 10 dakikada hiçbir uygulama bir çekirdekten fazlasını uzun süre kullanmadı.")
+    }
+}

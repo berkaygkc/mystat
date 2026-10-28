@@ -57,3 +57,18 @@ public enum MonitorPresentation {
         return (locative[section] ?? "Monitörde") + " incele"
     }
 }
+
+extension MonitorPresentation {
+    /// Genel Bakış başlığının altındaki paragraf (mockup `secOverview`).
+    public static func overviewLede(_ s: Snapshot) -> String {
+        guard let inc = s.incident else {
+            return "Makine rahat. En yoğun uygulama \(s.calmTop.name), Docker \(s.docker.containers.count) container ile sessizce ayakta. Diskte \(Fmt.int(s.disk.freeGB)) GB boş yer var."
+        }
+        guard inc.kind == .cpu, let lead = s.groups.first(where: { $0.id == inc.culpritIDs.first }) else {
+            return GroupPresentation.panelHeadline(s).lede
+        }
+        return "\(lead.context) projesinde \(Fmt.dec1(lead.cpuCores)) çekirdek kullanıyor; aynı projenin Next.js sunucusu da ona eşlik ediyor. Bellek, disk ve ağ normal."
+    }
+
+    public static let cpuCalmLede = "Son 10 dakikada hiçbir uygulama bir çekirdekten fazlasını uzun süre kullanmadı."
+}

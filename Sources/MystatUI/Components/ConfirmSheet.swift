@@ -7,8 +7,8 @@ public struct ConfirmRequest: Identifiable {
     public let message: String
     public let confirm: String
     public let destructive: Bool
-    public let onConfirm: () -> Void
-    public init(title: String, message: String, confirm: String, destructive: Bool, onConfirm: @escaping () -> Void) {
+    public let onConfirm: @MainActor () -> Void
+    public init(title: String, message: String, confirm: String, destructive: Bool, onConfirm: @escaping @MainActor () -> Void) {
         self.title = title; self.message = message; self.confirm = confirm; self.destructive = destructive; self.onConfirm = onConfirm
     }
 }

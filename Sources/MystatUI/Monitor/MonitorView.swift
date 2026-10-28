@@ -40,6 +40,8 @@ struct SectionContent<Source: MetricsSource>: View {
     let state: MonitorState
     var body: some View {
         switch state.section {
+        case .overview: OverviewSection(source: source, state: state)
+        case .cpu: CPUSection(source: source, state: state)
         default:
             VStack(alignment: .leading) {
                 IncidentBlock(source: source, state: state, inOverview: state.section == .overview)
