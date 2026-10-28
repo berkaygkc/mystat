@@ -9,6 +9,12 @@ public struct BasketItem: Sendable, Equatable {
     public let name: String
     public let size: Double
     public let kind: NodeKind
+    /// Tarama ağacında dosya sistemi kimliği; silmeden önce öğenin değişmediği bununla denetlenir.
+    public let fileID: UInt64?
+
+    public init(path: [String], name: String, size: Double, kind: NodeKind, fileID: UInt64? = nil) {
+        self.path = path; self.name = name; self.size = size; self.kind = kind; self.fileID = fileID
+    }
 }
 
 /// Disk haritasının toplu seçim sepeti (spec §6.4). Hiçbir öğe iki kez sayılmaz.
@@ -20,14 +26,14 @@ public struct SelectionBasket: Sendable, Equatable {
 
     @MainActor
     public mutating func toggle(_ path: [String], in tree: DiskTree) -> ToggleResult {
-        guard let n = tree.node(at: path), n.kind != .other else { return .notSelectable }
+        guard DeletionGuard.reason(path: path) == nil, let n = tree.node(at: path), n.kind != .other else { return .notSelectable }
         let k = Self.key(path)
         switch state(of: path) {
         case .implied: return .blockedByAncestor
         case .selected: map[k] = nil; return .removed
         case .none:
             for d in map.keys where d.hasPrefix(k + "/") { map[d] = nil }
-            map[k] = BasketItem(path: path, name: n.name, size: n.size, kind: n.kind)
+            map[k] = BasketItem(path: path, name: n.name, size: n.size, kind: n.kind, fileID: n.fileID)
             return .added
         }
     }

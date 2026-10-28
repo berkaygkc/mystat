@@ -81,6 +81,9 @@ public actor Sampler {
 
     public func stop() { loop?.cancel() }
 
+    /// Silmeden sonra: disk doluluğu (ve diğer yavaş okumalar) 60 sn beklemeden bir sonraki örnekte okunur.
+    public func requestVolume() { lastSlow = nil }
+
     public func sample(at now: Date) -> Output {
         let wantDetail = interest.withLock { $0 }
         dockerReading = docker?.latest.withLock { $0 } ?? DockerPoller.Reading()

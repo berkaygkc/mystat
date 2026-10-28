@@ -115,4 +115,45 @@ import Testing
         #expect(c.phase == ready)
         #expect(c.tree.node(at: ["a"])?.children?.isEmpty == false)
     }
+
+    // MARK: Silme
+
+    @Test func controllerDeleteUpdatesTreeAndCache() async throws {
+        let fx = try Fixture(), c = fx.controller()
+        c.setVisible(true); c.start(); await c.waitUntilIdle()
+        var basket = SelectionBasket()
+        #expect(basket.toggle(["a", "büyük.bin"], in: c.tree) == .added)
+        #expect(basket.toggle(["b"], in: c.tree) == .added)
+        // b taramadan sonra silinip aynı adla yeniden yaratıldı: dokunulmaz.
+        let b = fx.root.appendingPathComponent("b")
+        try FileManager.default.removeItem(at: b)
+        try FileManager.default.createDirectory(at: b, withIntermediateDirectories: true)
+        try Fixture.write(b.appendingPathComponent("yeni.bin"), 1_000_000)
+
+        let out = await c.delete(basket.items, mode: .permanent)
+        #expect(out.changed == ["b"]); #expect(out.failed.isEmpty)
+        #expect(abs(out.freedGB - 0.012) < 0.0005)
+        #expect(c.tree.node(at: ["a", "büyük.bin"]) == nil)
+        #expect(c.tree.node(at: ["b"]) != nil)
+        #expect(!FileManager.default.fileExists(atPath: fx.root.appendingPathComponent("a/büyük.bin").path))
+        #expect(FileManager.default.fileExists(atPath: b.appendingPathComponent("yeni.bin").path))
+
+        let c2 = fx.controller(); c2.setVisible(true); await c2.waitUntilIdle()   // önbellek güncel
+        #expect(c2.tree.node(at: ["a", "büyük.bin"]) == nil)
+        #expect(abs(c2.tree.root.size - c.tree.root.size) < 1e-9)
+    }
+
+    @Test func deleteRefusesProtectedAndOutside() async throws {
+        let fx = try Fixture()
+        try FileManager.default.createDirectory(at: fx.root.appendingPathComponent("Library/x"), withIntermediateDirectories: true)
+        try Fixture.write(fx.root.appendingPathComponent("Library/x/veri.bin"), 1_000_000)
+        let c = fx.controller()
+        c.setVisible(true); c.start(); await c.waitUntilIdle()
+        let lib = try #require(c.tree.node(at: ["Library"]))
+        let out = await c.delete([BasketItem(path: ["Library"], name: "Library", size: lib.size, kind: .folder, fileID: lib.fileID),
+                                  BasketItem(path: ["..", "ev"], name: "ev", size: 1, kind: .folder, fileID: 1)], mode: .permanent)
+        #expect(out.freedGB == 0); #expect(out.failed == ["Library", "ev"])
+        #expect(FileManager.default.fileExists(atPath: fx.root.appendingPathComponent("Library/x/veri.bin").path))
+    }
 }
+

@@ -5,17 +5,17 @@ import Testing
 @MainActor @Suite struct DiskTests {
     @Test func basketRules() {
         let t = SampleSource(seed: 1).diskTree; var b = SelectionBasket()
-        #expect(b.toggle(["Library", "Caches"], in: t) == .added)
-        #expect(b.toggle(["Library", "Diğer"], in: t) == .notSelectable)
-        #expect(b.toggle(["Library"], in: t) == .added)   // alt öğe düşer
-        #expect(b.items.map(\.name) == ["Library"]); #expect(b.state(of: ["Library", "Caches"]) == .implied)
-        #expect(b.toggle(["Library", "Caches"], in: t) == .blockedByAncestor)
+        #expect(b.toggle(["Documents", "apps", "acmecorp"], in: t) == .added)
+        #expect(b.toggle(["Documents", "apps", "Diğer"], in: t) == .notSelectable)
+        #expect(b.toggle(["Documents", "apps"], in: t) == .added)   // alt öğe düşer
+        #expect(b.items.map(\.name) == ["apps"]); #expect(b.state(of: ["Documents", "apps", "acmecorp"]) == .implied)
+        #expect(b.toggle(["Documents", "apps", "acmecorp"], in: t) == .blockedByAncestor)
         #expect(b.buttonTitle(mode: .permanent) == "Kalıcı olarak sil")
-        #expect(b.confirmTitle(mode: .trash) == "Library çöpe taşınsın mı?")
+        #expect(b.confirmTitle(mode: .trash) == "apps çöpe taşınsın mı?")
         _ = b.toggle(["Downloads", "Xcode_26.2.xip"], in: t)
         #expect(b.buttonTitle(mode: .trash) == "2 öğeyi çöpe taşı"); #expect(b.confirmTitle(mode: .permanent) == "2 öğe kalıcı olarak silinsin mi?")
-        #expect(abs(b.totalGB - 105.5) < 0.01)
-        #expect(b.toggle(["Library"], in: t) == .removed); #expect(b.items.count == 1)
+        #expect(abs(b.totalGB - 40.5) < 0.01)
+        #expect(b.toggle(["Documents", "apps"], in: t) == .removed); #expect(b.items.count == 1)
     }
     @Test func kinds() {
         let t = SampleSource(seed: 1).diskTree
@@ -158,6 +158,16 @@ import Testing
         #expect(abs(t2.root.size - 0.08) < 1e-9)
         #expect(t2.node(at: ["a"])?.children?.map(\.name) == ["Diğer"])
         #expect(t2.node(at: ["c"])?.children?.map(\.name) == ["Diğer"])
+    }
+
+    @Test func shrinkReducesNodeAndAncestors() throws {
+        let (idx, _, _, _) = Self.scanIndex()
+        let t = DiskTree.scanned(idx)
+        let b = try #require(t.node(at: ["a", "b"]))
+        t.shrink(at: ["a", "b"], by: 0.02)
+        #expect(abs(b.size - 0.04) < 1e-9)
+        #expect(abs((t.node(at: ["a"])?.size ?? 0) - 0.09) < 1e-9)
+        #expect(abs(t.root.size - 0.135) < 1e-9)
     }
 }
 

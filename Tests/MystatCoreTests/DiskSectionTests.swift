@@ -20,9 +20,9 @@ import Testing
     }
     @Test func confirmMessages() {
         let t = SampleSource(seed: 1).diskTree; var b = SelectionBasket()
-        _ = b.toggle(["Library"], in: t)
-        #expect(b.confirmMessage(mode: .permanent) == "96 GB yer hemen boşalacak. Bu işlem geri alınamaz.")
-        _ = b.toggle(["Downloads", "Xcode_26.2.xip"], in: t); _ = b.toggle([".npm"], in: t); _ = b.toggle(["Movies"], in: t)
-        #expect(b.confirmMessage(mode: .trash) == "Library, Xcode_26.2.xip, Movies ve 1 öğe daha. 119 GB çöpe gidecek; çöpü boşaltana kadar geri alabilirsin.")
+        _ = b.toggle(["Documents", "apps"], in: t)
+        #expect(b.confirmMessage(mode: .permanent) == "31 GB yer hemen boşalacak. Bu işlem geri alınamaz.")
+        _ = b.toggle(["Downloads", "Xcode_26.2.xip"], in: t); _ = b.toggle([".npm"], in: t); _ = b.toggle(["Library", "Caches"], in: t)
+        #expect(b.confirmMessage(mode: .trash) == "apps, Caches, Xcode_26.2.xip ve 1 öğe daha. 59 GB çöpe gidecek; çöpü boşaltana kadar geri alabilirsin.")
     }
 }

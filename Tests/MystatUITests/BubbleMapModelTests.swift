@@ -64,12 +64,12 @@ import Testing
     }
 
     /// Geçiş sırasında onaylanan silme geçişi kesmez; yeniden yerleşim sona kalır (Review Focus #4).
-    @Test func deleteDuringZoomKeepsTheZoom() {
+    @Test func deleteDuringZoomKeepsTheZoom() async {
         let (src, st, m) = make()
         st.disk.open(["Library"])
         _ = m.frame(at: 0.1, size: size)
-        st.disk.toggle(["Movies"], tree: src.diskTree)
-        st.disk.performDelete(tree: src.diskTree, source: src)
+        st.disk.toggle([".npm"], tree: src.diskTree)
+        await st.disk.performDelete(tree: src.diskTree, source: src)
         let f = m.frame(at: 0.5, size: size)!
         #expect(f.membrane != nil)
         #expect(f.mains.contains { $0.item.id.hasPrefix("Library/") } && f.mains.contains { $0.item.name == "Documents" })
@@ -88,12 +88,14 @@ import Testing
 
     @Test func clickOpensFolderAndCommandClickSelects() {
         let (_, st, m) = make()
-        let p = center(m, "Library", at: 2)
+        let p = center(m, "Library", at: 2), q = center(m, ".npm", at: 2)
         #expect(m.mouseMoved(p))                                       // el imleci
         m.click(p, flags: [.command])
-        #expect(st.disk.basket.state(of: ["Library"]) == .selected)
+        #expect(st.disk.basket.isEmpty)                                // Library korunuyor (§6.4)
+        _ = m.mouseMoved(q); m.click(q, flags: [.command])
+        #expect(st.disk.basket.state(of: [".npm"]) == .selected)
         #expect(st.disk.path.isEmpty)
-        m.click(p, flags: [])
+        _ = m.mouseMoved(p); m.click(p, flags: [])
         #expect(st.disk.path == ["Library"])
     }
 
@@ -110,9 +112,9 @@ import Testing
         let (_, st, m) = make()
         #expect(m.key(key(53)) == false)                              // kökte Esc'nin işi yok
         #expect(m.key(key(51)) == false)                              // sepet boş
-        _ = m.mouseMoved(center(m, "Documents", at: 2))
+        _ = m.mouseMoved(center(m, ".npm", at: 2))
         #expect(m.key(key(49)))                                        // Space
-        #expect(st.disk.basket.state(of: ["Documents"]) == .selected)
+        #expect(st.disk.basket.state(of: [".npm"]) == .selected)
         #expect(m.key(key(49, .command)) == false)                    // ⌘ ile değil
         #expect(m.key(key(51)))                                        // ⌫
         #expect(st.confirm != nil)
@@ -123,23 +125,23 @@ import Testing
         #expect(st.disk.path.isEmpty)
     }
 
-    @Test func deletionRelayoutsWithRipple() {
+    @Test func deletionRelayoutsWithRipple() async {
         let (src, st, m) = make()
         _ = m.frame(at: 2, size: size)
-        st.disk.toggle(["Movies"], tree: src.diskTree)
-        st.disk.performDelete(tree: src.diskTree, source: src)
+        st.disk.toggle([".npm"], tree: src.diskTree)
+        await st.disk.performDelete(tree: src.diskTree, source: src)
         #expect(m.frame(at: 2.1, size: size)?.ripple != nil)          // sönen balondan dalga
         _ = m.frame(at: 3.5, size: size)                               // son karede sönen balon alfa 0 ile çizilir
         let f = m.frame(at: 3.6, size: size)!
-        #expect(f.mains.contains { $0.item.name == "Movies" } == false)
+        #expect(f.mains.contains { $0.item.name == ".npm" } == false)
     }
 
-    @Test func deletingCurrentFolderJumpsUpWithoutZoom() {
+    @Test func deletingCurrentFolderJumpsUpWithoutZoom() async {
         let (src, st, m) = make()
         st.disk.open(["Library", "Caches"])
         _ = m.frame(at: 0.1, size: size)
         st.disk.toggle(["Library", "Caches"], tree: src.diskTree)
-        st.disk.performDelete(tree: src.diskTree, source: src)
+        await st.disk.performDelete(tree: src.diskTree, source: src)
         #expect(st.disk.path == ["Library"])
         let f = m.frame(at: 0.2, size: size)!
         #expect(f.membrane == nil)
@@ -160,10 +162,10 @@ import Testing
 
     @Test func overlayShowsLabelsAndSelectedButton() {
         let (src, st, m) = make()
-        st.disk.toggle(["Library"], tree: src.diskTree)
+        st.disk.toggle([".npm"], tree: src.diskTree)
         _ = m.frame(at: 2, size: size)
         #expect(m.labels.contains { $0.name == "Library" && $0.size == "96 GB" })
-        #expect(m.buttons.map(\.path) == [["Library"]])
+        #expect(m.buttons.map(\.path) == [[".npm"]])
         #expect(m.buttons.first?.state == .selected)
     }
     /// Etiketler cihaz pikseline oturur; dinlenmedeki yavaş süzülme her karede SwiftUI güncellemesi doğurmaz.

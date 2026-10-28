@@ -20,8 +20,9 @@ public protocol MetricsSource: AnyObject, Observable {
     func startDiskScan()
     /// Süren taramayı durdurur; önceki durum (yok ya da önceki sonuç) geri gelir.
     func cancelDiskScan()
-    /// Disk haritasından silinen alanı doluluğa yansıtır (Faz 1'de örnek; Faz 2'de yeniden ölçüm).
-    func applyDeletion(gb: Double)
+    /// Sepetteki öğeleri siler ya da çöpe taşır (§6.4); onaydan sonra çağrılır. Ağaç yerinde güncellenir, disk doluluğu
+    /// yeniden okunur. Örnek kaynakta benzetim.
+    func delete(_ items: [BasketItem], mode: DeleteMode) async -> DeleteOutcome
     /// Panel ya da monitör açık mı: süreç listesi açıkken 2 sn, kapalıyken 5 sn (spec §9.2).
     func setDetailInterest(_ visible: Bool)
     /// Monitörde görünen bölüm ("docker", "net" …); monitör kapalıysa nil. Docker'ın diski bölüm açılınca yenilenir (§9.2);

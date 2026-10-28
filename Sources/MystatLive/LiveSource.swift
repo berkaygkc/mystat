@@ -63,7 +63,11 @@ public final class LiveSource: MetricsSource {
         }
     }
 
-    public func applyDeletion(gb: Double) {}
+    public func delete(_ items: [BasketItem], mode: DeleteMode) async -> DeleteOutcome {
+        let out = await disk.delete(items, mode: mode)
+        await sampler.requestVolume()
+        return out
+    }
 
     /// Uygulama kapanırken: geçmişin yarım kovaları yazılır.
     public func flushHistory() { history?.flush() }

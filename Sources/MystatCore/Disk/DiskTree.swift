@@ -138,6 +138,17 @@ public final class DiskTree {
         }
     }
 
+    /// Yarıda kalan silme: düğümün ve atalarının boyutu boşalan kadar düşer (iç ayrıntı yeniden taramaya kadar eski kalır).
+    public func shrink(at path: [String], by gb: Double) {
+        guard gb > 0, node(at: path) != nil else { return }
+        var n = root
+        n.size -= gb
+        for name in path {
+            n = n.children!.first { $0.name == name }!
+            n.size -= gb
+        }
+    }
+
     /// Düğümü ağaçtan çıkarır, atalarının boyutunu düşer; silinen boyutu döner. Tarama ağacında dizinden de
     /// çıkarılır (önbellek güncel kalsın).
     @discardableResult

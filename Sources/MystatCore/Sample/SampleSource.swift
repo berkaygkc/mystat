@@ -40,6 +40,13 @@ public final class SampleSource: MetricsSource {
         set { kind = newValue; resetLive() }
     }
 
+    /// Örnek silme: ağaçtan düşer, açılan alan doluluğa yansır; diske dokunulmaz.
+    public func delete(_ items: [BasketItem], mode: DeleteMode) async -> DeleteOutcome {
+        let total = items.sorted { $0.path.count > $1.path.count }.reduce(0) { $0 + diskTree.remove(at: $1.path) }
+        applyDeletion(gb: total)
+        return DeleteOutcome(freedGB: total, failed: [], changed: [], simulated: true)
+    }
+
     /// Disk haritasından örnek silme sonrası açılan alanı doluluğa yansıtır.
     public func applyDeletion(gb: Double) {
         freedGB += gb

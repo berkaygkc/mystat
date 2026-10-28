@@ -43,7 +43,7 @@ final class FakeProbe: SystemProbe {
     func interfaces() -> [InterfaceCounters] { [InterfaceCounters(name: "en0", rx: 4_800_000 * s, tx: 600_000 * s, up: true)] }
     func primaryInterface() -> String? { "en0" }
     func localIPv4(of iface: String) -> String? { "192.168.1.122" }
-    func dataVolume() -> VolumeCapacity { VolumeCapacity(total: 500_000_000_000, available: 175_000_000_000, availableImportant: 187_000_000_000) }
+    func dataVolume() -> VolumeCapacity { count("dataVolume"); return VolumeCapacity(total: 500_000_000_000, available: 175_000_000_000, availableImportant: 187_000_000_000) }
     func diskIO() -> DiskIOCounters { DiskIOCounters(bytesRead: 16_400_000 * s, bytesWritten: 9_400_000 * s) }
     func processes() -> [ProcessRecord] {
         count("processes")
@@ -304,4 +304,17 @@ final class FakeProbe: SystemProbe {
         let sys = s.snapshot.system
         #expect(sys.gpuApps.isEmpty && sys.cpuWatts == nil && sys.gpuWatts == nil && sys.gpuTemp == 0 && sys.chipTemp == 57)
     }
+
+    /// Silmeden sonra disk doluluğu 60 sn beklemeden bir sonraki örnekte okunur (§6.4).
+    @Test func volumeReReadOnRequest() async {
+        let p = FakeProbe()
+        let s = Sampler(probe: p, history: nil, persistToday: false)
+        let t0 = Date()
+        _ = await s.sample(at: t0); _ = await s.sample(at: t0.addingTimeInterval(2))
+        #expect(p.n("dataVolume") == 1)
+        await s.requestVolume()
+        _ = await s.sample(at: t0.addingTimeInterval(4))
+        #expect(p.n("dataVolume") == 2)
+    }
 }
+

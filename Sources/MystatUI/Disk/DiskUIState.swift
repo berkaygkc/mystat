@@ -18,7 +18,11 @@ public final class DiskUIState {
     public init() {}
 
     public func toggle(_ p: [String], tree: DiskTree) {
-        if basket.toggle(p, in: tree) == .blockedByAncestor { ToastCenter.shared.show("Üst klasörü zaten seçili") }
+        switch basket.toggle(p, in: tree) {
+        case .blockedByAncestor: ToastCenter.shared.show("Üst klasörü zaten seçili")
+        case .notSelectable: if let r = DeletionGuard.reason(path: p) { ToastCenter.shared.show(r) }
+        case .added, .removed: break
+        }
     }
 
     public func open(_ p: [String]) {
@@ -26,19 +30,18 @@ public final class DiskUIState {
         path = p
     }
 
-    /// Sepetteki her şeyi örnek ağaçtan siler; bulunduğun klasör silindiyse var olan en yakın üst klasöre çıkar.
-    public func performDelete(tree: DiskTree, source: some MetricsSource) {
-        let items = basket.items.sorted { $0.path.count > $1.path.count }
-        let total = items.reduce(0) { $0 + tree.remove(at: $1.path) }
-        let wasTrash = mode == .trash
+    /// Sepetteki her şeyi kaynağa sildirir; bulunduğun klasör silindiyse var olan en yakın üst klasöre çıkar.
+    public func performDelete(tree: DiskTree, source: some MetricsSource) async {
+        let items = basket.items, mode = mode
         basket.clear()
-        freedGB += total
-        source.applyDeletion(gb: total)
+        ToastCenter.shared.show(mode == .trash ? "Çöpe taşınıyor…" : "Siliniyor…")
+        let out = await source.delete(items, mode: mode)
+        freedGB += out.freedGB
         var p = path
         while !p.isEmpty, tree.node(at: p) == nil { p.removeLast() }
         path = p
         relayoutToken += 1
-        ToastCenter.shared.show("\(Fmt.size(total)) " + (wasTrash ? "çöpe taşındı (örnek)" : "boşaldı (örnek)"))
+        ToastCenter.shared.show(out.toast(trash: mode == .trash))
     }
 
     public func confirmDelete(tree: DiskTree, source: some MetricsSource) -> ConfirmRequest? {
@@ -46,6 +49,6 @@ public final class DiskUIState {
         let perm = mode == .permanent
         return ConfirmRequest(title: basket.confirmTitle(mode: mode), message: basket.confirmMessage(mode: mode),
                               confirm: perm ? "Kalıcı olarak sil" : "Çöpe taşı", destructive: perm,
-                              onConfirm: { [weak self] in self?.performDelete(tree: tree, source: source) })
+                              onConfirm: { [weak self] in Task { await self?.performDelete(tree: tree, source: source) } })
     }
 }

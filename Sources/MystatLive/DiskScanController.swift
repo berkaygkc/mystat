@@ -119,6 +119,44 @@ public final class DiskScanController {
         if !visible { tree = Self.emptyTree() }
     }
 
+    // MARK: Silme
+
+    /// Sepetteki öğeleri siler ya da çöpe taşır (§6.4). En derindeki öğeden başlar. Korunan, ev dışı ya da taramadan
+    /// sonra değişmiş öğeye dokunmaz. Silinenler ağaçtan ve dizinden düşer, önbellek yeniden yazılır.
+    public func delete(_ items: [BasketItem], mode: DeleteMode) async -> DeleteOutcome {
+        guard scanTask == nil, treeLoaded, case .ready(let scannedAt) = phase else {
+            return DeleteOutcome(freedGB: 0, failed: items.map(\.name), changed: [])
+        }
+        let base = URL(fileURLWithPath: root).standardizedFileURL
+        var failed = Set<[String]>(), changed = Set<[String]>()
+        var jobs: [(path: [String], url: URL, fileID: UInt64)] = []
+        for item in items.sorted(by: { $0.path.count > $1.path.count }) {
+            let url = base.appendingPathComponent(item.path.joined(separator: "/")).standardizedFileURL
+            guard DeletionGuard.reason(path: item.path) == nil, let fid = item.fileID,
+                  !item.path.contains(where: { $0.isEmpty || $0 == "." || $0 == ".." || $0.contains("/") }),
+                  url.path.hasPrefix(base.path + "/") else { failed.insert(item.path); continue }
+            jobs.append((item.path, url, fid))
+        }
+        let t = tree, js = jobs, trash = mode == .trash
+        let results = await Task.detached(priority: .userInitiated) {
+            js.map { FileRemover.remove($0.url, expectedFileID: $0.fileID, toTrash: trash) }
+        }.value
+        var freed: Int64 = 0
+        for (job, r) in zip(js, results) {
+            switch r {
+            case .removed(let b): freed += b; t.remove(at: job.path)
+            case .changed: changed.insert(job.path)
+            case .failed(_, let f): failed.insert(job.path); freed += f; t.shrink(at: job.path, by: Double(f) / 1e9)
+            }
+        }
+        if t === tree, let index = t.scanIndex {   // bu arada yeni tarama başlamadıysa
+            let url = cacheURL
+            _ = await Task.detached(priority: .utility) { ScanCache.write(index, scannedAt: scannedAt, to: url) }.value
+        }
+        return DeleteOutcome(freedGB: Double(freed) / 1e9, failed: items.filter { failed.contains($0.path) }.map(\.name),
+                             changed: items.filter { changed.contains($0.path) }.map(\.name))
+    }
+
     // MARK: Görünürlük ve önbellek
 
     /// Disk bölümü açıldı/kapandı. Kapalıyken ağaç bırakılır; açılınca geçerli önbellekten yüklenir.
