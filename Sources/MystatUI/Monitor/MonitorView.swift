@@ -31,6 +31,7 @@ public struct MonitorView<Source: MetricsSource>: View {
         }
         .background(Theme.win)
         .confirmHost($state.confirm)
+        .onChange(of: state.section, initial: true) { source.setVisibleSection(state.section.rawValue) }   // Docker'ın diski açılınca (§9.2)
     }
 }
 

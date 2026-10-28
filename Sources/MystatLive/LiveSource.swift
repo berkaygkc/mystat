@@ -3,19 +3,19 @@ import MystatCore
 import MystatProbes
 import Observation
 
-/// Gerçek veri kaynağı. Ölçüm `Sampler` actor'ında; burada yalnızca son Snapshot ve seriler tutulur.
-/// Faz 2a'da Docker, sensörler, disk taraması ve ağ ayrıntısı henüz bağlı değil; bunlar sahte sayı yerine
-/// sakin "bağlı değil" durumu gösterir.
+/// Gerçek veri kaynağı. Ölçüm `Sampler` actor'ında, Docker `DockerPoller`'da; burada yalnızca son Snapshot ve seriler tutulur.
+/// Sensörler, disk taraması ve ağ ayrıntısı henüz bağlı değil; bunlar sahte sayı yerine sakin "bağlı değil" durumu gösterir.
 @MainActor
 @Observable
 public final class LiveSource: MetricsSource {
-    public nonisolated static let capabilities2a = SourceCapabilities(docker: false, sensors: false, diskScan: false, netDetails: false)
+    public nonisolated static let capabilities = SourceCapabilities(docker: true, sensors: false, diskScan: false, netDetails: false)
 
     public private(set) var snapshot: Snapshot
     @ObservationIgnored public let diskTree = DiskTree(root: DiskNode("~", 0, []))
     @ObservationIgnored private var buffer = SeriesBuffer()
     @ObservationIgnored private var groupHistory = GroupHistory()
     @ObservationIgnored private let sampler: Sampler
+    @ObservationIgnored let docker: DockerPoller
     @ObservationIgnored private let history: HistoryStore?
     @ObservationIgnored private let probe: any SystemProbe
     @ObservationIgnored private var starts: [Int32: Date] = [:]
@@ -23,17 +23,20 @@ public final class LiveSource: MetricsSource {
     @ObservationIgnored var signaler: @MainActor ([Int32], Bool) -> StopOutcome = { ProcessActions.signal($0, force: $1) }
 
     public init(probe: some SystemProbe = DefaultProbe(), historyURL: URL? = HistoryStore.defaultURL,
-                persistToday: Bool = true, autostart: Bool = true) {
-        snapshot = .empty(capabilities: Self.capabilities2a)
+                persistToday: Bool = true, autostart: Bool = true, dockerAPI: some DockerAPI = DockerClient()) {
+        snapshot = .empty(capabilities: Self.capabilities)
         let store = historyURL.flatMap { try? HistoryStore(url: $0) }
         history = store
         self.probe = probe
-        sampler = Sampler(probe: probe, history: store, persistToday: persistToday)
+        let docker = DockerPoller(api: dockerAPI)
+        self.docker = docker
+        sampler = Sampler(probe: probe, history: store, persistToday: persistToday, docker: docker)
         if autostart { start() }
     }
 
     public func start() {
-        let sampler = sampler
+        let sampler = sampler, docker = docker
+        Task { await docker.start() }
         Task { [weak self] in
             await sampler.start { out in await MainActor.run { self?.apply(out) } }
         }
@@ -62,7 +65,16 @@ public final class LiveSource: MetricsSource {
     /// Uygulama kapanırken: geçmişin yarım kovaları yazılır.
     public func flushHistory() { history?.flush() }
 
-    public func setDetailInterest(_ visible: Bool) { sampler.interest.withLock { $0 = visible } }
+    public func setDetailInterest(_ visible: Bool) {
+        sampler.interest.withLock { $0 = visible }
+        docker.interest.withLock { $0 = visible }
+    }
+
+    public func setVisibleSection(_ section: String?) {
+        guard section == "docker" else { return }
+        let docker = docker
+        Task { await docker.requestDisk(at: Date()) }
+    }
 
     /// `--log-values` (DEBUG) satırı; tools/consistency.sh bunu top, vm_stat ve netstat ile yan yana yazar.
     public nonisolated static func logLine(_ s: Snapshot) -> String {

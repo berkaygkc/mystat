@@ -57,7 +57,7 @@ final class FakeProbe: SystemProbe {
 @MainActor @Suite struct LiveSourceTests {
     let t0 = Date(timeIntervalSince1970: 1_793_163_600)
 
-    func source(_ p: FakeProbe) -> LiveSource { LiveSource(probe: p, historyURL: nil, persistToday: false, autostart: false) }
+    func source(_ p: FakeProbe) -> LiveSource { LiveSource(probe: p, historyURL: nil, persistToday: false, autostart: false, dockerAPI: FakeDockerAPI()) }
 
     func tick(_ s: LiveSource, _ p: FakeProbe, _ seconds: Double) async {
         p.advance()
@@ -75,7 +75,7 @@ final class FakeProbe: SystemProbe {
         #expect(abs(s.snapshot.disk.percent - 62.6) < 1e-9)
         #expect(s.snapshot.system.machine?.chip == "M4 Pro" && s.snapshot.system.battery == 100)
         #expect(s.series(.cpu, range: .m10).last.map { abs($0 - 65) < 0.01 } == true)
-        #expect(s.snapshot.capabilities == LiveSource.capabilities2a)
+        #expect(s.snapshot.capabilities == LiveSource.capabilities)
     }
 
     @Test func detailInterestChangesProcessCadence() async {
@@ -169,5 +169,26 @@ final class FakeProbe: SystemProbe {
         #expect(s.stop(groupID: g.id, pids: [300], force: false) == .notFound)
         #expect(sent.isEmpty)
         #expect(s.stop(groupID: g.id, pids: g.pids, force: false) == .done(count: 1) && sent == [[100]])
+    }
+
+    /// Docker okuması örnekleyiciye akar: gruplar projeye bölünür, Docker CPU serisi ve durum Snapshot'ta.
+    @Test func dockerFlowsIntoSnapshot() async {
+        let p = FakeProbe(busyCores: 1)
+        p.extra.withLock { $0 = [ProcessRecord(pid: 900, ppid: 1, uid: 501, name: "com.apple.Virtualization.VirtualMachine", path: nil, args: [],
+                                               cwd: nil, start: Date(timeIntervalSince1970: 1_793_000_000), hasTTY: false, cpuTime: 0,
+                                               footprint: 10 << 30, energy: 0, diskWritten: 0)] }
+        let api = FakeDockerAPI()
+        api.state.withLock { $0.list = [FakeDockerAPI.raw("verifier"), FakeDockerAPI.raw("pg")]; $0.cpu = ["verifier": 62, "pg": 8] }
+        let s = LiveSource(probe: p, historyURL: nil, persistToday: false, autostart: false, dockerAPI: api)
+        s.setDetailInterest(true)
+        await s.docker.poll(at: t0)
+        await tick(s, p, 0)
+        await s.docker.poll(at: t0.addingTimeInterval(2))
+        await tick(s, p, 2)
+        #expect(s.snapshot.capabilities.docker && s.snapshot.docker.running && s.snapshot.docker.containers.count == 2)
+        #expect(s.snapshot.groups.first { $0.id == "docker:project:deploy" }?.context == "deploy · 2 container")
+        await tick(s, p, 6)                                   // m10 adımı 5 sn: yeni kova yalnızca son okumayı taşır
+        #expect(s.series(.dockerCPU, range: .m10).last.map { abs($0 - 70) < 1e-6 } == true)
+        #expect(s.docker.interest.withLock { $0 })
     }
 }

@@ -4,6 +4,8 @@ import Observation
 public enum SeriesKey: Hashable, Sendable {
     case cpu, cpuSystem, memUsed, memPressure, netDown, netUp, diskRead, diskWrite
     case temp, fan, power, gpu, battery, dockerCPU, dockerTrend30
+    /// Container belleği (GB) ve Docker'ın verisi (GB; günlük gidişat için).
+    case dockerMem, dockerDisk
     case group(String)
 }
 
@@ -17,6 +19,8 @@ public protocol MetricsSource: AnyObject, Observable {
     func applyDeletion(gb: Double)
     /// Panel ya da monitör açık mı: süreç listesi açıkken 2 sn, kapalıyken 5 sn (spec §9.2).
     func setDetailInterest(_ visible: Bool)
+    /// Monitörde görünen bölüm ("docker", "net" …); monitör kapalıysa nil. Docker'ın diski bölüm açılınca yenilenir (§9.2).
+    func setVisibleSection(_ section: String?)
     /// Grubun süreçlerine SIGTERM (`force` ise SIGKILL); yalnızca kendi süreçlerin (spec §7.4).
     /// `pids`: onay penceresi açıldığındaki üyeler; yalnızca hâlâ grupta olanlara sinyal gider.
     func stop(groupID: String, pids: [Int32], force: Bool) -> StopOutcome

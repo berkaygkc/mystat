@@ -11,7 +11,8 @@ import Testing
 
     @Test func liveSourceDoesNotPretend() {
         let s = SourceFactory.make(arguments: ["mystat"])
-        #expect(s.snapshot.capabilities == SourceCapabilities(docker: false, sensors: false, diskScan: false, netDetails: false))
+        #expect(s.snapshot.capabilities == SourceCapabilities(docker: true, sensors: false, diskScan: false, netDetails: false))   // 2b: Docker bağlı
+        #expect(!s.snapshot.docker.running)                       // ilk okumadan önce sakin
         #expect(s.snapshot.groups.isEmpty && s.snapshot.incident == nil)
         #expect(s.stop(groupID: "yok", pids: [], force: false) == .notFound)
     }

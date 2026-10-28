@@ -81,4 +81,20 @@ import Testing
         let m4 = MachineInfo(model: "MacBook Air", chip: "M2", pCores: 4, eCores: 4, memoryGB: 16, boot: now)
         #expect(MonitorPresentation.coreLabels(count: 8, machine: m4).labels == ["P1", "P2", "P3", "P4", "V1", "V2", "V3", "V4"])
     }
+
+    /// §7.3 Docker önerisi kullanıcının volume kararıyla güvenli miktarı sayar: adsız volume + image (adlı veri volume'leri değil).
+    @Test func dockerSuggestionUsesSafeReclaim() {
+        func with(_ anon: Double, _ images: Double, running: Bool = true) -> [Suggestion] {
+            var m = measurements()
+            m.docker = DockerState(running: running, containers: [], vmMemoryGB: 15.6, vmCores: 14,
+                                   disk: DockerDisk(imagesGB: 8.764, imagesReclaimGB: images, imagesCount: 21, volumesGB: 17.41, volumesReclaimGB: 12.63,
+                                                    volumesCount: 192, buildCacheGB: 0, rawGB: nil, imagesUnusedCount: 4, volumesUnusedCount: 177,
+                                                    volumesAnonReclaimGB: anon, volumesAnonUnusedCount: 116))
+            return SnapshotBuilder.build(m, incident: nil, capabilities: .all).suggestions.filter { $0.target == .docker }
+        }
+        let s = with(7.05, 2.77)
+        #expect(s.map(\.title) == ["Docker'da 9,8 GB geri kazanılabilir"] && s.first?.detail == "116 adsız volume · 4 image")
+        #expect(with(2, 2).isEmpty)
+        #expect(with(7.05, 2.77, running: false).isEmpty)
+    }
 }

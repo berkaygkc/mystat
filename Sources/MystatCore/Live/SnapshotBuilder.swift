@@ -16,10 +16,12 @@ public struct LiveMeasurements: Sendable {
     /// İndirilenler'deki büyük ve eski dosyalar (≥ 2 GB, ≥ 14 gün açılmamış).
     public var downloads: [(name: String, gb: Double, idleDays: Int)]
     public var coreCount: Int
+    public var docker: DockerState
 
     public init(cpu: CPUState, memory: MemoryState, disk: DiskState, net: (down: Double, up: Double, todayDown: Double, todayUp: Double),
                 iface: String, ip: String?, groups: [ProcessGroup], thermal: Level, battery: BatteryReading?, batteryDrain30m: Double?,
-                machine: MachineInfo, downloads: [(name: String, gb: Double, idleDays: Int)], coreCount: Int) {
+                machine: MachineInfo, downloads: [(name: String, gb: Double, idleDays: Int)], coreCount: Int, docker: DockerState = .notRunning) {
+        self.docker = docker
         self.cpu = cpu; self.memory = memory; self.disk = disk; self.net = net; self.iface = iface; self.ip = ip; self.groups = groups
         self.thermal = thermal; self.battery = battery; self.batteryDrain30m = batteryDrain30m; self.machine = machine
         self.downloads = downloads; self.coreCount = coreCount
@@ -45,6 +47,7 @@ public enum SnapshotBuilder {
                                watts: 0, adapter: b?.adapterText ?? "—", health: b?.healthText ?? "—", capacity: b?.capacityText ?? "—",
                                cycles: b?.cycles ?? 0, gpuPercent: 0, gpuCores: 0, onAC: b?.onAC ?? true, machine: m.machine)
         s.groups = m.groups
+        s.docker = m.docker
         s.incident = incident
         if let top = m.groups.filter({ $0.id != "sys:macos" }).max(by: { $0.cpuCores < $1.cpuCores }) {   // toplu sistem satırı uygulama değil
             s.calmTop = (top.name, Int((top.cpuCores / Double(max(1, m.coreCount)) * 100).rounded()))
@@ -58,6 +61,13 @@ public enum SnapshotBuilder {
         for g in m.groups where g.isOrphan {
             out.append(Suggestion(title: "\(g.context.replacingOccurrences(of: " · :", with: " :")) sahipsiz çalışıyor",
                                   detail: "Başlatan terminal kapanmış · \(g.uptime)", target: .group(g.id)))
+        }
+        // Kullanıcının kararı: güvenli miktar (adsız volume + image); durmuş projelerin adlı veri volume'leri sayılmaz.
+        let k = m.docker.disk, safe = k.volumesAnonReclaimGB + k.imagesReclaimGB
+        if m.docker.running, safe >= 5 {
+            out.append(Suggestion(title: "Docker'da \(Fmt.dec1(safe)) GB geri kazanılabilir",
+                                  detail: "\(k.volumesAnonUnusedCount) adsız volume" + (k.imagesUnusedCount > 0 ? " · \(k.imagesUnusedCount) image" : ""),
+                                  target: .docker))
         }
         for f in m.downloads.sorted(by: { $0.gb > $1.gb }) {
             let size = f.gb >= 10 ? Fmt.int(f.gb) : Fmt.dec1(f.gb)

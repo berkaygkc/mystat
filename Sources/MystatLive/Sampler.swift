@@ -19,6 +19,10 @@ public actor Sampler {
 
     private let probe: any SystemProbe
     private let history: HistoryStore?
+    /// Docker kendi temposunda okunur; burada yalnızca son okuma alınır (Docker asılsa da tur beklemez).
+    private let docker: DockerPoller?
+    private var dockerReading = DockerPoller.Reading()
+    private var lastDockerDisk: Date?
     /// "Bugün" ağ toplamı yeniden başlatmada kaybolmasın (testlerde kapalı).
     private let persistToday: Bool
     /// Panel ya da monitör açık mı; ana aktörden eşzamanlı yazılır.
@@ -41,9 +45,10 @@ public actor Sampler {
 
     static let todayKey = "mystat.net.today"
 
-    public init(probe: some SystemProbe, history: HistoryStore?, persistToday: Bool) {
+    public init(probe: some SystemProbe, history: HistoryStore?, persistToday: Bool, docker: DockerPoller? = nil) {
         self.probe = probe
         self.history = history
+        self.docker = docker
         self.persistToday = persistToday
         machine = probe.machine()
         let saved = persistToday ? UserDefaults.standard.array(forKey: Self.todayKey) : nil
@@ -69,6 +74,7 @@ public actor Sampler {
 
     public func sample(at now: Date) -> Output {
         let wantDetail = interest.withLock { $0 }
+        dockerReading = docker?.latest.withLock { $0 } ?? DockerPoller.Reading()
         let ticks = probe.coreTicks()
         if var c = cpuMeter.update(ticks, at: now) { c.loadAvg = probe.loadAverage(); lastCPU = c }
         let cpu = lastCPU ?? Snapshot.empty(capabilities: .all).cpu
@@ -105,6 +111,14 @@ public actor Sampler {
                                                (.diskRead, disk.readMBps), (.diskWrite, disk.writeMBps)]
         if lastCPU != nil { samples += [(.cpu, cpu.percent), (.cpuSystem, cpu.systemPercent)] }
         if let b = battery { samples.append((.battery, b.percent)) }
+        let containers = dockerReading.running ? dockerReading.containers : []
+        if dockerReading.running {
+            samples += [(.dockerCPU, containers.reduce(0) { $0 + $1.cpuPercent }), (.dockerMem, containers.reduce(0) { $0 + $1.memoryMB } / 1024)]
+            if let at = dockerReading.diskAt, at != lastDockerDisk, let d = dockerReading.disk {   // df yenilendikçe (10 dk)
+                samples.append((.dockerDisk, d.dataGB))
+                lastDockerDisk = at
+            }
+        }
         for (k, v) in samples { series.add(k, v, at: now) }
         history?.append(samples, at: now)
         if lastPrune.map({ now.timeIntervalSince($0) >= 3600 }) ?? true { history?.prune(now: now); lastPrune = now }
@@ -121,14 +135,14 @@ public actor Sampler {
             incident = engine.update(IncidentInputs(cpu: cpu, memory: memory, swapGrowing: (swap.last ?? 0) - (swap.first ?? 0) > 0.1,
                                                     disk: disk, groups: groups, thermal: probe.thermal(), batteryDrain30m: drain,
                                                     onAC: battery?.onAC ?? true, memoryGrowthGB: groupHistory.memoryGrowthGB(),
-                                                    diskWrittenGB1h: groupHistory.diskWrittenGB1h()), at: now)
+                                                    diskWrittenGB1h: groupHistory.diskWrittenGB1h(), containers: containers), at: now)
             if let i = incident, recorded != "\(i.kind)\(i.startedAt)" { history?.recordIncident(i, at: now); recorded = "\(i.kind)\(i.startedAt)" }
         }
 
         let m = LiveMeasurements(cpu: cpu, memory: memory, disk: disk, net: lastNet, iface: iface ?? "—", ip: ip, groups: groups,
                                  thermal: probe.thermal(), battery: battery, batteryDrain30m: drain, machine: machine,
-                                 downloads: downloads, coreCount: max(1, ticks.count))
-        return Output(snapshot: SnapshotBuilder.build(m, incident: incident, capabilities: LiveSource.capabilities2a),
+                                 downloads: downloads, coreCount: max(1, ticks.count), docker: dockerState())
+        return Output(snapshot: SnapshotBuilder.build(m, incident: incident, capabilities: LiveSource.capabilities),
                       series: series, groups: groupHistory, starts: starts)
     }
 
@@ -146,6 +160,7 @@ public actor Sampler {
         let ownMemGB = Double(own.reduce(UInt64(0)) { $0 &+ $1.footprint }) / 1_073_741_824
         let residual = (cores: max(0, cpu.percent / 100 * Double(coreCount) - ownCores), memoryGB: max(0, memory.usedGB - ownMemGB))
         groups = ProcessGrouper.groups(records, cores: cores, ports: ports, system: residual, now: now, home: NSHomeDirectory(), cache: classes)
+        groups = DockerGroups.split(groups, containers: dockerReading.running ? dockerReading.containers : [])
 
         // Disk yazımı: süreç başına fark → grup toplamı.
         var nowWritten: [ProcKey: UInt64] = [:], delta: [Int32: UInt64] = [:]
@@ -159,5 +174,12 @@ public actor Sampler {
         for g in groups { byGroup[g.id] = g.pids.reduce(0) { $0 &+ (delta[$1] ?? 0) } }
         groupHistory.add(groups, writtenBytes: byGroup, at: now)
         lastProc = now
+    }
+
+    private func dockerState() -> DockerState {
+        let r = dockerReading
+        guard r.running else { return .notRunning }
+        return DockerState(running: true, containers: r.containers, vmMemoryGB: r.vmMemoryGB, vmCores: r.vmCores,
+                           disk: r.disk ?? DockerState.notRunning.disk)
     }
 }

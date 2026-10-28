@@ -47,6 +47,7 @@ public final class SampleSource: MetricsSource {
     public var capabilities: SourceCapabilities = .all { didSet { snapshot = build() } }
 
     public func setDetailInterest(_ visible: Bool) {}
+    public func setVisibleSection(_ section: String?) {}
 
     /// Örnek veride durdurma benzetilir; hiçbir sürece dokunulmaz.
     public func stop(groupID: String, pids: [Int32], force: Bool) -> StopOutcome {
@@ -221,6 +222,8 @@ public final class SampleSource: MetricsSource {
                 let bump: Double = i > 22 ? 1.2 : 0
                 return 18 + x * 0.3 + sin(x / 2.5) * 0.6 + bump
             }
+        case .dockerMem: return Array(repeating: 2.5, count: n)
+        case .dockerDisk: return []
         case .group(let id):
             guard let g = SampleData.groups.first(where: { $0.id == id }) else { return Array(repeating: 0, count: n) }
             let base = g.cpu.0 * 100 / 14, hot = g.cpu.1 * 100 / 14

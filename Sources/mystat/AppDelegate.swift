@@ -26,7 +26,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.panelOpen = open
         }
         monitor = MonitorWindowController(source: source)
-        monitor?.onVisibilityChange = { [weak self] visible in self?.monitorVisible = visible }
+        monitor?.onVisibilityChange = { [weak self] visible in
+            guard let self else { return }
+            self.monitorVisible = visible
+            self.source.setVisibleSection(visible ? self.monitor?.state.section.rawValue : nil)
+        }
         installKeys()
         #if DEBUG
         if args.contains("--scan-ready") { monitor?.state.disk.scan = .ready(scannedAt: Date()) }   // haritayı taramasız denemek için

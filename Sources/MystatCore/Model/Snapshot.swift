@@ -144,6 +144,11 @@ public struct DockerState: Sendable {
     public var disk: DockerDisk
     /// Son 30 günün farkı (GB); 2 günden az veri varsa nil.
     public var trend30GB: Double? = nil
+
+    public init(running: Bool = true, containers: [Container], vmMemoryGB: Double, vmCores: Int, disk: DockerDisk, trend30GB: Double? = nil) {
+        self.running = running; self.containers = containers; self.vmMemoryGB = vmMemoryGB; self.vmCores = vmCores
+        self.disk = disk; self.trend30GB = trend30GB
+    }
 }
 
 public struct SystemState: Sendable {
