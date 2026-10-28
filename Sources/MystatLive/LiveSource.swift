@@ -61,6 +61,13 @@ public final class LiveSource: MetricsSource {
 
     public func setDetailInterest(_ visible: Bool) { sampler.interest.withLock { $0 = visible } }
 
+    /// `--log-values` (DEBUG) satırı; tools/consistency.sh bunu top, vm_stat ve netstat ile yan yana yazar.
+    public nonisolated static func logLine(_ s: Snapshot) -> String {
+        func f(_ v: Double, _ d: Int) -> String { String(format: "%.\(d)f", v) }
+        return "mystat cpu=\(f(s.cpu.percent, 1)) user=\(f(s.cpu.percent - s.cpu.systemPercent, 1)) sys=\(f(s.cpu.systemPercent, 1))"
+            + " mem=\(f(s.memory.percent, 1)) memGB=\(f(s.memory.usedGB, 2)) down=\(f(s.net.downMBps, 2)) up=\(f(s.net.upMBps, 2))"
+    }
+
     /// Grubun pid'leri o anki listeden yeniden çözülür: o arada biten ya da başka sürece geçmiş pid'e sinyal gitmez.
     public func stop(groupID: String, force: Bool) -> StopOutcome {
         guard let g = snapshot.groups.first(where: { $0.id == groupID }) else { return .notFound }

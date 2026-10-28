@@ -30,7 +30,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         installKeys()
         #if DEBUG
         if args.contains("--scan-ready") { monitor?.state.disk.scan = .ready(scannedAt: Date()) }   // haritayı taramasız denemek için
+        if args.contains("--log-values") { startValueLog() }
         #endif
+        if args.contains("--panel") {   // maliyet ölçümü: panel açık (durum düğmesinin penceresi açılışta henüz yok)
+            Task { @MainActor [weak self] in try? await Task.sleep(for: .seconds(1)); self?.togglePanel() }
+        }
         if let i = args.firstIndex(of: "--section"), args.indices.contains(i + 1), let sec = MonitorSection(rawValue: args[i + 1]) {
             openMonitor(sec, nil)
         }
@@ -76,6 +80,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Saat tam saniye sınırında yenilenir; örnek veri 2 sn'de bir ilerler.
+    #if DEBUG
+    /// tools/consistency.sh için: her ölçümde tek satır (stdout).
+    private func startValueLog() {
+        Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(2))
+                guard let self else { return }
+                print(LiveSource.logLine(self.source.snapshot))
+                fflush(stdout)
+            }
+        }
+    }
+    #endif
+
     private func startTicker() {
         ticker = Task { [weak self] in
             var second = 0

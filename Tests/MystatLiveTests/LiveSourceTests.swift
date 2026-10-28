@@ -137,4 +137,14 @@ final class FakeProbe: SystemProbe {
         #expect(s.stop(groupID: "sys:macos", force: true) == .notPermitted(reason: StopOutcome.foreignReason))
         #expect(!called)
     }
+
+    /// `--log-values` satırı: tools/consistency.sh bunu top ve vm_stat ile yan yana yazar.
+    @Test func logLineCarriesComparableValues() async {
+        let p = FakeProbe(), s = source(p)
+        await tick(s, p, 0)
+        await tick(s, p, 2)
+        let line = LiveSource.logLine(s.snapshot)
+        #expect(line.hasPrefix("mystat cpu=65.0 user=55.0 sys=10.0 mem=54.0 "))
+        #expect(line.contains(" memGB=") && line.contains(" down=2.40 up=0.30"))
+    }
 }
