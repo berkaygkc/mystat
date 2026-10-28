@@ -51,7 +51,9 @@ enum SnapshotMode {
         root.layoutSubtreeIfNeeded()
         guard let rep = root.bitmapImageRepForCachingDisplay(in: root.bounds) else { fatalError("bitmap yok") }
         root.cacheDisplay(in: root.bounds, to: rep)
-        guard let png = rep.representation(using: .png, properties: [:]) else { fatalError("png yok") }
+        // Ekran profiliyle yazılırsa profil okumayan araçlarda renkler kayıyor; karşılaştırma için sRGB.
+        let srgb = rep.converting(to: .sRGB, renderingIntent: .default) ?? rep
+        guard let png = srgb.representation(using: .png, properties: [:]) else { fatalError("png yok") }
         try? png.write(to: URL(fileURLWithPath: o.out))
         print("saved \(o.out)")
         exit(0)
@@ -65,6 +67,18 @@ enum SnapshotMode {
             return AnyView(MenubarStrip(model: model, highlighted: o.section == "open"))
         case "panel":
             return AnyView(VStack { HStack { Spacer(); PanelView(source: source) { _, _ in }.padding(.trailing, 140) }.padding(.top, 39); Spacer() })
+        case "charts":
+            let cpu = source.series(.cpu, range: .m10), sys = source.series(.cpuSystem, range: .m10)
+            let red = source.snapshot.incident != nil
+            return AnyView(Card {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Kullanım").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.ink)
+                    AreaChart(series: [ChartSeries(cpu, color: red ? Theme.red : Theme.chart, fill: true, name: "toplam"),
+                                       ChartSeries(sys, color: Theme.chart2, name: "sistem")],
+                              max: 100, height: 190, range: .m10, format: Fmt.pct, formatY: Fmt.pct)
+                    Sparkline(Array(cpu.suffix(60)), color: red ? Theme.red : Theme.chart, height: 30, max: 100)
+                }
+            }.frame(width: 960).background(Theme.dyn(.init(white: 0.97, alpha: 1), .init(white: 0.12, alpha: 1))))
         default: return AnyView(Text(o.target).font(.largeTitle).foregroundStyle(Theme.ink))
         }
     }

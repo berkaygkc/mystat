@@ -4,7 +4,7 @@ import SwiftUI
 
 /// Renk ve tipografi tokenları. Değerler mockup'taki `:root` (açık) ve `body.dark` (koyu) CSS değişkenleri.
 public enum Theme {
-    static func dyn(_ light: NSColor, _ dark: NSColor) -> Color {
+    public static func dyn(_ light: NSColor, _ dark: NSColor) -> Color {
         Color(nsColor: NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light })
     }
     static func rgba(_ r: Int, _ g: Int, _ b: Int, _ a: Double = 1) -> NSColor {
