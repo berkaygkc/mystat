@@ -42,3 +42,23 @@ public struct SensorMap: Sendable, Codable, Equatable {
         return (0..<n).map { keys[Int((Double($0) * Double(keys.count - 1) / Double(n - 1)).rounded())] }
     }
 }
+
+/// IOReport "Energy Model": abonelikten bu yana birikimli joule.
+public struct EnergyCounters: Sendable, Equatable {
+    public var cpuJ, gpuJ, aneJ, dramJ: Double
+    public init(cpuJ: Double, gpuJ: Double, aneJ: Double, dramJ: Double) { self.cpuJ = cpuJ; self.gpuJ = gpuJ; self.aneJ = aneJ; self.dramJ = dramJ }
+}
+
+/// GPU'yu kullanan bir istemci: `IOUserClientCreator` ("pid 410, WindowServer") ve birikimli GPU süresi.
+public struct GPUClient: Sendable, Equatable {
+    public let pid: Int32, name: String
+    public let gpuTimeNs: UInt64
+    public init(pid: Int32, name: String, gpuTimeNs: UInt64) { self.pid = pid; self.name = name; self.gpuTimeNs = gpuTimeNs }
+}
+
+public struct GPUReading: Sendable, Equatable {
+    public let utilization: Double
+    public let cores: Int
+    public let clients: [GPUClient]
+    public init(utilization: Double, cores: Int, clients: [GPUClient]) { self.utilization = utilization; self.cores = cores; self.clients = clients }
+}
