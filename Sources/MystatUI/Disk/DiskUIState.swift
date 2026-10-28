@@ -21,7 +21,7 @@ public final class DiskUIState {
                             "~/Library/Application Support", "~/Downloads", "~/Movies", "~/Documents/hobby-projects"]
 
     /// Faz 1: ~4 sn süren örnek tarama; sonra 1 saat geçerli.
-    public func startScan(totalGB: Double) {
+    public func startScan(tree: DiskTree) {
         scanTask?.cancel()
         scan = .scanning(progress: 0, scannedGB: 0, currentPath: "~")
         scanTask = Task { [weak self] in
@@ -29,7 +29,7 @@ public final class DiskUIState {
                 try? await Task.sleep(for: .milliseconds(100))
                 guard let self, !Task.isCancelled else { return }
                 let p = Double(i) / 40
-                self.scan = .scanning(progress: p, scannedGB: totalGB * p, currentPath: Self.scanPaths[(i / 6) % Self.scanPaths.count])
+                self.scan = .scanning(progress: p, scannedGB: BubbleEngine.scannedTotal(tree, progress: p), currentPath: Self.scanPaths[(i / 6) % Self.scanPaths.count])
             }
             self?.scan = .ready(scannedAt: Date())
         }

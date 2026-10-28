@@ -42,4 +42,9 @@ import Testing
                 == "acmecorp projesinde 4,2 çekirdek kullanıyor; aynı projenin Next.js sunucusu da ona eşlik ediyor. Bellek, disk ve ağ normal.")
         #expect(MonitorPresentation.cpuCalmLede == "Son 10 dakikada hiçbir uygulama bir çekirdekten fazlasını uzun süre kullanmadı.")
     }
+    /// Kenar menüsündeki olay kartı panel başlığını noktasız kullanır (mockup `.side-inc .t`).
+    @Test func sideIncidentTextHasNoFinalPeriod() {
+        let hot = SampleSource(seed: 1, incident: true).snapshot
+        #expect(MonitorPresentation.sideIncidentText(hot) == "Claude Code işlemciyi zorluyor")
+    }
 }

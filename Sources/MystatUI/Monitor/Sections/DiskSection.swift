@@ -16,7 +16,7 @@ struct DiskSection<Source: MetricsSource>: View {
             HStack(alignment: .top, spacing: 22) {
                 VStack(alignment: .leading, spacing: 0) {
                     crumbs.padding(.bottom, 10)
-                    DiskMapArea(disk: disk, homeGB: source.diskTree.root.size) { BubbleMapView(source: source, state: state) }
+                    DiskMapArea(disk: disk, tree: source.diskTree) { BubbleMapView(source: source, state: state) }
                 }
                 DiskSidePanel(source: source, disk: disk, state: state)
             }
@@ -74,7 +74,7 @@ struct DiskSection<Source: MetricsSource>: View {
                     .onTapGesture { if !current { disk.open(c.path) } }
             }
             Spacer()
-            ScanStatus(disk: disk, homeGB: source.diskTree.root.size)
+            ScanStatus(disk: disk, tree: source.diskTree)
         }
         .font(.system(size: 13))
     }
@@ -83,7 +83,7 @@ struct DiskSection<Source: MetricsSource>: View {
 /// Yol satırının sağındaki tarama durumu: taranıyor / X dk daha geçerli · Yeniden tara.
 struct ScanStatus: View {
     @Bindable var disk: DiskUIState
-    let homeGB: Double
+    let tree: DiskTree
     var body: some View {
         TimelineView(.periodic(from: .now, by: 15)) { ctx in
             HStack(spacing: 6) {
@@ -93,7 +93,7 @@ struct ScanStatus: View {
                 case .ready:
                     Text((disk.scan.validityText(now: ctx.date) ?? "") + " ·")
                     Text("Yeniden tara").fontWeight(.semibold).foregroundStyle(Theme.ink2)
-                        .onTapGesture { disk.startScan(totalGB: homeGB) }
+                        .onTapGesture { disk.startScan(tree: tree) }
                 case .none:
                     EmptyView()
                 }
@@ -106,7 +106,7 @@ struct ScanStatus: View {
 /// Harita kartı: durumlar (boş / taranıyor / hazır), ince ilerleme çizgisi, cam Geri düğmesi, lejant, ipucu.
 struct DiskMapArea<Map: View>: View {
     @Bindable var disk: DiskUIState
-    let homeGB: Double
+    let tree: DiskTree
     @ViewBuilder let map: () -> Map
 
     var body: some View {
@@ -142,7 +142,7 @@ struct DiskMapArea<Map: View>: View {
             Text("Ev klasörünü tarayıp neyin ne kadar yer tuttuğunu gösterir. Sonuç 1 saat geçerli kalır; ardından yeniden taraman gerekir.")
                 .font(.system(size: 13)).lineSpacing(3).multilineTextAlignment(.center).foregroundStyle(Theme.ink2)
                 .frame(maxWidth: 340).padding(.top, 6)
-            Btn("Taramayı başlat", icon: "magnifyingglass", style: .primary) { disk.startScan(totalGB: homeGB) }
+            Btn("Taramayı başlat", icon: "magnifyingglass", style: .primary) { disk.startScan(tree: tree) }
                 .fixedSize().padding(.top, 18)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

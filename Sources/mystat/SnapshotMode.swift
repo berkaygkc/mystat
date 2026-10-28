@@ -83,7 +83,7 @@ enum SnapshotMode {
             if !o.toast.isEmpty { ToastCenter.shared.show(o.toast) }
             switch o.scan {
             case "none": state.disk.scan = .none
-            case "scanning": state.disk.scan = .scanning(progress: 0.55, scannedGB: 128, currentPath: "~/Library/Caches")
+            case "scanning": state.disk.scan = .scanning(progress: 0.55, scannedGB: BubbleEngine.scannedTotal(source.diskTree, progress: 0.55), currentPath: "~/Library/Caches")
             default: state.disk.scan = .ready(scannedAt: Date().addingTimeInterval(-18 * 60))
             }
             if o.section == "disk", o.confirm == "basket" {

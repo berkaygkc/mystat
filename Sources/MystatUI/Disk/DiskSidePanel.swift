@@ -12,11 +12,14 @@ struct DiskSidePanel<Source: MetricsSource>: View {
         let tree = source.diskTree
         let node = tree.node(at: disk.path) ?? tree.root
         let here = disk.basket.state(of: disk.path)
+        // Tarama sürerken haritadaki balonlarla aynı birikmiş boyutlar; başlık satırların toplamı.
+        let kids = node.children ?? []
+        let total = scanProgress == nil ? node.size : kids.reduce(0) { $0 + scanned($1) }
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
                 Text(node.name).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.ink)
                 Spacer()
-                Text(Fmt.size(node.size)).font(.system(size: 12).monospacedDigit()).foregroundStyle(Theme.ink3)
+                Text(Fmt.size(total)).font(.system(size: 12).monospacedDigit()).foregroundStyle(Theme.ink3)
             }
             .padding(.top, 4).padding(.bottom, 10)
             if here != .none {
@@ -28,11 +31,20 @@ struct DiskSidePanel<Source: MetricsSource>: View {
             if case .none = disk.scan.effective(now: Date()) {
                 Text("Harita için önce taramayı başlat.").font(.system(size: 12)).foregroundStyle(Theme.ink3)
             } else {
-                ForEach((node.children ?? []).sorted { $0.size > $1.size }, id: \.name) { c in row(c, tree: tree) }
+                ForEach(kids.sorted { $0.size > $1.size }, id: \.name) { c in row(c, tree: tree) }
                 basket(tree).padding(.top, 14)
             }
         }
         .frame(width: 300, alignment: .leading)
+    }
+
+    private var scanProgress: Double? {
+        if case .scanning(let p, _, _) = disk.scan { return p }
+        return nil
+    }
+
+    private func scanned(_ c: DiskNode) -> Double {
+        BubbleEngine.scannedSize(c.size, path: disk.path + [c.name], progress: scanProgress)
     }
 
     private func row(_ c: DiskNode, tree: DiskTree) -> some View {
@@ -48,7 +60,7 @@ struct DiskSidePanel<Source: MetricsSource>: View {
             Circle().fill(Theme.kindColor(c.kind)).frame(width: 8, height: 8)
             Text(c.name).font(.system(size: 13, weight: .medium)).foregroundStyle(other ? Theme.ink2 : Theme.ink).lineLimit(1).truncationMode(.middle)
             Spacer(minLength: 6)
-            Text(Fmt.size(c.size)).font(.system(size: 12.5).monospacedDigit()).foregroundStyle(Theme.ink2)
+            Text(Fmt.size(scanned(c))).font(.system(size: 12.5).monospacedDigit()).foregroundStyle(Theme.ink2)
             Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.ink3).opacity(folder ? 1 : 0).frame(width: 16)
         }
         .padding(.horizontal, 8).padding(.vertical, 8)

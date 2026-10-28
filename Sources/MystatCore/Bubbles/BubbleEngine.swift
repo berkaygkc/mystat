@@ -115,6 +115,18 @@ public final class BubbleEngine {
         min(1, max(0.04, progress * 1.3 - phase * 0.3))
     }
 
+    /// Tarama sürerken bir öğenin o ana kadar biriken boyutu (haritadaki balonla aynı büyüme); tarama yoksa kendisi.
+    public static func scannedSize(_ size: Double, path: [String], progress: Double?) -> Double {
+        guard let p = progress else { return size }
+        return size * scanGrowth(phase: hash01(path.joined(separator: "/")), progress: p)
+    }
+
+    /// Taramanın o ana kadar ev klasöründe biriktirdiği toplam (kökteki satırların toplamı).
+    @MainActor
+    public static func scannedTotal(_ tree: DiskTree, progress: Double) -> Double {
+        (tree.root.children ?? []).reduce(0) { $0 + scannedSize($1.size, path: [$1.name], progress: progress) }
+    }
+
     /// Mockup'taki `hash01`: FNV-1a, 1000'e göre.
     static func hash01(_ s: String) -> Double {
         var h: UInt32 = 2_166_136_261

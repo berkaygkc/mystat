@@ -43,10 +43,18 @@ final class StatusBlockView: NSView {
         }
     }
 
+    /// Genişlikler çoğunlukla sabit şablonlardan ("%100", "88:88:88"…) gelir; her çizimde yeniden ölçülmesin.
+    private static var widths: [String: CGFloat] = [:]
+
     static func measure(_ s: String, _ size: CGFloat, _ bold: Bool) -> CGFloat {
+        let key = "\(size)|\(s)"
+        if let w = widths[key] { return w }
         var attrs: [NSAttributedString.Key: Any] = [.font: font(size)]
         if size == StatusBlockLayout.labelSize { attrs[.kern] = labelKern }
-        return ceil(NSAttributedString(string: s, attributes: attrs).size().width)
+        let w = ceil(NSAttributedString(string: s, attributes: attrs).size().width)
+        if widths.count > 256 { widths.removeAll() }
+        widths[key] = w
+        return w
     }
 
     // MARK: - Çizim

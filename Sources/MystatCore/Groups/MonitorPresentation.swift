@@ -15,6 +15,12 @@ public enum MonitorPresentation {
         }
     }
 
+    /// Kenar menüsündeki olay kartı: panel başlığı, sondaki nokta olmadan (mockup `.side-inc .t`).
+    public static func sideIncidentText(_ s: Snapshot) -> String {
+        let t = String(GroupPresentation.panelHeadline(s).title.characters)
+        return t.hasSuffix(".") ? String(t.dropLast()) : t
+    }
+
     /// Olay kartının tek cümlelik özeti.
     public static func incidentSentence(_ s: Snapshot) -> String {
         guard let inc = s.incident else { return "" }

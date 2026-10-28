@@ -75,4 +75,18 @@ import Testing
         #expect(BubbleEngine.scanGrowth(phase: 0.9, progress: 1) == 1)
         #expect(BubbleEngine.scanGrowth(phase: 0.2, progress: 0) > 0)
     }
+    /// Kenar listesi taramada haritadaki etiketle aynı birikmiş boyutu gösterir.
+    @Test func scannedSizeMatchesBubbleGrowth() {
+        let e = BubbleEngine(tree: SampleSource(seed: 1).diskTree, path: [], viewSize: size)
+        let lib = e.items.first { $0.name == "Library" }!
+        #expect(BubbleEngine.scannedSize(96, path: ["Library"], progress: 0.3) == 96 * BubbleEngine.scanGrowth(phase: lib.phase, progress: 0.3))
+        #expect(BubbleEngine.scannedSize(96, path: ["Library"], progress: nil) == 96)
+    }
+    /// Tarama satırındaki "Taranıyor · X GB" kenar listesinin toplamıyla aynı.
+    @Test func scannedTotalIsSumOfRootRows() {
+        let t = SampleSource(seed: 1).diskTree
+        let rows = (t.root.children ?? []).reduce(0) { $0 + BubbleEngine.scannedSize($1.size, path: [$1.name], progress: 0.55) }
+        #expect(abs(BubbleEngine.scannedTotal(t, progress: 0.55) - rows) < 1e-9)
+        #expect(BubbleEngine.scannedTotal(t, progress: 0.55) < t.root.size)
+    }
 }

@@ -25,7 +25,8 @@ struct Sidebar<Source: MetricsSource>: View {
                 .font(.system(size: 11)).lineSpacing(5).foregroundStyle(Theme.ink3)
                 .padding(.horizontal, 10).padding(.top, 8)
         }
-        .padding(.horizontal, 8).padding(.top, 48).padding(.bottom, 12)
+        // Mockup border-box: 236 px'in içinden 8 px dolgu + 1 px kenarlık düşülür.
+        .padding(.horizontal, 9).padding(.top, 48).padding(.bottom, 12)
         .frame(width: 236)
         .frame(maxHeight: .infinity, alignment: .top)
         .background(Theme.sidebarFill, in: RoundedRectangle(cornerRadius: 19, style: .continuous))
@@ -51,11 +52,11 @@ struct Sidebar<Source: MetricsSource>: View {
     private func incidentCard(_ inc: Incident, _ s: Snapshot) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Kicker("OLAY · \(inc.minutes) DK", level: inc.level, pulsing: true)
-            Text(String(GroupPresentation.panelHeadline(s).title.characters))
-                .font(.system(size: 12.5, weight: .semibold)).foregroundStyle(Theme.ink).lineSpacing(2)
+            Text(MonitorPresentation.sideIncidentText(s))
+                .font(Font(Theme.Fonts.sf(12.5, wght: 600))).foregroundStyle(Theme.ink).lineSpacing(2)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.horizontal, 12).padding(.vertical, 11)
+        .padding(.horizontal, 12.5).padding(.vertical, 11.5)   // 12/11 px dolgu + 0,5 px kenarlık (border-box)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.redSoft, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(Theme.redEdge, lineWidth: 0.5))
