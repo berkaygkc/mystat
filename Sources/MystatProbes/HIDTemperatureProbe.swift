@@ -37,15 +37,7 @@ public final class HIDTemperatureProbe: Sendable {
             let values = s.services.compactMap { svc in
                 s.copyEvent(svc, Self.temperatureEvent, 0, 0).map { s.floatValue($0.takeRetainedValue(), Int32(Self.temperatureEvent << 16)) }
             }
-            return SensorMeterBridge.average(values)
+            return SensorMeter.average(values)
         }
-    }
-}
-
-/// SensorMeter Task 4'te; buradaki geçici ortalama aynı kuralı kullanır (10…120).
-enum SensorMeterBridge {
-    static func average(_ v: [Double]) -> Double? {
-        let ok = v.filter { $0.isFinite && (10...120).contains($0) }
-        return ok.isEmpty ? nil : ok.reduce(0, +) / Double(ok.count)
     }
 }
