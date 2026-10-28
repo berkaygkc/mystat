@@ -102,6 +102,23 @@ public final class ScanIndex: Sendable {
         }
     }
 
+    public func fileID(ofDir dir: Int32) -> UInt64 { state.withLock { $0.fileID[Int(dir)] } }
+
+    /// Silinen klasör: alt ağacıyla birlikte toplamlardan ve listelerden düşer.
+    public func removeDirectory(_ dir: Int32) {
+        state.withLock { s in
+            guard dir > 0, Int(dir) < s.parent.count else { return }
+            s.parent[Int(dir)] = -2; s.version += 1
+        }
+    }
+
+    public func removeFile(dir: Int32, fileID: UInt64) {
+        state.withLock { s in
+            guard let j = s.fDir.indices.first(where: { s.fDir[$0] == dir && s.fID[$0] == fileID }) else { return }
+            s.fDir[j] = -1; s.version += 1
+        }
+    }
+
     /// Tarama bitince dizileri tam boylarına indirir (büyürken iki katına çıkan kapasite geri verilir).
     public func finishAdding() {
         state.withLock { s in

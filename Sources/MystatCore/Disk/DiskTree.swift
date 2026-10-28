@@ -9,22 +9,33 @@ public final class DiskNode {
     public let isFile: Bool
     public let isDocker: Bool
     public var children: [DiskNode]?
+    /// Tarama ağacında dizindeki karşılığı; örnek veride nil.
+    public var ref: ScanChild.Ref?
+    /// Dosya sistemi kimliği (inode); silmeden önce öğenin değişmediği bununla denetlenir. Örnek veride nil.
+    public let fileID: UInt64?
 
-    public init(_ name: String, _ size: Double, file: Bool = false, docker: Bool = false, _ children: [DiskNode]? = nil) {
+    public init(_ name: String, _ size: Double, file: Bool = false, docker: Bool = false, _ children: [DiskNode]? = nil,
+                ref: ScanChild.Ref? = nil, fileID: UInt64? = nil) {
         self.name = name; self.size = size; self.isFile = file; self.isDocker = docker; self.children = children
+        self.ref = ref; self.fileID = fileID
     }
 
-    /// Tür = renk (spec §6.4). Mockup'taki `kindOf`.
+    /// Tür = renk (spec §6.4). Mockup'taki `kindOf`. Tarama ağacında "Diğer" adı değil `ref` belirler: diskte
+    /// "Diğer" adlı gerçek bir klasör klasördür.
     public var kind: NodeKind {
+        if case .other? = ref { return .other }
         if isDocker || name == "Docker" { return .docker }
-        if name == "Diğer" { return .other }
+        if ref == nil, name == "Diğer" { return .other }
         if Self.isRegen(name) { return .regen }
         if isFile { return .file }
         return .folder
     }
 
-    /// İçine girilebilir mi (örnek veride alt düğüm üretilebilir mi).
-    public var canHaveChildren: Bool { !isFile && name != "Diğer" && size >= 0.03 }
+    /// İçine girilebilir mi. Örnek veride alt düğüm üretilebilir mi; tarama ağacında klasör mü.
+    public var canHaveChildren: Bool {
+        if let ref { if case .dir = ref { return true } else { return false } }
+        return !isFile && name != "Diğer" && size >= 0.03
+    }
 
     /// Yeniden oluşturulabilir klasör adları. `Regex` Sendable değil; arka plan taramasında da güvenle
     /// okunabilsin diye düz bir küme ve önek denetimi.
@@ -32,34 +43,123 @@ public final class DiskNode {
     static func isRegen(_ name: String) -> Bool { regenNames.contains { name.hasPrefix($0) } }
 }
 
+/// Bir düğümün çocuklarını ilk açılışta üretir: örnek veride `SampleGenerator`, tarama ağacında `ScanIndex`.
+public protocol DiskChildProvider: AnyObject {
+    /// Düğümün çocukları; yoksa nil.
+    func children(of node: DiskNode, path: [String]) -> [DiskNode]?
+}
+
+/// Örnek veri (Faz 1 davranışı).
+public final class SampleProvider: DiskChildProvider {
+    public init() {}
+    public func children(of node: DiskNode, path: [String]) -> [DiskNode]? {
+        SampleGenerator.generate(node, path: path)
+        return node.children
+    }
+}
+
+/// Tarama dizininden düğüm üretir. Dizin tarama sürerken de büyüyebilir; `totals` son `refresh` anının görüntüsü.
+final class ScanProvider: DiskChildProvider {
+    let index: ScanIndex
+    var totals: ScanTotals
+    /// Docker'ın verisi bu klasörlerin altında durur (renk ve silme uyarısı, spec §6.4).
+    static let dockerRoots: [[String]] = [["Library", "Containers", "com.docker.docker"], ["Library", "Group Containers", "group.com.docker"]]
+
+    init(index: ScanIndex) { self.index = index; totals = index.totals() }
+
+    func children(of node: DiskNode, path: [String]) -> [DiskNode]? {
+        guard case .dir(let id)? = node.ref else { return nil }
+        return index.children(of: id, totals: totals).map { make($0, path: path + [$0.name]) }
+    }
+
+    func make(_ c: ScanChild, path: [String]) -> DiskNode {
+        let docker = Self.dockerRoots.contains { path.count >= $0.count && Array(path.prefix($0.count)) == $0 }
+        let gb = Double(c.bytes) / 1e9
+        switch c.ref {
+        case .dir(let id): return DiskNode(c.name, gb, docker: docker, ref: c.ref, fileID: index.fileID(ofDir: id))
+        case .file(let fid): return DiskNode(c.name, gb, file: true, docker: docker, ref: c.ref, fileID: fid)
+        case .other: return DiskNode(c.name, gb, docker: docker, ref: c.ref)
+        }
+    }
+}
+
 public final class DiskTree {
     public let root: DiskNode
-    public init(root: DiskNode) { self.root = root }
+    private let provider: DiskChildProvider?
 
-    /// Yol boyunca örnek alt düğümleri tembelce üreterek düğümü bulur.
+    public init(root: DiskNode, provider: DiskChildProvider? = SampleProvider()) { self.root = root; self.provider = provider }
+
+    /// Tarama sonucu: düğümler gezildikçe dizinden üretilir.
+    public static func scanned(_ index: ScanIndex) -> DiskTree {
+        let p = ScanProvider(index: index)
+        return DiskTree(root: DiskNode(index.rootName, Double(p.totals[0]) / 1e9, ref: .dir(0), fileID: index.fileID(ofDir: 0)), provider: p)
+    }
+
+    /// Tarama ağacının dizini; örnek veride nil.
+    public var scanIndex: ScanIndex? { (provider as? ScanProvider)?.index }
+
+    /// Yol boyunca alt düğümleri tembelce üreterek düğümü bulur.
     public func node(at path: [String]) -> DiskNode? {
         var n = root
-        SampleGenerator.generate(n, path: [])
+        expand(n, path: [])
         for (i, name) in path.enumerated() {
             guard let next = n.children?.first(where: { $0.name == name }) else { return nil }
             n = next
-            SampleGenerator.generate(n, path: Array(path[...i]))
+            expand(n, path: Array(path[...i]))
         }
         return n
     }
 
-    /// Düğümü ağaçtan çıkarır, atalarının boyutunu düşer; silinen boyutu döner.
+    private func expand(_ n: DiskNode, path: [String]) {
+        guard n.children == nil, n.canHaveChildren, let provider else { return }
+        n.children = provider.children(of: n, path: path)
+    }
+
+    /// Tarama sürerken dizindeki yeni toplamları açılmış düğümlere yansıtır. Var olan düğüm nesneleri korunur
+    /// (balon kimliği ve animasyon sürer); yeni çocuklar eklenir.
+    public func refresh() {
+        guard let p = provider as? ScanProvider else { return }
+        p.totals = p.index.totals()
+        root.size = Double(p.totals[0]) / 1e9
+        update(root, path: [], p)
+    }
+
+    private func update(_ n: DiskNode, path: [String], _ p: ScanProvider) {
+        guard let kids = n.children, case .dir(let id)? = n.ref else { return }
+        func key(_ name: String, _ ref: ScanChild.Ref?) -> String {
+            if case .other? = ref { return "\u{0}" + name } else { return name }
+        }
+        let old = Dictionary(kids.map { (key($0.name, $0.ref), $0) }, uniquingKeysWith: { a, _ in a })
+        n.children = p.index.children(of: id, totals: p.totals).map { c in
+            guard let o = old[key(c.name, c.ref)] else { return p.make(c, path: path + [c.name]) }
+            o.size = Double(c.bytes) / 1e9; o.ref = c.ref
+            update(o, path: path + [c.name], p)
+            return o
+        }
+    }
+
+    /// Düğümü ağaçtan çıkarır, atalarının boyutunu düşer; silinen boyutu döner. Tarama ağacında dizinden de
+    /// çıkarılır (önbellek güncel kalsın).
     @discardableResult
     public func remove(at path: [String]) -> Double {
         guard let last = path.last, let parent = node(at: Array(path.dropLast())),
               let i = parent.children?.firstIndex(where: { $0.name == last }) else { return 0 }
-        let size = parent.children![i].size
+        let removed = parent.children![i]
+        let size = removed.size
         parent.children!.remove(at: i)
         var n = root
         n.size -= size
         for name in path.dropLast() {
             n = n.children!.first { $0.name == name }!
             n.size -= size
+        }
+        if let p = provider as? ScanProvider {
+            switch removed.ref {
+            case .dir(let id)?: p.index.removeDirectory(id)
+            case .file(let fid)?: if case .dir(let pid)? = parent.ref { p.index.removeFile(dir: pid, fileID: fid) }
+            default: break
+            }
+            p.totals = p.index.totals()
         }
         return size
     }

@@ -89,4 +89,21 @@ import Testing
         #expect(abs(BubbleEngine.scannedTotal(t, progress: 0.55) - rows) < 1e-9)
         #expect(BubbleEngine.scannedTotal(t, progress: 0.55) < t.root.size)
     }
+
+    @Test func layoutCapsAt24() throws {
+        let idx = ScanIndex(rootName: "~")
+        for i in 1...30 {
+            let d = idx.addDirectory(parent: 0, name: "d\(i)", fileID: UInt64(i))
+            idx.addFiles(dir: d, big: [], smallBytes: Int64(i) * 100_000_000, smallCount: 1)
+        }
+        idx.addFiles(dir: 0, big: [], smallBytes: 50_000_000, smallCount: 10)
+        let e = BubbleEngine(tree: DiskTree.scanned(idx), path: [], viewSize: size)
+        #expect(e.items.count == BubbleEngine.maxBubbles)
+        #expect(Set(e.items.map(\.name)) == Set((8...30).map { "d\($0)" } + ["Diğer"]))
+        let rest = try #require(e.items.first { $0.name == "Diğer" })
+        #expect(abs(rest.size - 2.85) < 1e-9)   // d1…d7 (2,8 GB) + küçük dosyalar 50 MB
+        #expect(rest.hasChildren == false); #expect(rest.kind == .other)
+        #expect(e.zoomIn("Diğer", at: 0) == false)
+    }
 }
+

@@ -127,6 +127,16 @@ public final class BubbleEngine {
         (tree.root.children ?? []).reduce(0) { $0 + scannedSize($1.size, path: [$1.name], progress: progress) }
     }
 
+    public static let maxBubbles = 24
+    static let previewKids = 12
+
+    /// Önizleme damlacıkları için bir balonun en büyük çocukları; kalanlar toplamı bozulmasın diye tek parça.
+    static func preview(_ sorted: [DiskNode]) -> [DiskNode] {
+        guard sorted.count > previewKids else { return sorted }
+        let head = Array(sorted.prefix(previewKids - 1))
+        return head + [DiskNode("", sorted.dropFirst(previewKids - 1).reduce(0) { $0 + $1.size })]
+    }
+
     /// Mockup'taki `hash01`: FNV-1a, 1000'e göre.
     static func hash01(_ s: String) -> Double {
         var h: UInt32 = 2_166_136_261
@@ -135,10 +145,18 @@ public final class BubbleEngine {
     }
 
     private func layout(_ p: [String]) -> [BubbleItem] {
-        guard let node = tree.node(at: p), let children = node.children else { return [] }
+        guard let node = tree.node(at: p), var children = node.children else { return [] }
+        // Shader seviye başına en fazla 24 ana balon çizer: en büyük 23'ü ayrı, kalanlar tek bir "Diğer" balonu.
+        var rest: DiskNode?
+        if children.count > Self.maxBubbles {
+            let sorted = children.sorted { $0.size > $1.size }
+            children = Array(sorted.prefix(Self.maxBubbles - 1))
+            rest = DiskNode("Diğer", sorted.dropFirst(Self.maxBubbles - 1).reduce(0) { $0 + $1.size }, ref: .other(count: sorted.count - children.count))
+            children.append(rest!)
+        }
         let kids = children.map { c -> (DiskNode, [DiskNode]) in
-            _ = tree.node(at: p + [c.name])   // önizleme için bir seviye öte üretilsin
-            return (c, (c.children ?? []).sorted { $0.size > $1.size })
+            if c !== rest { _ = tree.node(at: p + [c.name]) }   // önizleme için bir seviye öte üretilsin
+            return (c, Self.preview((c.children ?? []).sorted { $0.size > $1.size }))
         }
         .map { c, g -> (DiskNode, [DiskNode], Double) in (c, g, g.isEmpty ? c.size : g.reduce(0) { $0 + $1.size }) }
         .sorted { $0.2 > $1.2 }
@@ -146,7 +164,7 @@ public final class BubbleEngine {
                                        size: 2 * R0, rootPadding: 13, childPadding: 4)
         let ox = Double(C.x) - R0, oy = Double(C.y) - R0
         return zip(kids, packed).map { k, pc in
-            let id = (p + [k.0.name]).joined(separator: "/")
+            let id = (p + [k.0 === rest ? "…diğer" : k.0.name]).joined(separator: "/")
             return BubbleItem(id: id, name: k.0.name, kind: k.0.kind, size: k.0.size, phase: Self.hash01(id),
                               x: pc.0.x + ox, y: pc.0.y + oy, r: pc.0.r,
                               kids: pc.1.prefix(5).map { PackCircle(x: $0.x + ox, y: $0.y + oy, r: $0.r) },

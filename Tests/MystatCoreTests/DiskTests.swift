@@ -69,4 +69,95 @@ import Testing
             for (a, b) in zip(got, sizes) { #expect(abs(a - b) < 0.0001, "\(name)") }
         }
     }
+
+    // MARK: Tarama ağacı (Faz 2d)
+
+    static let MB: Int64 = 1_000_000
+
+    /// kök → a(50) → a/b(40 + x 20), kök → c(30 + y 15). Toplam 155 MB.
+    static func scanIndex() -> (ScanIndex, a: Int32, b: Int32, c: Int32) {
+        let idx = ScanIndex(rootName: "~")
+        let a = idx.addDirectory(parent: 0, name: "a", fileID: 1)
+        idx.addFiles(dir: a, big: [], smallBytes: 50 * MB, smallCount: 5)
+        let b = idx.addDirectory(parent: a, name: "b", fileID: 2)
+        idx.addFiles(dir: b, big: [(name: "x", bytes: 20 * MB, fileID: 10)], smallBytes: 40 * MB, smallCount: 4)
+        let c = idx.addDirectory(parent: 0, name: "c", fileID: 3)
+        idx.addFiles(dir: c, big: [(name: "y", bytes: 15 * MB, fileID: 11)], smallBytes: 30 * MB, smallCount: 3)
+        return (idx, a, b, c)
+    }
+
+    @Test func scannedTreeLazy() throws {
+        let (idx, a, _, _) = Self.scanIndex()
+        let t = DiskTree.scanned(idx)
+        #expect(abs(t.root.size - 0.155) < 1e-9)
+        let na = try #require(t.node(at: ["a"]))
+        #expect(na.children?.map(\.name) == idx.children(of: a, totals: idx.totals()).map(\.name))
+        #expect(na.children?.map(\.name) == ["b", "Diğer"])
+        #expect(t.root.children?.first { $0.name == "c" }?.children == nil)   // açılmayan dal
+        #expect(t.node(at: ["a", "b", "x"])?.isFile == true)
+        #expect(t.node(at: ["a", "b", "x"])?.fileID == 10)
+        #expect(t.node(at: ["a", "b"])?.fileID == 2)
+    }
+
+    @Test func refreshKeepsIdentity() throws {
+        let (idx, a, _, _) = Self.scanIndex()
+        let t = DiskTree.scanned(idx)
+        let na = try #require(t.node(at: ["a"]))
+        idx.addFiles(dir: a, big: [], smallBytes: 10 * Self.MB, smallCount: 1)
+        let d = idx.addDirectory(parent: 0, name: "d", fileID: 9)
+        idx.addFiles(dir: d, big: [], smallBytes: 5 * Self.MB, smallCount: 1)
+        t.refresh()
+        #expect(t.node(at: ["a"]) === na)
+        #expect(abs(na.size - 0.12) < 1e-9)
+        #expect(abs(t.root.size - 0.17) < 1e-9)
+        #expect(t.root.children?.contains { $0.name == "d" } == true)
+        if case .other(let n)? = na.children?.first(where: { $0.name == "Diğer" })?.ref { #expect(n == 6) } else { Issue.record("Diğer yok") }
+    }
+
+    @Test func otherIsNotEnterable() {
+        let (idx, _, _, _) = Self.scanIndex()
+        let t = DiskTree.scanned(idx); var b = SelectionBasket()
+        #expect(b.toggle(["a", "Diğer"], in: t) == .notSelectable)
+        #expect(t.node(at: ["a", "Diğer"])?.kind == .other)
+        #expect(t.node(at: ["a", "Diğer"])?.canHaveChildren == false)
+        #expect(b.toggle(["a", "b"], in: t) == .added)
+    }
+
+    @Test func realFolderNamedOtherIsFolder() throws {
+        let idx = ScanIndex(rootName: "~")
+        let o = idx.addDirectory(parent: 0, name: "Diğer", fileID: 1)
+        let z = idx.addDirectory(parent: o, name: "z", fileID: 2)
+        idx.addFiles(dir: z, big: [], smallBytes: 40 * Self.MB, smallCount: 1)
+        let t = DiskTree.scanned(idx)
+        let n = try #require(t.node(at: ["Diğer"]))
+        #expect(n.kind == .folder); #expect(n.canHaveChildren)
+        #expect(t.node(at: ["Diğer", "z"]) != nil)
+    }
+
+    @Test func dockerPathMarked() {
+        let idx = ScanIndex(rootName: "~")
+        var parent: Int32 = 0
+        for (i, name) in ["Library", "Containers", "com.docker.docker", "Data", "vms", "0", "data"].enumerated() {
+            parent = idx.addDirectory(parent: parent, name: name, fileID: UInt64(i + 1))
+        }
+        idx.addFiles(dir: parent, big: [(name: "Docker.raw", bytes: 30_000 * Self.MB, fileID: 99)], smallBytes: 0, smallCount: 0)
+        let t = DiskTree.scanned(idx)
+        #expect(t.node(at: ["Library", "Containers", "com.docker.docker", "Data", "vms", "0", "data", "Docker.raw"])?.kind == .docker)
+        #expect(t.node(at: ["Library", "Containers", "com.docker.docker"])?.kind == .docker)
+        #expect(t.node(at: ["Library", "Containers"])?.kind == .folder)
+    }
+
+    @Test func removeUpdatesIndex() throws {
+        let (idx, _, _, _) = Self.scanIndex()
+        let t = DiskTree.scanned(idx)
+        _ = t.node(at: ["a", "b"]); _ = t.node(at: ["c", "y"])
+        #expect(abs(t.remove(at: ["a", "b"]) - 0.06) < 1e-9)
+        #expect(abs(t.remove(at: ["c", "y"]) - 0.015) < 1e-9)
+        #expect(abs(t.root.size - 0.08) < 1e-9)
+        let t2 = DiskTree.scanned(idx)
+        #expect(abs(t2.root.size - 0.08) < 1e-9)
+        #expect(t2.node(at: ["a"])?.children?.map(\.name) == ["Diğer"])
+        #expect(t2.node(at: ["c"])?.children?.map(\.name) == ["Diğer"])
+    }
 }
+
