@@ -28,6 +28,7 @@ struct Sidebar<Source: MetricsSource>: View {
         .padding(.horizontal, 8).padding(.top, 48).padding(.bottom, 12)
         .frame(width: 236)
         .frame(maxHeight: .infinity, alignment: .top)
+        .background(Theme.sidebarFill, in: RoundedRectangle(cornerRadius: 19, style: .continuous))
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 19, style: .continuous))
     }
 

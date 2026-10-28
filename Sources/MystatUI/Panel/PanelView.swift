@@ -34,6 +34,7 @@ public struct PanelView<Source: MetricsSource>: View {
         }
         .padding(.horizontal, 22).padding(.top, 22).padding(.bottom, 16)
         .frame(width: 352, alignment: .leading)
+        .background(Theme.panelFill, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
     }
 

@@ -31,6 +31,7 @@ public struct ToastOverlay: View {
                     Text(m).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(Theme.ink)
                 }
                 .padding(.horizontal, 16).padding(.vertical, 9)
+                .background(Theme.tipFill, in: Capsule())
                 .glassEffect(.regular, in: Capsule())
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .padding(.bottom, 22)

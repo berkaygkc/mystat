@@ -30,6 +30,7 @@ public struct ConfirmSheet: View {
         }
         .padding(.horizontal, 22).padding(.top, 22).padding(.bottom, 18)
         .frame(width: 360)
+        .background(Theme.sheetFill, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 }

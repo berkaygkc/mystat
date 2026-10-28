@@ -87,8 +87,8 @@ public struct DetailPane<Source: MetricsSource>: View {
 
 /// Onay pencereleri ve eylem metinleri (mockup `askKill`, `askPrune`). Faz 1'de yalnızca bildirim gösterilir.
 @MainActor
-enum Actions {
-    static func stop(_ g: ProcessGroup, force: Bool) -> ConfirmRequest {
+public enum Actions {
+    public static func stop(_ g: ProcessGroup, force: Bool) -> ConfirmRequest {
         let who = g.name + (g.context.isEmpty ? "" : " · " + g.context)
         return ConfirmRequest(
             title: "\(who) " + (force ? "zorla kapatılsın mı?" : "durdurulsun mu?"),

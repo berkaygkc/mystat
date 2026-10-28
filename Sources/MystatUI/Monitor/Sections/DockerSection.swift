@@ -159,8 +159,8 @@ struct DockerSection<Source: MetricsSource>: View {
 }
 
 @MainActor
-enum DockerActions {
-    static func prune(volumes: Bool, gb: Double) -> ConfirmRequest {
+public enum DockerActions {
+    public static func prune(volumes: Bool, gb: Double) -> ConfirmRequest {
         ConfirmRequest(
             title: "Kullanılmayan " + (volumes ? "volume'ler" : "image'lar") + " temizlensin mi?",
             message: (volumes ? "Hiçbir container'a bağlı olmayan 177 volume silinecek" : "Hiçbir container'ın kullanmadığı 4 image silinecek")

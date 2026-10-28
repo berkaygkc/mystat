@@ -11,7 +11,7 @@ enum SnapshotMode {
         var target = "panel", out = "/tmp/mystat-snapshot.png"
         var dark = false, incident = false
         var kind: IncidentKind = .cpu
-        var section = "overview", scan = "ready"
+        var section = "overview", scan = "ready", confirm = "", toast = ""
         var size = CGSize(width: 1400, height: 900)
     }
 
@@ -27,6 +27,8 @@ enum SnapshotMode {
             case "--kind": o.kind = IncidentKind(rawValue: next()) ?? .cpu
             case "--section": o.section = next()
             case "--scan": o.scan = next()
+            case "--confirm": o.confirm = next()
+            case "--toast": o.toast = next()
             case "--size":
                 let p = next().split(separator: "x").compactMap { Double($0) }
                 if p.count == 2 { o.size = CGSize(width: p[0], height: p[1]) }
@@ -70,6 +72,9 @@ enum SnapshotMode {
         case "monitor":
             let state = MonitorState()
             state.go(MonitorSection(rawValue: o.section) ?? .overview)
+            if o.confirm == "stop", let g = source.snapshot.groups.first(where: { $0.id == "next-web" }) { state.confirm = Actions.stop(g, force: true) }
+            if o.confirm == "prune" { state.confirm = DockerActions.prune(volumes: true, gb: 12.6) }
+            if !o.toast.isEmpty { ToastCenter.shared.show(o.toast) }
             return AnyView(MonitorView(source: source, state: state)
                 .frame(width: o.size.width - 92, height: o.size.height - 96)
                 .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))

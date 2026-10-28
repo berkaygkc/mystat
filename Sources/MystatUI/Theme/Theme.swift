@@ -40,6 +40,14 @@ public enum Theme {
     public static let acc = dyn(rgba(0, 113, 227), rgba(10, 132, 255))
     public static let accSoft = dyn(rgba(0, 113, 227, 0.12), rgba(10, 132, 255, 0.18))
     public static let inv = dyn(rgba(255, 255, 255), rgba(28, 28, 30))
+    /// Cam yüzeylerin altındaki yarı opak dolgu (mockup'taki değerler); yerel cam tek başına yoğun içerikte okunabilirliği düşürüyor.
+    public static func glassFill(top: (NSColor, NSColor), bottom: (NSColor, NSColor)) -> LinearGradient {
+        LinearGradient(colors: [dyn(top.0, top.1), dyn(bottom.0, bottom.1)], startPoint: .top, endPoint: .bottom)
+    }
+    public static let panelFill = glassFill(top: (rgba(255, 255, 255, 0.58), rgba(48, 48, 54, 0.56)), bottom: (rgba(248, 248, 252, 0.44), rgba(26, 26, 30, 0.48)))
+    public static let sidebarFill = glassFill(top: (rgba(255, 255, 255, 0.62), rgba(70, 70, 78, 0.46)), bottom: (rgba(255, 255, 255, 0.40), rgba(44, 44, 50, 0.38)))
+    public static let sheetFill = glassFill(top: (rgba(255, 255, 255, 0.78), rgba(56, 56, 62, 0.78)), bottom: (rgba(248, 248, 252, 0.66), rgba(34, 34, 38, 0.70)))
+    public static let tipFill = glassFill(top: (rgba(255, 255, 255, 0.86), rgba(44, 44, 48, 0.9)), bottom: (rgba(255, 255, 255, 0.86), rgba(44, 44, 48, 0.9)))
     /// Pencere zemini (mockup `--win`); arkasında bulanık masaüstü.
     public static let win = dyn(rgba(249, 249, 251, 0.80), rgba(28, 28, 31, 0.80))
 
