@@ -1,0 +1,159 @@
+import Foundation
+import MystatCore
+import MystatProbes
+import Synchronization
+
+/// Ölçüm döngüsü (spec §9.2). Her 2 sn: CPU, bellek, ağ, disk etkinliği. Süreçler panel/monitör açıkken her tur,
+/// kapalıyken 5 sn'de bir ve hafif modda (port okunmaz). Disk doluluğu ve pil 60 sn, İndirilenler 10 dk (yalnızca
+/// panel/monitör açıkken: klasör TCC korumalı, izin istemi bağlamında çıksın).
+public actor Sampler {
+    public struct Output: Sendable {
+        public let snapshot: Snapshot
+        public let series: SeriesBuffer
+        public let groups: GroupHistory
+    }
+
+    private struct ProcKey: Hashable { let pid: Int32; let start: Date }
+
+    private let probe: any SystemProbe
+    private let history: HistoryStore?
+    /// "Bugün" ağ toplamı yeniden başlatmada kaybolmasın (testlerde kapalı).
+    private let persistToday: Bool
+    /// Panel ya da monitör açık mı; ana aktörden eşzamanlı yazılır.
+    nonisolated let interest = Mutex(false)
+
+    private var cpuMeter = CPUMeter(), netMeter: NetMeter, ioMeter = DiskIOMeter(), procMeter = ProcessMeter()
+    private var engine = IncidentEngine()
+    private var series = SeriesBuffer(), groupHistory = GroupHistory()
+    private var lastCPU: CPUState?, lastNet = (down: 0.0, up: 0.0, todayDown: 0.0, todayUp: 0.0), lastIO: (read: Double, write: Double)?
+    private var lastProc: Date?, lastSlow: Date?, lastDownloads: Date?, lastPrune: Date?
+    private var groups: [ProcessGroup] = [], ports: [Int32: [Int]] = [:], written: [ProcKey: UInt64] = [:]
+    private var volume: VolumeCapacity?, battery: BatteryReading?, downloads: [(name: String, gb: Double, idleDays: Int)] = []
+    private var iface: String?, ip: String?
+    private var swap: [Double] = []
+    private var recorded: String?
+    private var netSaves = 0
+    private let machine: MachineInfo
+    private var loop: Task<Void, Never>?
+
+    static let todayKey = "mystat.net.today"
+
+    public init(probe: some SystemProbe, history: HistoryStore?, persistToday: Bool) {
+        self.probe = probe
+        self.history = history
+        self.persistToday = persistToday
+        machine = probe.machine()
+        let saved = persistToday ? UserDefaults.standard.array(forKey: Self.todayKey) : nil
+        let today = saved.flatMap { a -> NetMeter.Today? in
+            guard a.count == 3, let d = a[0] as? String, let dn = a[1] as? Double, let up = a[2] as? Double else { return nil }
+            return NetMeter.Today(day: d, downGB: dn, upGB: up)
+        }
+        netMeter = NetMeter(primary: nil, today: today ?? NetMeter.Today(day: "", downGB: 0, upGB: 0))
+    }
+
+    public func start(publish: @escaping @Sendable (Output) async -> Void) {
+        loop?.cancel()
+        loop = Task {
+            while !Task.isCancelled {
+                await publish(sample(at: Date()))
+                let frac = Date().timeIntervalSince1970.truncatingRemainder(dividingBy: 2)
+                try? await Task.sleep(for: .seconds(2 - frac + 0.01))
+            }
+        }
+    }
+
+    public func stop() { loop?.cancel() }
+
+    public func sample(at now: Date) -> Output {
+        let wantDetail = interest.withLock { $0 }
+        let ticks = probe.coreTicks()
+        if var c = cpuMeter.update(ticks, at: now) { c.loadAvg = probe.loadAverage(); lastCPU = c }
+        let cpu = lastCPU ?? Snapshot.empty(capabilities: .all).cpu
+        let memory = MemoryMeter.state(probe.vm())
+        swap.append(memory.swapGB)
+        if swap.count > 30 { swap.removeFirst(swap.count - 30) }
+
+        // Yavaş olanlar: birincil arayüz, disk doluluğu, pil (60 sn).
+        if lastSlow.map({ now.timeIntervalSince($0) >= 60 }) ?? true {
+            let primary = probe.primaryInterface()
+            if primary != iface { netMeter = NetMeter(primary: primary, today: netMeter.today); iface = primary }
+            ip = probe.localIPv4(of: primary ?? "en0")
+            volume = probe.dataVolume()
+            battery = probe.battery()
+            lastSlow = now
+        }
+        if let n = netMeter.update(probe.interfaces(), at: now, calendar: Fmt.calendar) { lastNet = n }
+        netSaves += 1
+        if persistToday, netSaves % 30 == 0 { let t = netMeter.today; UserDefaults.standard.set([t.day, t.downGB, t.upGB], forKey: Self.todayKey) }
+        if let io = ioMeter.update(probe.diskIO(), at: now) { lastIO = io }
+
+        if wantDetail || (lastProc.map { now.timeIntervalSince($0) >= 5 } ?? true) {
+            sampleProcesses(at: now, detail: wantDetail, cpu: cpu, memory: memory, coreCount: ticks.count)
+        }
+        if wantDetail, lastDownloads.map({ now.timeIntervalSince($0) >= 600 }) ?? true {
+            downloads = probe.largeOldDownloads(now: now)
+            lastDownloads = now
+        }
+
+        // Seriler ve geçmiş.
+        let disk = DiskMeter.state(volume ?? VolumeCapacity(total: 0, available: 0, availableImportant: 0), io: lastIO)
+        var samples: [(SeriesKey, Double)] = [(.memUsed, memory.percent), (.memPressure, memory.pressurePercent),
+                                               (.netDown, lastNet.down), (.netUp, lastNet.up),
+                                               (.diskRead, disk.readMBps), (.diskWrite, disk.writeMBps)]
+        if lastCPU != nil { samples += [(.cpu, cpu.percent), (.cpuSystem, cpu.systemPercent)] }
+        if let b = battery { samples.append((.battery, b.percent)) }
+        for (k, v) in samples { series.add(k, v, at: now) }
+        history?.append(samples, at: now)
+        if lastPrune.map({ now.timeIntervalSince($0) >= 3600 }) ?? true { history?.prune(now: now); lastPrune = now }
+
+        // Pil erimesi: pildeyken son 30 dk (1 sa serisinin 30 sn'lik son 61 noktası).
+        var drain: Double?
+        if let b = battery, !b.onAC {
+            let pts = series.series(.battery, .h1).suffix(61)
+            if pts.count >= 60, let first = pts.first, let last = pts.last { drain = max(0, first - last) }
+        }
+
+        var incident: Incident?
+        if lastCPU != nil {
+            incident = engine.update(IncidentInputs(cpu: cpu, memory: memory, swapGrowing: (swap.last ?? 0) - (swap.first ?? 0) > 0.1,
+                                                    disk: disk, groups: groups, thermal: probe.thermal(), batteryDrain30m: drain,
+                                                    onAC: battery?.onAC ?? true, memoryGrowthGB: groupHistory.memoryGrowthGB(),
+                                                    diskWrittenGB1h: groupHistory.diskWrittenGB1h()), at: now)
+            if let i = incident, recorded != "\(i.kind)\(i.startedAt)" { history?.recordIncident(i, at: now); recorded = "\(i.kind)\(i.startedAt)" }
+        }
+
+        let m = LiveMeasurements(cpu: cpu, memory: memory, disk: disk, net: lastNet, iface: iface ?? "—", ip: ip, groups: groups,
+                                 thermal: probe.thermal(), battery: battery, batteryDrain30m: drain, machine: machine,
+                                 downloads: downloads, coreCount: max(1, ticks.count))
+        return Output(snapshot: SnapshotBuilder.build(m, incident: incident, capabilities: LiveSource.capabilities2a),
+                      series: series, groups: groupHistory)
+    }
+
+    /// Süreçler → gruplar. Başka kullanıcıların süreçleri ölçülemez; toplamdan kalan "macOS" satırına gider.
+    private func sampleProcesses(at now: Date, detail: Bool, cpu: CPUState, memory: MemoryState, coreCount: Int) {
+        let records = probe.processes()
+        let cores = procMeter.update(records, at: now, maxGap: detail ? SampleGap.maxInterval : GroupHistory.gap) ?? [:]
+        if detail {
+            let candidates = ProcessGrouper.devServerCandidates(records)
+            ports = candidates.isEmpty ? [:] : probe.listeningPorts(pids: candidates)
+        }
+        let own = records.filter { !$0.restricted }
+        let ownCores = own.reduce(0) { $0 + (cores[$1.pid] ?? 0) }
+        let ownMemGB = Double(own.reduce(UInt64(0)) { $0 &+ $1.footprint }) / 1_073_741_824
+        let residual = (cores: max(0, cpu.percent / 100 * Double(coreCount) - ownCores), memoryGB: max(0, memory.usedGB - ownMemGB))
+        groups = ProcessGrouper.groups(records, cores: cores, ports: ports, system: residual, now: now, home: NSHomeDirectory())
+
+        // Disk yazımı: süreç başına fark → grup toplamı.
+        var nowWritten: [ProcKey: UInt64] = [:], delta: [Int32: UInt64] = [:]
+        for r in own {
+            let k = ProcKey(pid: r.pid, start: r.start)
+            nowWritten[k] = r.diskWritten
+            if let before = written[k], r.diskWritten >= before { delta[r.pid] = r.diskWritten - before }
+        }
+        written = nowWritten
+        var byGroup: [String: UInt64] = [:]
+        for g in groups { byGroup[g.id] = g.pids.reduce(0) { $0 &+ (delta[$1] ?? 0) } }
+        groupHistory.add(groups, writtenBytes: byGroup, at: now)
+        lastProc = now
+    }
+}

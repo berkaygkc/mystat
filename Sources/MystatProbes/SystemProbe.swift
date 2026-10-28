@@ -17,4 +17,6 @@ public protocol SystemProbe: Sendable {
     func thermal() -> Level
     func battery() -> BatteryReading?
     func machine() -> MachineInfo
+    /// İndirilenler'in üst seviyesindeki ≥ 2 GB ve ≥ 14 gündür açılmamış dosyalar (spec §7.3).
+    func largeOldDownloads(now: Date) -> [(name: String, gb: Double, idleDays: Int)]
 }

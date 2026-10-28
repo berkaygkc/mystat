@@ -8,13 +8,14 @@ public struct ProcessMeter: Sendable {
 
     public init() {}
 
-    public mutating func update(_ records: [ProcessRecord], at: Date) -> [Int32: Double]? {
+    /// `maxGap`: kapalı panelde süreçler 5 sn'de bir okunur; eşik 3 tempo.
+    public mutating func update(_ records: [ProcessRecord], at: Date, maxGap: TimeInterval = SampleGap.maxInterval) -> [Int32: Double]? {
         var now: [Key: UInt64] = [:]
         for r in records where !r.restricted { now[Key(pid: r.pid, start: r.start)] = r.cpuTime }
         defer { last = (now, at) }
         guard let prev = last else { return nil }
         let dt = at.timeIntervalSince(prev.at)
-        guard dt > 0, dt <= SampleGap.maxInterval else { return nil }
+        guard dt > 0, dt <= maxGap else { return nil }
         var out: [Int32: Double] = [:]
         for (k, cpu) in now {
             guard let before = prev.cpu[k], cpu >= before else { continue }

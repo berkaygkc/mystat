@@ -138,6 +138,7 @@ public enum ProcessGrouper {
         return ProcessGroup(id: id, name: name, context: context, cpuCores: cpu, memoryGB: mem, netMBps: 0,
                             uptime: oldest.map { Fmt.uptime(now.timeIntervalSince($0)) } ?? "", processCount: ms.count,
                             folder: folder, terminal: terminal, port: port, isOrphan: orphan, relatedID: related, isDocker: docker,
-                            children: ms.map { ChildProcess(name: $0.name, cpuCores: cores[$0.pid] ?? 0) })
+                            children: ms.map { ChildProcess(name: $0.name, cpuCores: cores[$0.pid] ?? 0) },
+                            pids: ms.filter { !$0.restricted }.map(\.pid))
     }
 }

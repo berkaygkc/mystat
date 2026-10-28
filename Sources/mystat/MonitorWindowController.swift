@@ -8,6 +8,8 @@ import SwiftUI
 final class MonitorWindowController: NSObject, NSWindowDelegate {
     let state = MonitorState()
     private var window: NSWindow?
+    /// Pencere görünür mü (örtülme ve kapanma dahil): canlı kaynağın süreç temposu buna göre.
+    var onVisibilityChange: ((Bool) -> Void)?
     private let source: any MetricsSource
 
     init(source: any MetricsSource) { self.source = source }
@@ -46,4 +48,10 @@ final class MonitorWindowController: NSObject, NSWindowDelegate {
         w.delegate = self
         return w
     }
+
+    func windowDidChangeOcclusionState(_ notification: Notification) {
+        onVisibilityChange?(window?.occlusionState.contains(.visible) == true)
+    }
+
+    func windowWillClose(_ notification: Notification) { onVisibilityChange?(false) }
 }

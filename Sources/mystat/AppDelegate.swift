@@ -12,14 +12,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var monitor: MonitorWindowController?
     private var keyMonitor: Any?
     private var ticker: Task<Void, Never>?
+    /// Panel ya da monitör açıkken süreçler 2 sn'de bir, kapalıyken 5 sn'de bir okunur (spec §9.2).
+    private var panelOpen = false { didSet { source.setDetailInterest(panelOpen || monitorVisible) } }
+    private var monitorVisible = false { didSet { source.setDetailInterest(panelOpen || monitorVisible) } }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let args = CommandLine.arguments
         source = SourceFactory.make(arguments: args)
         status = StatusItemController(source: source) { [weak self] in self?.togglePanel() }
         panel = PanelController(source: source) { [weak self] section, group in self?.openMonitor(section, group) }
-        panel?.onVisibilityChange = { [weak self] open in self?.status?.isHighlighted = open }
+        panel?.onVisibilityChange = { [weak self] open in
+            self?.status?.isHighlighted = open
+            self?.panelOpen = open
+        }
         monitor = MonitorWindowController(source: source)
+        monitor?.onVisibilityChange = { [weak self] visible in self?.monitorVisible = visible }
         installKeys()
         #if DEBUG
         if args.contains("--scan-ready") { monitor?.state.disk.scan = .ready(scannedAt: Date()) }   // haritayı taramasız denemek için

@@ -30,6 +30,8 @@ public struct ProcessGroup: Identifiable, Sendable {
     public let relatedID: String?
     public let isDocker: Bool
     public var children: [ChildProcess]
+    /// Grubun süreçleri (canlı veride; durdurma ve disk yazımı için). Örnek veride boş.
+    public var pids: [Int32] = []
 }
 
 public struct Container: Identifiable, Sendable {

@@ -44,7 +44,7 @@ public struct SeriesBuffer: Sendable {
 public struct GroupHistory: Sendable {
     static let window: TimeInterval = 600, diskWindow: TimeInterval = 3600
     /// Süreçler kapalı panelde 5 sn'de bir okunur; boşluk eşiği 3 tempo.
-    static let gap: TimeInterval = 15
+    public static let gap: TimeInterval = 15
 
     private struct Point: Sendable { let t: Date; let cores: Double; let mem: Double }
     private var points: [String: [Point]] = [:]
