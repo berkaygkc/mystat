@@ -32,6 +32,11 @@ public struct PanelView<Source: MetricsSource>: View {
             cells(s).padding(.top, 16)
             suggestions(s).padding(.top, 14)
             footer.padding(.top, 14)
+            HoverLink { on in
+                Text("Uygulamadan çık").font(.system(size: 12.5)).foregroundStyle(on ? Theme.ink : Theme.ink3).underline(on)
+            }
+            .padding(.top, 10)
+            .onTapGesture { NSApp.terminate(nil) }
         }
         .padding(.horizontal, 22).padding(.top, 22).padding(.bottom, 16)
         .frame(width: 352, alignment: .leading)

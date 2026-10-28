@@ -26,9 +26,10 @@ public struct AreaChart: View {
 
     public init(series: [ChartSeries], max: Double? = nil, height: CGFloat = 180, range: TimeRange,
                 format: @escaping (Double) -> String, formatY: ((Double) -> String)? = nil,
-                showGrid: Bool = true, showXAxis: Bool = true) {
+                showGrid: Bool = true, showXAxis: Bool = true, hoverAt: CGFloat? = nil) {
         self.series = series; self.fixedMax = max; self.height = height; self.range = range
         self.format = format; self.formatY = formatY; self.showGrid = showGrid; self.showXAxis = showXAxis
+        _hoverX = State(initialValue: hoverAt)   // anlık görüntü ve test için başlangıç ipucu
     }
 
     public var body: some View {
@@ -50,8 +51,9 @@ public struct AreaChart: View {
                         .font(.system(size: 10.5)).foregroundStyle(Theme.ink3)
                         .frame(width: proxy.size.width).offset(y: height - 14)
                 }
-                if let hx = hoverX { hover(g, hx) }
             }
+            // Üst katmanda: ipucu ve noktalar grafiğin yerleşimine hiç katılmaz (ZStack'te hizasını kaydırıyordu).
+            .overlay(alignment: .topLeading) { if let hx = hoverX { hover(g, hx) } }
             .contentShape(Rectangle())
             .onContinuousHover { phase in
                 if case .active(let p) = phase { hoverX = p.x } else { hoverX = nil }
@@ -109,7 +111,6 @@ public struct AreaChart: View {
         .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Theme.cardEdge, lineWidth: 0.5))
         .shadow(color: .black.opacity(0.14), radius: 9, y: 6)
         .fixedSize()
-        .alignmentGuide(.leading) { $0.width / 2 }
         .position(x: max(60, min(g.width - 60, px)), y: -26)
         .allowsHitTesting(false)
     }
