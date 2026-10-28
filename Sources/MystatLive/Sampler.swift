@@ -218,14 +218,16 @@ public actor Sampler {
         let v = probe.smcValues(cpuKeys + fanKeys + ["PSTR"])
         guard let chip = SensorMeter.average(cpuKeys.compactMap { v[$0] }) else { sensors = nil; return }
         if lastSlowSensors.map({ now.timeIntervalSince($0) >= 60 }) ?? true {
-            let sv = probe.smcValues(["F0Mn"] + (map.battery.map { [$0] } ?? []))
-            slow = (probe.ssdTemperature(), map.battery.flatMap { sv[$0] }, sv["F0Mn"] ?? 0)
+            let minKeys = (0..<min(map.fans, 2)).map { "F\($0)Mn" }
+            let sv = probe.smcValues(minKeys + (map.battery.map { [$0] } ?? []))
+            slow = (probe.ssdTemperature(), map.battery.flatMap { sv[$0] }, minKeys.compactMap { sv[$0] }.max() ?? 0)
             lastSlowSensors = now
         }
-        var r = SensorReading(chipTemp: chip, gpuTemp: sensors?.gpuTemp, ssdTemp: slow.ssd, batteryTemp: slow.battery,
+        // Yalnızca panel/monitör açıkken okunanlar kapalıyken taşınmaz: saatler sonra açılınca eski değer görünmesin.
+        var r = SensorReading(chipTemp: chip, gpuTemp: detail ? sensors?.gpuTemp : nil, ssdTemp: slow.ssd, batteryTemp: slow.battery,
                               fanRPM: fanKeys.compactMap { v[$0] }.max() ?? 0, fanCount: map.fans, fanMinRPM: slow.fanMin,
-                              systemWatts: v["PSTR"], cpuWatts: sensors?.cpuWatts, gpuWatts: sensors?.gpuWatts,
-                              gpuPercent: 0, gpuCores: 0, gpuApps: sensors?.gpuApps ?? [])
+                              systemWatts: v["PSTR"], cpuWatts: detail ? sensors?.cpuWatts : nil, gpuWatts: detail ? sensors?.gpuWatts : nil,
+                              gpuPercent: 0, gpuCores: 0, gpuApps: detail ? sensors?.gpuApps ?? [] : [])
         if let g = probe.gpu(clients: detail) {
             r.gpuPercent = g.utilization
             r.gpuCores = g.cores

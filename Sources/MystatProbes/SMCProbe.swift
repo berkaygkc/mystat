@@ -78,15 +78,18 @@ public final class SMCProbe: Sendable {
     // MARK: - Önbellek (makine modeli + macOS sürümü)
 
     static let cacheKey = "mystat.sensorMap"
-    private struct Cached: Codable { let model: String, os: String, map: SensorMap }
+    /// Sınıflama kuralı değişince artırılır: eski önbellek yeniden keşfedilir.
+    static let cacheVersion = 1
+    private struct Cached: Codable { let version: Int, model: String, os: String, map: SensorMap }
 
     public static func cachedMap(model: String, os: String, defaults: UserDefaults) -> SensorMap? {
         guard let data = defaults.data(forKey: cacheKey), let c = try? JSONDecoder().decode(Cached.self, from: data),
-              c.model == model, c.os == os else { return nil }
+              c.version == cacheVersion, c.model == model, c.os == os, !c.map.cpu.isEmpty else { return nil }
         return c.map
     }
 
     public static func storeMap(_ m: SensorMap, model: String, os: String, defaults: UserDefaults) {
-        if let data = try? JSONEncoder().encode(Cached(model: model, os: os, map: m)) { defaults.set(data, forKey: cacheKey) }
+        guard !m.cpu.isEmpty else { return }   // tek seferlik okuma hatası sensörleri macOS güncellemesine kadar kapatmasın
+        if let data = try? JSONEncoder().encode(Cached(version: cacheVersion, model: model, os: os, map: m)) { defaults.set(data, forKey: cacheKey) }
     }
 }

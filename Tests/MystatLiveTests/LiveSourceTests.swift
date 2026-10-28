@@ -291,4 +291,17 @@ final class FakeProbe: SystemProbe {
         await tick(s, p, 2)
         #expect(!s.snapshot.capabilities.sensors && s.snapshot.system.chipTemp == 0)
     }
+
+    /// Panel/monitör kapanınca yalnızca açıkken okunan alanlar temizlenir: saatler sonra açılınca eski GPU uygulamaları görünmez.
+    @Test func detailOffClearsDetailFields() async {
+        let p = FakeProbe(busyCores: 1), s = source(p)
+        withSensors(p)
+        s.setDetailInterest(true)
+        for t in stride(from: 0.0, through: 12, by: 2) { await tick(s, p, t) }
+        #expect(!s.snapshot.system.gpuApps.isEmpty)
+        s.setDetailInterest(false)
+        for t in stride(from: 14.0, through: 26, by: 2) { await tick(s, p, t) }
+        let sys = s.snapshot.system
+        #expect(sys.gpuApps.isEmpty && sys.cpuWatts == nil && sys.gpuWatts == nil && sys.gpuTemp == 0 && sys.chipTemp == 57)
+    }
 }

@@ -28,6 +28,10 @@ import Testing
         #expect(SystemPresentation.fanText(s) == "duruyor")
         s.fanRPM = 1356; s.fanMinRPM = 1350
         #expect(SystemPresentation.fanText(s) == "sessiz")
+        s.fanRPM = 1471                                               // bu makinede boştaki ikinci fan (en düşük 1.350)
+        #expect(SystemPresentation.fanText(s) == "sessiz")
+        s.fanRPM = 1600
+        #expect(SystemPresentation.fanText(s) == "1.600 dev/dk")
         s.fanRPM = 4800
         #expect(SystemPresentation.fanText(s) == "4.800 dev/dk")
     }
@@ -73,5 +77,46 @@ import Testing
         h.add([g], writtenBytes: [:], at: t0.addingTimeInterval(5))
         #expect(h.wattsAverage()[g.id] == 3)
         #expect(SystemPresentation.wattsText(g) == "4,0 W")
+    }
+
+    /// Boştaki ikinci fan en düşük devrin hemen üstünde: panel "Fan sessiz" ile "Fan 1.467 dev/dk" arasında gidip gelmez.
+    @Test func panelFanQuietNearMinimum() {
+        var s = calm
+        s.system.fanRPM = 1471; s.system.fanMinRPM = 1350
+        #expect(PanelPresentation.cells(s).first { $0.section == "sys" }?.sub == "Fan sessiz, pil %100")
+    }
+
+    /// Kritik termal durumda kart kendiyle çelişmez ("Ilık" / "Henüz yok" demez).
+    @Test func heatCardFollowsThermal() {
+        var s = calm.system
+        s.thermal = .crit
+        #expect(SystemPresentation.heatPill(s) == ("Sıcak", .crit) && SystemPresentation.slowdown(s) == "Var")
+        s.thermal = .warn
+        #expect(SystemPresentation.heatPill(s) == ("Ilık", .warn) && SystemPresentation.slowdown(s) == "Henüz yok")
+        s.thermal = .ok
+        #expect(SystemPresentation.heatPill(s) == ("Normal", .ok) && SystemPresentation.slowdown(s) == "Yok")
+    }
+
+    /// Fansız Mac (ya da 0 okunan fan): "Fanlar 0 dev/dk ile dönüyor" / "fan fan yok" yazılmaz.
+    @Test func fanlessWording() {
+        var s = heat
+        s.system.fanCount = 0; s.system.fanRPM = 0
+        #expect(!GroupPresentation.panelHeadline(s).lede.contains("Fanlar"))
+        #expect(!MonitorPresentation.incidentSentence(s).contains("fanlar"))
+        #expect(SystemPresentation.heatLabel(s.system) == "Çip ortalaması · fansız")
+        #expect(SystemPresentation.heatLabel(calm.system) == "Çip ortalaması · fan duruyor")
+        s.system.fanCount = 2
+        #expect(PanelPresentation.cells(s).first { $0.section == "sys" }?.sub.contains("0 dev/dk") == false)
+    }
+
+    /// §6.3 Güç kartı şarj durumunu söyler.
+    @Test func powerLabelShowsCharging() {
+        var s = calm.system
+        #expect(SystemPresentation.powerLabel(s, sensors: true) == "Tam dolu · şu an 14 W harcanıyor")
+        s.battery = 80; s.charging = true; s.watts = 30
+        #expect(SystemPresentation.powerLabel(s, sensors: true) == "Şarj oluyor · şu an 30 W harcanıyor")
+        s.onAC = false; s.charging = false
+        #expect(SystemPresentation.powerLabel(s, sensors: true) == "Pil · şu an 30 W harcanıyor")
+        #expect(SystemPresentation.powerLabel(s, sensors: false) == "Pil")
     }
 }

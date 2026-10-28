@@ -48,7 +48,7 @@ public enum MonitorPresentation {
             default: return "\(who) \(m) dakikadır \(inc.culpritValues.first ?? "") CPU kullanıyor."
             }
         case .heat:
-            return s.capabilities.sensors ? "Çip \(m) dakikadır ısınıyor; fanlar \(Fmt.int(s.system.fanRPM)) dev/dk ile dönüyor."
+            return s.capabilities.sensors && s.system.fanCount > 0 && s.system.fanRPM > 0 ? "Çip \(m) dakikadır ısınıyor; fanlar \(Fmt.int(s.system.fanRPM)) dev/dk ile dönüyor."
                                           : "Çip \(m) dakikadır ısınıyor; termal durum \(s.system.thermal.thermalWord.lowercased(with: Fmt.tr))."
         case .battery:
             let left = GroupPresentation.fact(inc, "Kalan").map { "; bu hızla \($0) yeter" } ?? ""

@@ -17,13 +17,14 @@ struct SystemSection<Source: MetricsSource>: View {
             if let k = s.incident?.kind, k == .heat || k == .battery { IncidentBlock(source: source, state: state, inOverview: false).padding(.top, 20) }
             HStack(alignment: .top, spacing: 16) {
                 if s.capabilities.sensors {
-                    card(title: "Isı ve fan", pill: Pill(text: warm ? "Ilık" : "Normal", level: sys.thermal),
+                    let pill = SystemPresentation.heatPill(sys)
+                    card(title: "Isı ve fan", pill: Pill(text: pill.0, level: pill.1),
                          big: Fmt.int(sys.chipTemp), unit: "°C", bigLevel: sys.thermal,
-                         label: "Çip ortalaması · fan " + SystemPresentation.fanText(sys),
+                         label: SystemPresentation.heatLabel(sys),
                          series: ChartSeries(source.series(.temp, range: state.range), color: warm ? Theme.orange : Theme.chart, fill: true, name: "°C"),
                          max: 105, format: { Fmt.int($0) + "°" },
                          facts: [("İşlemci", Fmt.int(sys.chipTemp) + "°"), ("GPU", degrees(sys.gpuTemp)), ("SSD", degrees(sys.ssdTemp)),
-                                 ("Yavaşlatma", warm ? "Henüz yok" : "Yok")])
+                                 ("Yavaşlatma", SystemPresentation.slowdown(sys))])
                 } else {
                     // Sensörler 2c'de: sahte sıcaklık yerine termal durum.
                     card(title: "Isı ve fan", pill: Pill(text: sys.thermal.thermalWord, level: sys.thermal),
@@ -33,8 +34,7 @@ struct SystemSection<Source: MetricsSource>: View {
                 }
                 card(title: "Güç ve pil", pill: Pill(text: onBattery ? "Pilde" : "Prizde", level: onBattery ? .warn : .ok),
                      big: String(sys.battery), unit: "%", bigLevel: onBattery ? .warn : .ok,
-                     label: s.capabilities.sensors && sys.watts > 0 ? (sys.battery == 100 ? "Tam dolu" : "Pil") + " · şu an \(Fmt.int(sys.watts)) W harcanıyor"
-                                                   : sys.charging && sys.battery < 100 ? "Şarj oluyor" : sys.battery == 100 ? "Tam dolu" : "Pil",
+                     label: SystemPresentation.powerLabel(sys, sensors: s.capabilities.sensors),
                      series: ChartSeries(s.capabilities.sensors ? source.series(.power, range: state.range) : [], color: Theme.chart, fill: true, name: "W"),
                      max: 100, format: { Fmt.int($0) + " W" },
                      facts: [("Adaptör", sys.adapter), ("Pil sağlığı", sys.health), ("Döngü", String(sys.cycles)), ("Kapasite", sys.capacity)])

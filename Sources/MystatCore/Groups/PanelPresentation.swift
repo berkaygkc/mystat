@@ -33,11 +33,11 @@ public enum PanelPresentation {
         let sysSub: String
         if let drain = s.system.batteryDrain30m, drain > 0 { sysSub = "Pil %\(s.system.battery), prizde değil" }
         else if s.system.thermal != .ok {
-            sysSub = s.system.fanCount > 0 ? "Fan \(Fmt.int(s.system.fanRPM)) dev/dk, ısınıyor" : "Isınıyor, pil %\(s.system.battery)"
+            sysSub = s.system.fanCount > 0 && s.system.fanRPM > 0 ? "Fan \(Fmt.int(s.system.fanRPM)) dev/dk, ısınıyor" : "Isınıyor, pil %\(s.system.battery)"
         } else if s.system.fanCount == 0 {
             sysSub = "Pil %\(s.system.battery)"
         } else {   // panelde "duruyor" da "sessiz" (Faz 1 metni)
-            let quiet = s.system.fanRPM <= s.system.fanMinRPM + 100
+            let quiet = SystemPresentation.quiet(s.system)
             sysSub = "Fan \(quiet ? "sessiz" : Fmt.int(s.system.fanRPM) + " dev/dk"), pil %\(s.system.battery)"
         }
         let sysLevel: Level = s.system.batteryDrain30m != nil ? .warn : s.system.thermal

@@ -73,7 +73,7 @@ public enum GroupPresentation {
                         (inProject.map { $0 + " " } ?? "") + "\(inc.culpritValues.first ?? "") CPU kullanıyor." + (othersCalm ? " Diğer container'lar sakin." : ""))
             }
         case .heat:
-            let fans = s.capabilities.sensors ? "Fanlar \(Fmt.int(s.system.fanRPM)) dev/dk ile dönüyor. " : ""
+            let fans = s.capabilities.sensors && s.system.fanCount > 0 && s.system.fanRPM > 0 ? "Fanlar \(Fmt.int(s.system.fanRPM)) dev/dk ile dönüyor. " : ""
             let slow = s.system.thermal == .crit ? "macOS işlemciyi yavaşlatıyor." : "macOS henüz yavaşlatmaya başlamadı."
             let head = s.capabilities.sensors ? title(before: "Çip ısınıyor: ", emph: "\(Fmt.int(s.system.chipTemp))°", rest: ".")
                                               : title(before: "Çip ", emph: "ısınıyor", rest: ".")
