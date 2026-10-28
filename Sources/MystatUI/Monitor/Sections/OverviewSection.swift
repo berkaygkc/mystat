@@ -15,8 +15,8 @@ struct OverviewSection<Source: MetricsSource>: View {
             IncidentBlock(source: source, state: state, inOverview: true).padding(.top, s.incident == nil ? 0 : 20)
             tiles(s).padding(.top, 24)
             HStack(alignment: .top, spacing: 28) {
-                topEaters(s).frame(maxWidth: .infinity).layoutPriority(1.45)
-                suggestions(s).frame(maxWidth: .infinity)
+                topEaters(s).frame(maxWidth: .infinity)
+                suggestions(s).frame(minWidth: 300, idealWidth: 360, maxWidth: 380)
             }
             .padding(.top, 26)
         }

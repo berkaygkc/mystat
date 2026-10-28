@@ -42,6 +42,10 @@ struct SectionContent<Source: MetricsSource>: View {
         switch state.section {
         case .overview: OverviewSection(source: source, state: state)
         case .cpu: CPUSection(source: source, state: state)
+        case .mem: MemorySection(source: source, state: state)
+        case .net: NetworkSection(source: source, state: state)
+        case .docker: DockerSection(source: source, state: state)
+        case .sys: SystemSection(source: source, state: state)
         default:
             VStack(alignment: .leading) {
                 IncidentBlock(source: source, state: state, inOverview: state.section == .overview)

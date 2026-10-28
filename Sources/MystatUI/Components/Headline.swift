@@ -20,7 +20,8 @@ public struct Headline: View {
         var t = AttributedString()
         for run in title.runs {
             var part = AttributedString(title[run.range].characters)
-            part.foregroundColor = run.inlinePresentationIntent == .emphasized ? Theme.levelColor(level) : Theme.ink
+            // Önceden rengi verilmiş parçalar (ör. soluk birimler) korunur.
+            part.foregroundColor = run.inlinePresentationIntent == .emphasized ? Theme.levelColor(level) : (title[run.range].foregroundColor ?? Theme.ink)
             t += part
         }
         if let soft {

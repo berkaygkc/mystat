@@ -112,3 +112,47 @@ extension View {
     func hairlineTop(_ color: Color = Theme.line) -> some View { overlay(alignment: .top) { Rectangle().fill(color).frame(height: 1) } }
     func hairlineBottom(_ color: Color = Theme.line) -> some View { overlay(alignment: .bottom) { Rectangle().fill(color).frame(height: 1) } }
 }
+
+/// Durum hapı (mockup `.pill`): "Normal", "Ilık", "Prizde", "Sakin".
+struct Pill: View {
+    let text: String
+    let level: Level
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle().fill(level == .ok ? Theme.green : Theme.levelColor(level)).frame(width: 6, height: 6)
+            Text(text)
+        }
+        .font(.system(size: 11.5, weight: .semibold))
+        .foregroundStyle(level == .ok ? Theme.ink : Theme.levelColor(level))
+        .padding(.horizontal, 9).padding(.vertical, 3)
+        .background(level == .ok ? Theme.hover : Theme.orangeSoft, in: Capsule())
+    }
+}
+
+/// Mockup `.hatch`: "kullanılmıyor" kısımlar için çapraz tarama.
+struct Hatch: View {
+    let base: Color
+    @Environment(\.colorScheme) private var scheme
+    var body: some View {
+        Canvas { ctx, size in
+            ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(base))
+            var p = Path()
+            var x: CGFloat = -size.height
+            while x < size.width { p.move(to: CGPoint(x: x, y: size.height)); p.addLine(to: CGPoint(x: x + size.height, y: 0)); x += 5 }
+            ctx.stroke(p, with: .color(scheme == .dark ? .black.opacity(0.45) : .white.opacity(0.55)), lineWidth: 2)
+        }
+    }
+}
+
+/// Olgu satırı: solda etiket, sağda kalın değer.
+struct FactRow: View {
+    let k: String, v: String
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(k).foregroundStyle(Theme.ink2)
+            Spacer(minLength: 8)
+            Text(v).fontWeight(.semibold).monospacedDigit().foregroundStyle(Theme.ink).lineLimit(1)
+        }
+        .font(.system(size: 12.5)).padding(.vertical, 8).hairlineTop(Theme.line2)
+    }
+}
