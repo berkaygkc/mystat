@@ -1,0 +1,6 @@
+.build/
+build/
+.superpowers/
+docs/review/
+/*.png
+.DS_Store
