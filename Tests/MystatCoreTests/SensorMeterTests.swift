@@ -57,4 +57,16 @@ import Testing
         let g = ProcessGrouper.groups([a, b], cores: [:], ports: [:], system: (0, 0), now: t0, home: "/Users/u", owner: 501, watts: [10: 1.5, 11: 0.7])
         #expect(g.first { $0.id == "app:/Applications/X.app" }.map { abs($0.watts - 2.2) < 1e-9 } == true)
     }
+
+    /// Sensörler ≈ 6 sn'de bir okunur (2 sn'lik turlarda 5 sn eşiği): 6,05 sn'lik aralık uyku sayılmamalı.
+    @Test func sensorCadenceIsNotAGap() {
+        var m = PowerMeter()
+        _ = m.update(EnergyCounters(cpuJ: 100, gpuJ: 10, aneJ: 0, dramJ: 0), at: t0)
+        #expect(m.update(EnergyCounters(cpuJ: 148.4, gpuJ: 19.68, aneJ: 0, dramJ: 0), at: t0.addingTimeInterval(6.05)) != nil)
+        var g = GPUShare()
+        let r = { (ns: UInt64) in GPUReading(utilization: 30, cores: 20, clients: [GPUClient(pid: 1, name: "a", gpuTimeNs: ns)]) }
+        _ = g.update(r(0), at: t0)
+        #expect(g.update(r(600_000_000), at: t0.addingTimeInterval(6.05))?.first?.name == "a")
+        #expect(g.update(r(700_000_000), at: t0.addingTimeInterval(3600)) == nil)    // gerçek boşluk yine atılır
+    }
 }

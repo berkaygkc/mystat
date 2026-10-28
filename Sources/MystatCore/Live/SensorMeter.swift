@@ -3,6 +3,8 @@ import Foundation
 /// Sensör değerleri: akla yatmayan okumalar (−9.201, 0, 3,4, 150 üstü, NaN) ortalamaya girmez.
 public enum SensorMeter {
     static let plausible = 10.0...120.0
+    /// Sensörler ≈ 5–6 sn'de bir okunur; boşluk eşiği 3 tempo (2 sn'lik ölçümlerin `SampleGap.maxInterval`'ı burada her turu atardı).
+    public static let gap: TimeInterval = 15
 
     public static func average(_ values: [Double]) -> Double? {
         let ok = values.filter { $0.isFinite && plausible.contains($0) }
@@ -20,7 +22,7 @@ public struct PowerMeter: Sendable {
         defer { last = (e, at) }
         guard let p = last else { return nil }
         let dt = at.timeIntervalSince(p.at)
-        guard dt > 0, dt <= SampleGap.maxInterval, e.cpuJ >= p.e.cpuJ, e.gpuJ >= p.e.gpuJ else { return nil }
+        guard dt > 0, dt <= SensorMeter.gap, e.cpuJ >= p.e.cpuJ, e.gpuJ >= p.e.gpuJ else { return nil }
         let cpu = (e.cpuJ - p.e.cpuJ) / dt, gpu = (e.gpuJ - p.e.gpuJ) / dt
         guard cpu <= 500, gpu <= 500 else { return nil }
         return (cpu, gpu)
@@ -40,7 +42,7 @@ public struct GPUShare: Sendable {
         defer { last = (now, at) }
         guard let p = last else { return nil }
         let dt = at.timeIntervalSince(p.at)
-        guard dt > 0, dt <= SampleGap.maxInterval else { return nil }
+        guard dt > 0, dt <= SensorMeter.gap else { return nil }
         var byName: [String: Double] = [:]
         for (k, ns) in now {
             guard let before = p.ns[k], ns > before else { continue }
