@@ -70,8 +70,8 @@ public enum SectionText {
             return AttributedString(before) + a
         }
         if let drain = sys.batteryDrain30m {
-            return (emph("Pil hızlı eriyor: ", "30 dk'da \(Fmt.pct(drain))"),
-                    "Prizde değilsin; pil %\(sys.battery). Bu hızla 1 sa 10 dk yeter.", .warn)
+            let left = s.incident.flatMap { GroupPresentation.fact($0, "Kalan") }.map { " Bu hızla \($0) yeter." } ?? ""
+            return (emph("Pil hızlı eriyor: ", "30 dk'da \(Fmt.pct(drain))"), "Prizde değilsin; pil %\(sys.battery).\(left)", .warn)
         }
         if !s.capabilities.sensors {   // sıcaklık ve fan 2c'de; termal durum ve pil
             let power = sys.charging && sys.battery < 100 ? "Şarj oluyor, pil %\(sys.battery)." : "Prizdesin, pil %\(sys.battery)."

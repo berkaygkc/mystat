@@ -44,26 +44,48 @@ public enum GroupPresentation {
         switch inc.kind {
         case .cpu:
             let lead = s.groups.first { $0.id == inc.culpritIDs.first }
-            return (kicker, title(emph: lead?.name ?? "", rest: " işlemciyi zorluyor."),
-                    "\(lead?.context ?? "") projesinde \(Fmt.dec1(lead?.cpuCores ?? 0)) çekirdek kullanıyor. Aynı projenin Next.js sunucusu da ona eşlik ediyor.")
+            return (kicker, title(emph: lead?.name ?? "", rest: " işlemciyi zorluyor."), lead.map { cpuLede($0, s, inc) } ?? "")
         case .memory:
             let grew = zip(inc.culpritIDs, inc.culpritValues).prefix(2).map { "\(name($0)) \($1.dropFirst()) GB" }
             return (kicker, title(before: "Bellek baskısı yükseldi; en çok ", emph: name(inc.culpritIDs.first ?? ""), rest: " büyüdü."),
                     "Son \(inc.minutes) dakikada \(grew.joined(separator: ", ")) büyüdü. Swap \(Fmt.dec1(s.memory.swapGB)) GB'a çıktı.")
         case .disk:
-            return (kicker, title(before: "Diskte ", emph: "\(Fmt.int(s.disk.freeGB)) GB", rest: " kaldı."),
-                    "Son 24 saatte 14 GB azaldı. En çok Docker yazıyor; Docker'da \(Fmt.dec1(s.docker.disk.volumesReclaimGB)) GB geri kazanılabilir.")
+            var parts: [String] = []
+            if let lost = fact(inc, "Son 24 sa") { parts.append("Son 24 saatte \(lost.trimmingCharacters(in: ["−", "-"])) azaldı.") }
+            var writer = inc.culpritIDs.first.map { "En çok \(name($0)) yazıyor" } ?? ""
+            if s.capabilities.docker { writer += (writer.isEmpty ? "Docker'da " : "; Docker'da ") + "\(Fmt.dec1(s.docker.disk.volumesReclaimGB)) GB geri kazanılabilir" }
+            if !writer.isEmpty { parts.append(writer + ".") }
+            return (kicker, title(before: "Diskte ", emph: "\(Fmt.int(s.disk.freeGB)) GB", rest: " kaldı."), parts.joined(separator: " "))
         case .docker:
             return (kicker, title(emph: inc.culpritIDs[0], rest: " \(inc.minutes) dakikadır yoğun."),
                     "\(s.docker.project) projesinde \(inc.culpritValues[0]) CPU kullanıyor. Diğer container'lar sakin.")
         case .heat:
-            return (kicker, title(before: "Çip ısınıyor: ", emph: "\(Fmt.int(s.system.chipTemp))°", rest: "."),
-                    "Fanlar \(Fmt.int(s.system.fanRPM)) dev/dk ile dönüyor. macOS henüz yavaşlatmaya başlamadı.")
+            let fans = s.capabilities.sensors ? "Fanlar \(Fmt.int(s.system.fanRPM)) dev/dk ile dönüyor. " : ""
+            let slow = s.system.thermal == .crit ? "macOS işlemciyi yavaşlatıyor." : "macOS henüz yavaşlatmaya başlamadı."
+            let head = s.capabilities.sensors ? title(before: "Çip ısınıyor: ", emph: "\(Fmt.int(s.system.chipTemp))°", rest: ".")
+                                              : title(before: "Çip ", emph: "ısınıyor", rest: ".")
+            return (kicker, head, fans + slow)
         case .battery:
             let drain = Fmt.pct(s.system.batteryDrain30m ?? 0)
-            return (kicker, title(before: "Pil hızlı eriyor: ", emph: "30 dk'da \(drain)", rest: "."),
-                    "Prizde değilsin; bu hızla 1 sa 10 dk yeter. En çok \(name(inc.culpritIDs[0])) harcıyor.")
+            let left = fact(inc, "Kalan").map { "; bu hızla \($0) yeter" } ?? ""
+            let who = inc.culpritIDs.first.map { " En çok \(name($0)) harcıyor." } ?? ""
+            return (kicker, title(before: "Pil hızlı eriyor: ", emph: "30 dk'da \(drain)", rest: "."), "Prizde değilsin\(left).\(who)")
         }
+    }
+
+    /// Olayın adı verilen olgusu (örnek veride "Son 24 sa", "Kalan" gibi; canlıda yalnızca ölçülebilenler).
+    static func fact(_ inc: Incident, _ label: String) -> String? { inc.facts.first { $0.label == label }?.value }
+
+    /// CPU olayı açıklaması: projeli grupta proje, değilse grubun adı; aynı projedeki ikinci sorumlu varsa eşlik cümlesi.
+    static func cpuLede(_ lead: ProcessGroup, _ s: Snapshot, _ inc: Incident) -> String {
+        let cores = Fmt.dec1(lead.cpuCores)
+        var out = lead.folder != nil ? "\(lead.context) projesinde \(cores) çekirdek kullanıyor." : "\(lead.name) \(cores) çekirdek kullanıyor."
+        if inc.culpritIDs.count > 1, let second = s.groups.first(where: { $0.id == inc.culpritIDs[1] }),
+           second.relatedID == lead.id || lead.relatedID == second.id {
+            let server = second.name.hasPrefix("Next.js") ? "Next.js" : second.name
+            out += " Aynı projenin \(server) sunucusu da ona eşlik ediyor."
+        }
+        return out
     }
 
     /// Grup detayındaki alt süreç satırları: CPU'ya göre en yoğun 5; kalanlar "+ N küçük süreç daha".

@@ -15,4 +15,17 @@ public enum TurkishSuffix {
         if (n / 100) % 10 != 0 { return "'ü" }   // yüz
         return "'i"                               // bin
     }
+
+    /// İlgi (genitif) eki: "90" → "'ın" (doksanın), "70" → "'in" (yetmişin), "2" → "'nin" (ikinin).
+    public static func genitive(after number: String) -> String {
+        let last = number.split(separator: ",").last.map(String.init) ?? number
+        guard let n = Int(last.filter(\.isNumber)) else { return "'in" }
+        if n == 0 { return "'ın" }
+        let units = ["", "'in", "'nin", "'ün", "'ün", "'in", "'nın", "'nin", "'in", "'un"]
+        let tens = ["", "'un", "'nin", "'un", "'ın", "'nin", "'ın", "'in", "'in", "'ın"]
+        if n % 10 != 0 { return units[n % 10] }
+        if (n / 10) % 10 != 0 { return tens[(n / 10) % 10] }
+        if (n / 100) % 10 != 0 { return "'ün" }   // yüz
+        return "'in"                               // bin
+    }
 }

@@ -27,19 +27,27 @@ public enum MonitorPresentation {
         let m = inc.minutes
         switch inc.kind {
         case .cpu:
-            let project = s.groups.first { $0.id == inc.culpritIDs.first }?.context ?? ""
-            return "İşlemci \(m) dakikadır %90'ın üzerinde. Yükün çoğu \(project) projesinden geliyor."
+            let lead = s.groups.first { $0.id == inc.culpritIDs.first }
+            guard s.cpu.percent >= 70 else {   // toplam düşük, tek grup yüksek
+                return "\(lead?.name ?? "Bir grup") \(m) dakikadır \(Fmt.dec1(lead?.cpuCores ?? 0)) çekirdek kullanıyor."
+            }
+            let floor10 = String(Int(s.cpu.percent / 10) * 10)
+            let source = lead.map { $0.folder != nil ? " Yükün çoğu \($0.context) projesinden geliyor." : " En çok \($0.name) yüklüyor." } ?? ""
+            return "İşlemci \(m) dakikadır %\(floor10)\(TurkishSuffix.genitive(after: floor10)) üzerinde.\(source)"
         case .memory:
             let who = s.groups.first { $0.id == inc.culpritIDs.first }?.name ?? ""
             return "Bellek baskısı \(m) dakikadır yüksek. En çok \(who) büyüyor."
         case .disk:
-            return "Diskte \(Fmt.int(s.disk.freeGB)) GB kaldı; son 24 saatte 14 GB azaldı."
+            let lost = GroupPresentation.fact(inc, "Son 24 sa").map { "; son 24 saatte \($0.trimmingCharacters(in: ["−", "-"])) azaldı" } ?? ""
+            return "Diskte \(Fmt.int(s.disk.freeGB)) GB kaldı\(lost)."
         case .docker:
             return "\(inc.culpritIDs.first ?? "") \(m) dakikadır \(inc.culpritValues.first ?? "") CPU kullanıyor."
         case .heat:
-            return "Çip \(m) dakikadır ısınıyor; fanlar \(Fmt.int(s.system.fanRPM)) dev/dk ile dönüyor."
+            return s.capabilities.sensors ? "Çip \(m) dakikadır ısınıyor; fanlar \(Fmt.int(s.system.fanRPM)) dev/dk ile dönüyor."
+                                          : "Çip \(m) dakikadır ısınıyor; termal durum \(s.system.thermal.thermalWord.lowercased(with: Fmt.tr))."
         case .battery:
-            return "Pil \(m) dakikada \(Fmt.pct(s.system.batteryDrain30m ?? 0)) eridi; bu hızla 1 sa 10 dk yeter."
+            let left = GroupPresentation.fact(inc, "Kalan").map { "; bu hızla \($0) yeter" } ?? ""
+            return "Pil \(m) dakikada \(Fmt.pct(s.system.batteryDrain30m ?? 0)) eridi\(left)."
         }
     }
 
