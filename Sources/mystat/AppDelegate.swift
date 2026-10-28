@@ -19,7 +19,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel = PanelController(source: source) { [weak self] section, group in self?.openMonitor(section, group) }
         panel?.onVisibilityChange = { [weak self] open in self?.status?.isHighlighted = open }
         monitor = MonitorWindowController(source: source)
-        NSApp.mainMenu = AppMenu.make()   // ⌘Q ve ⌘W için (görünmez)
         installKeys()
         #if DEBUG
         if args.contains("--scan-ready") { monitor?.state.disk.scan = .ready(scannedAt: Date()) }   // haritayı taramasız denemek için
@@ -39,12 +38,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         monitor?.show(section: section, groupID: groupID)
     }
 
-    /// ⌘M yalnızca uygulama içinde (sistem geneli değil). DEBUG'da inceleme tuşları: ⌥⌘I olay aç/kapa, ⌥⌘K olay türü.
+    /// ⌘Q çık, ⌘W pencereyi/paneli kapat, ⌘M monitör — yalnızca uygulama içinde (sistem geneli değil).
+    /// DEBUG'da inceleme tuşları: ⌥⌘I olay aç/kapa, ⌥⌘K olay türü.
     private func installKeys() {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
             guard let self else { return e }
             let mods = e.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            if mods == .command, e.charactersIgnoringModifiers == "m" { self.panel?.close(); self.openMonitor(nil, nil); return nil }   // tek ⌘M işleyicisi
+            switch AppShortcut.match(chars: e.charactersIgnoringModifiers, modifiers: mods) {
+            case .quit?: NSApp.terminate(nil); return nil
+            case .closeWindow?:
+                if self.panel?.isOpen == true { self.panel?.close() } else { NSApp.keyWindow?.performClose(nil) }
+                return nil
+            case .openMonitor?: self.panel?.close(returnFocus: false); self.openMonitor(nil, nil); return nil
+            case nil: break
+            }
             #if DEBUG
             if mods == [.command, .option], e.keyCode == 34 { self.source.incident.toggle(); self.status?.refresh(now: Date()); return nil }   // I
             if mods == [.command, .option], e.keyCode == 40 {                                                                                  // K

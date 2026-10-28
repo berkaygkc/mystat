@@ -9,6 +9,7 @@ public enum MonitorSection: String, CaseIterable, Sendable {
 public struct PanelView<Source: MetricsSource>: View {
     let source: Source
     let openMonitor: (MonitorSection?, String?) -> Void
+    @Environment(\.colorScheme) private var scheme
 
     public init(source: Source, openMonitor: @escaping (MonitorSection?, String?) -> Void) {
         self.source = source; self.openMonitor = openMonitor
@@ -36,6 +37,7 @@ public struct PanelView<Source: MetricsSource>: View {
         .frame(width: 352, alignment: .leading)
         .background(Theme.panelFill, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .background { PanelShadow(dark: scheme == .dark) }
     }
 
     private func culprits(_ s: Snapshot, level: Level) -> some View {
@@ -50,6 +52,7 @@ public struct PanelView<Source: MetricsSource>: View {
                         .fixedSize()
                 }
                 .padding(.vertical, 8)
+                .modifier(HoverFill(inset: EdgeInsets(top: 2, leading: -8, bottom: 2, trailing: -8)))
                 .overlay(alignment: .top) { Rectangle().fill(Theme.line).frame(height: 1) }
                 .contentShape(Rectangle())
                 .onTapGesture { openMonitor(sectionFor(s.incident?.kind), r.groupID) }
@@ -80,6 +83,7 @@ public struct PanelView<Source: MetricsSource>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, 13).padding(.bottom, 12)
         .padding(left ? .trailing : .leading, left ? 14 : 16)
+        .modifier(HoverFill(inset: EdgeInsets(top: 4, leading: left ? -8 : 6, bottom: 4, trailing: left ? 6 : -8)))
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.line).frame(height: 1) }
         .overlay(alignment: .trailing) { if left { Rectangle().fill(Theme.line).frame(width: 1) } }
         .contentShape(Rectangle())
@@ -90,12 +94,13 @@ public struct PanelView<Source: MetricsSource>: View {
         VStack(alignment: .leading, spacing: 0) {
             Text("BİR DE ŞUNLAR VAR").font(Theme.Fonts.kicker()).tracking(1.68).foregroundStyle(Theme.ink3).padding(.bottom, 4)
             ForEach(Array(s.suggestions.prefix(2).enumerated()), id: \.offset) { _, sg in
-                HStack(spacing: 8) {
-                    Text("→").foregroundStyle(Theme.ink3)
-                    Text(sg.title).foregroundStyle(Theme.ink2).lineLimit(1)
+                HoverLink { on in
+                    HStack(spacing: 8) {
+                        Text("→").foregroundStyle(on ? Theme.ink2 : Theme.ink3).offset(x: on ? 2 : 0)
+                        Text(sg.title).foregroundStyle(on ? Theme.ink : Theme.ink2).underline(on).lineLimit(1)
+                    }
+                    .font(.system(size: 12.5)).padding(.vertical, 4)
                 }
-                .font(.system(size: 12.5)).padding(.vertical, 4)
-                .contentShape(Rectangle())
                 .onTapGesture { openMonitor(target(sg.target).0, target(sg.target).1) }
             }
         }
@@ -103,8 +108,14 @@ public struct PanelView<Source: MetricsSource>: View {
 
     private var footer: some View {
         HStack {
-            Text("Monitörü aç →").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.ink)
-                .contentShape(Rectangle()).onTapGesture { openMonitor(nil, nil) }
+            HoverLink { on in
+                HStack(spacing: 4) {
+                    Text("Monitörü aç").underline(on)
+                    Text("→").offset(x: on ? 2 : 0)
+                }
+                .font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.ink)
+            }
+            .onTapGesture { openMonitor(nil, nil) }
             Spacer()
             Text("⌘M").font(.system(size: 12)).foregroundStyle(Theme.ink3)
         }
@@ -121,11 +132,65 @@ public struct PanelView<Source: MetricsSource>: View {
     }
 }
 
+/// Mockup `.dirD .pop` dış gölgesi (0 30 70, 0 4 14). Pencerenin kendi gölgesi kapalı: o, yuvarlak paneli
+/// kare pencereye göre çiziyordu. Panelin içi yarı saydam olduğundan gölge yalnızca dışta kalır.
+private struct PanelShadow: View {
+    let dark: Bool
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
+        let tint = dark ? Color.black : Color(red: 12 / 255, green: 20 / 255, blue: 48 / 255)
+        ZStack {
+            shape.fill(.black).shadow(color: tint.opacity(dark ? 0.5 : 0.30), radius: 35, y: 30)
+            shape.fill(.black).shadow(color: tint.opacity(dark ? 0.3 : 0.12), radius: 7, y: 4)
+            shape.strokeBorder(.black.opacity(dark ? 0.6 : 0.07), lineWidth: 0.5).padding(-0.5)
+        }
+        .mask {
+            Rectangle().padding(-160)
+                .overlay { shape.blendMode(.destinationOut) }
+                .compositingGroup()
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// Tıklanabilir satır/kutucuk: üzerine gelince yumuşak vurgu ve el imleci (mockup'ta `cursor: pointer`).
+private struct HoverFill: ViewModifier {
+    let inset: EdgeInsets
+    @State private var on = false
+    func body(content: Content) -> some View {
+        content
+            .background {
+                RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.hover)
+                    .padding(inset).opacity(on ? 1 : 0)
+            }
+            .contentShape(Rectangle())
+            .onHover { on = $0 }
+            .pointerStyle(.link)
+            .animation(.easeOut(duration: 0.15), value: on)
+    }
+}
+
+/// Metin bağlantısı: üzerine gelince alt çizgi, ok 2 pt ileri ve el imleci.
+private struct HoverLink<Label: View>: View {
+    @ViewBuilder let label: (Bool) -> Label
+    @State private var on = false
+    var body: some View {
+        label(on)
+            .contentShape(Rectangle())
+            .onHover { on = $0 }
+            .pointerStyle(.link)
+            .animation(.easeOut(duration: 0.15), value: on)
+    }
+}
+
 /// Panelin dışına tıklama kuralı (spec §4). Uygulamanın kendi pencerelerine tıklamalar da sayılır;
 /// panelin içi ve durum öğesi hariç (durum öğesi zaten aç/kapa yapar).
+/// Pencere, çizilen gölge için panelden büyüktür: gölge payına tıklamak da dışarısı sayılır.
 public enum PanelDismissal {
-    public static func closes(clickWindow: NSWindow?, panel: NSWindow?, statusWindow: NSWindow?) -> Bool {
+    public static func closes(clickWindow: NSWindow?, panel: NSWindow?, statusWindow: NSWindow?,
+                              location: CGPoint = .zero, content: CGRect? = nil) -> Bool {
         guard let w = clickWindow else { return true }
-        return w !== panel && w !== statusWindow
+        if w === panel { return content.map { !$0.contains(location) } ?? false }
+        return w !== statusWindow
     }
 }

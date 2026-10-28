@@ -18,4 +18,11 @@ import Testing
         #expect(PanelDismissal.closes(clickWindow: panel, panel: panel, statusWindow: status) == false)
         #expect(PanelDismissal.closes(clickWindow: status, panel: panel, statusWindow: status) == false)
     }
+    /// Pencere, çizilen gölge için panelden büyüktür; gölge payına tıklamak da "dışarısı" sayılır.
+    @Test func clickInShadowMarginCloses() {
+        let panel = window(), status = window()
+        let content = CGRect(x: 74, y: 104, width: 352, height: 500)
+        #expect(PanelDismissal.closes(clickWindow: panel, panel: panel, statusWindow: status, location: CGPoint(x: 20, y: 300), content: content))
+        #expect(PanelDismissal.closes(clickWindow: panel, panel: panel, statusWindow: status, location: CGPoint(x: 200, y: 300), content: content) == false)
+    }
 }
