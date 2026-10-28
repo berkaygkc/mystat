@@ -35,8 +35,8 @@ public enum MonitorPresentation {
             let source = lead.map { $0.folder != nil ? " Yükün çoğu \($0.context) projesinden geliyor." : " En çok \($0.name) yüklüyor." } ?? ""
             return "İşlemci \(m) dakikadır %\(floor10)\(TurkishSuffix.genitive(after: floor10)) üzerinde.\(source)"
         case .memory:
-            let who = s.groups.first { $0.id == inc.culpritIDs.first }?.name ?? ""
-            return "Bellek baskısı \(m) dakikadır yüksek. En çok \(who) büyüyor."
+            let who = s.groups.first { $0.id == inc.culpritIDs.first }?.name
+            return "Bellek baskısı \(m) dakikadır \(PanelPresentation.pressureWord(inc.level))." + (who.map { " En çok \($0) büyüyor." } ?? "")
         case .disk:
             let lost = GroupPresentation.fact(inc, "Son 24 sa").map { "; son 24 saatte \($0.trimmingCharacters(in: ["−", "-"])) azaldı" } ?? ""
             return "Diskte \(Fmt.int(s.disk.freeGB)) GB kaldı\(lost)."
@@ -76,12 +76,24 @@ extension MonitorPresentation {
     /// Genel Bakış başlığının altındaki paragraf (mockup `secOverview`).
     public static func overviewLede(_ s: Snapshot) -> String {
         guard let inc = s.incident else {
-            return "Makine rahat. En yoğun uygulama \(s.calmTop.name), Docker \(s.docker.containers.count) container ile sessizce ayakta. Diskte \(Fmt.int(s.disk.freeGB)) GB boş yer var."
+            let docker = s.capabilities.docker ? ", Docker \(s.docker.containers.count) container ile sessizce ayakta" : ""
+            return "Makine rahat. En yoğun uygulama \(s.calmTop.name)\(docker). Diskte \(Fmt.int(s.disk.freeGB)) GB boş yer var."
         }
         guard inc.kind == .cpu, let lead = s.groups.first(where: { $0.id == inc.culpritIDs.first }) else {
             return GroupPresentation.panelHeadline(s).lede
         }
-        return "\(lead.context) projesinde \(Fmt.dec1(lead.cpuCores)) çekirdek kullanıyor; aynı projenin Next.js sunucusu da ona eşlik ediyor. Bellek, disk ve ağ normal."
+        // Olgular verilerden: eşlik eden sunucu yalnızca olayda ilişkiliyse, "normal" yalnızca bellek ve disk sakinse.
+        var t = GroupPresentation.cpuLede(lead, s, inc).replacingOccurrences(of: ". Aynı projenin", with: "; aynı projenin")
+        if s.memory.pressureLevel == .ok, Thresholds.diskFree(s.disk.freeGB) == .ok { t += " Bellek, disk ve ağ normal." }
+        return t
+    }
+
+    /// Çekirdek etiketleri: önce performans (P), sonra verimlilik (V). Canlı seri bu sırada gelir (`SnapshotBuilder`);
+    /// makine bilgisi yoksa (örnek veri) mockup'taki 10 + 4.
+    public static func coreLabels(count: Int, machine: MachineInfo?) -> (labels: [String], note: String) {
+        let p = machine.map { $0.pCores + $0.eCores == count ? $0.pCores : count } ?? Swift.min(10, count)
+        let e = count - p
+        return ((0..<count).map { $0 < p ? "P\($0 + 1)" : "V\($0 - p + 1)" }, e > 0 ? "\(p) performans · \(e) verimlilik" : "\(p) çekirdek")
     }
 
     public static let cpuCalmLede = "Son 10 dakikada hiçbir uygulama bir çekirdekten fazlasını uzun süre kullanmadı."

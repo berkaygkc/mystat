@@ -49,7 +49,7 @@ public final class SampleSource: MetricsSource {
     public func setDetailInterest(_ visible: Bool) {}
 
     /// Örnek veride durdurma benzetilir; hiçbir sürece dokunulmaz.
-    public func stop(groupID: String, force: Bool) -> StopOutcome {
+    public func stop(groupID: String, pids: [Int32], force: Bool) -> StopOutcome {
         snapshot.groups.first { $0.id == groupID }.map { $0.foreign ? .notPermitted(reason: StopOutcome.foreignReason) : .done(count: $0.processCount) } ?? .notFound
     }
 

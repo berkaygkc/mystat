@@ -11,7 +11,7 @@ public struct NetMeter: Sendable {
 
     public let primary: String?
     public private(set) var today: Today
-    private var last: (rx: UInt64, tx: UInt64, at: Date)?
+    private var last: (rx: UInt64, tx: UInt64, at: Date, names: [String])?
 
     public init(primary: String?, today: Today = Today(day: "", downGB: 0, upGB: 0)) {
         self.primary = primary
@@ -19,17 +19,19 @@ public struct NetMeter: Sendable {
     }
 
     /// Birincil arayüz varsa yalnızca o; yoksa `en*` toplamı (VPN `utun` trafiği çift sayılmasın).
-    func pick(_ c: [InterfaceCounters]) -> (rx: UInt64, tx: UInt64) {
+    func pick(_ c: [InterfaceCounters]) -> (rx: UInt64, tx: UInt64, names: [String]) {
         let chosen = primary.flatMap { p in c.filter { $0.name == p }.nilIfEmpty } ?? c.filter { $0.name.hasPrefix("en") }
-        return chosen.reduce((0, 0)) { ($0.0 &+ $1.rx, $0.1 &+ $1.tx) }
+        let sum = chosen.reduce((UInt64(0), UInt64(0))) { ($0.0 &+ $1.rx, $0.1 &+ $1.tx) }
+        return (sum.0, sum.1, chosen.map(\.name).sorted())
     }
 
     public mutating func update(_ c: [InterfaceCounters], at: Date, calendar: Calendar) -> (down: Double, up: Double, todayDown: Double, todayUp: Double)? {
         let now = pick(c)
-        defer { last = (now.rx, now.tx, at) }
+        defer { last = (now.rx, now.tx, at, now.names) }
         let day = Self.dayKey(at, calendar)
         if today.day != day { today = Today(day: day, downGB: 0, upGB: 0) }
-        guard let prev = last else { return nil }
+        // Ölçülen arayüzler değiştiyse (VPN kapandı, dock çıktı) sayaçlar karşılaştırılamaz: yeniden başla.
+        guard let prev = last, prev.names == now.names else { return nil }
         let dt = at.timeIntervalSince(prev.at)
         guard dt > 0, dt <= SampleGap.maxInterval, now.rx >= prev.rx, now.tx >= prev.tx else { return nil }
         let drx = Double(now.rx - prev.rx), dtx = Double(now.tx - prev.tx)

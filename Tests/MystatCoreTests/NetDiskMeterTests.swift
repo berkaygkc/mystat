@@ -69,4 +69,17 @@ import Testing
         #expect(abs(s.percent - 62.6) < 1e-9)
         #expect(s.readMBps == 8.2 && s.writeMBps == 4.7)
     }
+
+    /// VPN kapanınca ya da dock çıkınca birincil arayüz kaybolur: ölçülen arayüz değişti, sıçrama yerine yeniden başlanır.
+    @Test func vanishedPrimaryRebasesInsteadOfSpiking() {
+        let cal = Calendar.trTest, t = Date(timeIntervalSince1970: 1_793_166_318)
+        var m = NetMeter(primary: "utun4", today: .init(day: NetMeter.dayKey(t, cal), downGB: 1, upGB: 0.1))
+        _ = m.update([InterfaceCounters(name: "utun4", rx: 2_000_000_000, tx: 100_000_000, up: true),
+                      InterfaceCounters(name: "en0", rx: 50_000_000_000, tx: 5_000_000_000, up: true)], at: t, calendar: cal)
+        let r = m.update([InterfaceCounters(name: "en0", rx: 50_001_000_000, tx: 5_000_100_000, up: true)], at: t.addingTimeInterval(2), calendar: cal)
+        #expect(r == nil)
+        #expect(m.today.downGB == 1 && m.today.upGB == 0.1)
+        let next = m.update([InterfaceCounters(name: "en0", rx: 50_003_000_000, tx: 5_000_300_000, up: true)], at: t.addingTimeInterval(4), calendar: cal)
+        #expect(next.map { abs($0.down - 1) < 1e-9 } == true)
+    }
 }

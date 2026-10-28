@@ -10,7 +10,7 @@ struct SystemSection<Source: MetricsSource>: View {
         let s = source.snapshot, sys = s.system
         let h = SectionText.system(s)
         let warm = sys.thermal != .ok
-        let onBattery = sys.batteryDrain30m != nil
+        let onBattery = !sys.onAC
         VStack(alignment: .leading, spacing: 0) {
             SectionHead("SİSTEM", title: h.title, lede: h.lede, level: h.level, pulsing: h.level != .ok)
             if let k = s.incident?.kind, k == .heat || k == .battery { IncidentBlock(source: source, state: state, inOverview: false).padding(.top, 20) }

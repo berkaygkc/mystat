@@ -162,4 +162,14 @@ import Testing
         #expect(cache.count == 4)                                   // eski kayıtlar atıldı
         #expect(Set(after.keys) == Set(groups(reused, ports: [:]).keys))
     }
+
+    /// loginwindow, Dock, Finder kullanıcının uid'iyle çalışır ama sistemin parçasıdır: durdurulamaz.
+    @Test func systemAppsAreNotStoppable() {
+        let lw = p(413, 1, "loginwindow", path: "/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow")
+        let g = groups([lw, p(500, 1, "Brave", path: "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser")])
+        let login = g["app:/System/Library/CoreServices/loginwindow.app"]
+        #expect(login?.name == "loginwindow" && login?.context == "macOS" && login?.foreign == true)
+        #expect(g["app:/Applications/Brave Browser.app"]?.foreign == false)
+    }
+
 }

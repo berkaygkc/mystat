@@ -38,7 +38,7 @@ import Testing
     @Test func systemGroupIsNotStoppable() {
         let s = SampleSource(seed: 1)
         #expect(s.snapshot.groups.filter(\.foreign).map(\.id) == ["windowserver"])
-        #expect(s.stop(groupID: "windowserver", force: false) == .notPermitted(reason: StopOutcome.foreignReason))
-        #expect(s.stop(groupID: "next-web", force: false) == .done(count: 3))
+        #expect(s.stop(groupID: "windowserver", pids: [], force: false) == .notPermitted(reason: StopOutcome.foreignReason))
+        #expect(s.stop(groupID: "next-web", pids: [], force: false) == .done(count: 3))
     }
 }

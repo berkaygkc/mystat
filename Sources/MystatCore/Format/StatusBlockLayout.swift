@@ -48,11 +48,16 @@ public enum StatusBlockLayout {
                                 date: Fmt.dateLine(now, calendar: calendar), time: Fmt.timeLine(now, calendar: calendar))
     }
 
-    /// Isı, Pil ve Docker'ın kalıcı öğesi yok; olay anında bloğun içinde belirir (spec §4).
+    /// Isı, Pil ve Docker'ın kalıcı öğesi yok; olay anında bloğun içinde belirir (spec §4). Çip ılıksa her olayda
+    /// görünür (mockup'taki işlemci olayı). Sensör yoksa derece yerine termal durum yazılır.
     static func alert(_ s: Snapshot) -> StatusMetric? {
-        if s.system.thermal != .ok { return StatusMetric(label: "ISI", value: Fmt.int(s.system.chipTemp) + "°", level: s.system.thermal) }
-        if let drain = s.system.batteryDrain30m { return StatusMetric(label: "PİL", value: "−" + Fmt.pct(drain), level: .warn) }
-        if let inc = s.incident, inc.kind == .docker { return StatusMetric(label: "DOCKER", value: inc.culpritValues.first ?? "", level: inc.level) }
+        guard let inc = s.incident else { return nil }
+        if inc.kind == .heat || s.system.thermal != .ok {
+            let value = s.capabilities.sensors ? Fmt.int(s.system.chipTemp) + "°" : s.system.thermal.thermalWord
+            return StatusMetric(label: "ISI", value: value, level: s.system.thermal == .ok ? inc.level : s.system.thermal)
+        }
+        if inc.kind == .battery, let drain = s.system.batteryDrain30m { return StatusMetric(label: "PİL", value: "−" + Fmt.pct(drain), level: .warn) }
+        if inc.kind == .docker { return StatusMetric(label: "DOCKER", value: inc.culpritValues.first ?? "", level: inc.level) }
         return nil
     }
 

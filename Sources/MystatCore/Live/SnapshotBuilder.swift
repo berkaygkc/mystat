@@ -31,13 +31,17 @@ public enum SnapshotBuilder {
     public static func build(_ m: LiveMeasurements, incident: Incident?, capabilities: SourceCapabilities) -> Snapshot {
         var s = Snapshot.empty(capabilities: capabilities)
         s.cpu = m.cpu
+        // Apple Silicon'da mantıksal CPU'ların başı verimlilik kümesi (ioreg cluster-type); arayüz performansı önce gösterir.
+        let e = m.machine.eCores
+        if e > 0, m.machine.pCores + e == m.cpu.cores.count { s.cpu.cores = Array(m.cpu.cores[e...] + m.cpu.cores[..<e]) }
         s.memory = m.memory
         s.disk = m.disk
         s.net = NetState(downMBps: m.net.down, upMBps: m.net.up, todayDownGB: m.net.todayDown, todayUpGB: m.net.todayUp, latencyMs: 0,
                          iface: m.iface, ssid: "", details: [Fact("Arayüz", m.iface), Fact("Yerel IP", m.ip ?? "—")])
         let b = m.battery
         s.system = SystemState(chipTemp: 0, gpuTemp: 0, ssdTemp: 0, fanRPM: 0, thermal: m.thermal,
-                               battery: Int((b?.percent ?? 0).rounded()), charging: b?.charging ?? false, batteryDrain30m: m.batteryDrain30m,
+                               battery: Int((b?.percent ?? 0).rounded()), charging: b?.charging ?? false,
+                               batteryDrain30m: incident?.kind == .battery ? m.batteryDrain30m : nil,   // yavaş erime uyarı değil
                                watts: 0, adapter: b?.adapterText ?? "—", health: b?.healthText ?? "—", capacity: b?.capacityText ?? "—",
                                cycles: b?.cycles ?? 0, gpuPercent: 0, gpuCores: 0, onAC: b?.onAC ?? true, machine: m.machine)
         s.groups = m.groups

@@ -56,7 +56,8 @@ public final class ProcessProbe: Sendable {
                                      cwd: st.cwd, start: start, hasTTY: info.e_tdev != UInt32.max,
                                      cpuTime: ok ? (r.ri_user_time &+ r.ri_system_time) &* tb.numer / tb.denom : 0,
                                      footprint: ok ? r.ri_phys_footprint : 0, energy: ok ? r.ri_energy_nj : 0,
-                                     diskWritten: ok ? r.ri_diskio_byteswritten : 0, projectRoot: st.root, terminal: st.terminal))
+                                     diskWritten: ok ? r.ri_diskio_byteswritten : 0, projectRoot: st.root, terminal: st.terminal,
+                                     childCPUTime: ok ? (r.ri_child_user_time &+ r.ri_child_system_time) &* tb.numer / tb.denom : 0))
         }
         statics.withLock { d in d = d.filter { seen.contains($0.key) } }
         foreignPaths.withLock { d in d = d.filter { seenForeign.contains($0.key) } }

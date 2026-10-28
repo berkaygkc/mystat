@@ -59,6 +59,9 @@ public final class LiveSource: MetricsSource {
 
     public func applyDeletion(gb: Double) {}
 
+    /// Uygulama kapanırken: geçmişin yarım kovaları yazılır.
+    public func flushHistory() { history?.flush() }
+
     public func setDetailInterest(_ visible: Bool) { sampler.interest.withLock { $0 = visible } }
 
     /// `--log-values` (DEBUG) satırı; tools/consistency.sh bunu top, vm_stat ve netstat ile yan yana yazar.
@@ -69,11 +72,13 @@ public final class LiveSource: MetricsSource {
     }
 
     /// Grubun pid'leri o anki listeden yeniden çözülür: o arada biten ya da başka sürece geçmiş pid'e sinyal gitmez.
-    public func stop(groupID: String, force: Bool) -> StopOutcome {
+    /// Onay penceresi açıkken kimlik başka gruba geçmiş olabilir: yalnızca pencere açıldığındaki üyelerden hâlâ grupta olanlar.
+    public func stop(groupID: String, pids confirmed: [Int32], force: Bool) -> StopOutcome {
         guard let g = snapshot.groups.first(where: { $0.id == groupID }) else { return .notFound }
         if g.foreign { return .notPermitted(reason: StopOutcome.foreignReason) }
+        let members = Set(g.pids)
         let current = Dictionary(probe.processes().map { ($0.pid, $0) }, uniquingKeysWith: { a, _ in a })
-        let pids = g.pids.filter { pid in current[pid].map { !$0.restricted && $0.start == starts[pid] } == true }
+        let pids = confirmed.filter { pid in members.contains(pid) && current[pid].map { !$0.restricted && $0.start == starts[pid] } == true }
         return pids.isEmpty ? .notFound : signaler(pids, force)
     }
 }

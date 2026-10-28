@@ -18,7 +18,8 @@ public protocol MetricsSource: AnyObject, Observable {
     /// Panel ya da monitör açık mı: süreç listesi açıkken 2 sn, kapalıyken 5 sn (spec §9.2).
     func setDetailInterest(_ visible: Bool)
     /// Grubun süreçlerine SIGTERM (`force` ise SIGKILL); yalnızca kendi süreçlerin (spec §7.4).
-    func stop(groupID: String, force: Bool) -> StopOutcome
+    /// `pids`: onay penceresi açıldığındaki üyeler; yalnızca hâlâ grupta olanlara sinyal gider.
+    func stop(groupID: String, pids: [Int32], force: Bool) -> StopOutcome
 }
 
 public enum StopOutcome: Sendable, Equatable {

@@ -12,6 +12,8 @@ final class FakeProbe: SystemProbe {
     let busyCores: Double
     /// pid 100'ün başlangıcı; değişirse pid başka bir sürece geçmiş demektir.
     let start100 = Mutex(Date(timeIntervalSince1970: 1_793_000_000))
+    /// Ek kendi süreçleri (başka gruplar).
+    let extra = Mutex<[ProcessRecord]>([])
 
     init(busyCores: Double = 0) { self.busyCores = busyCores }
 
@@ -41,7 +43,7 @@ final class FakeProbe: SystemProbe {
                               cwd: "/Users/u/acmecorp", start: start, hasTTY: true,
                               cpuTime: UInt64(busyCores * 2e9) * s, footprint: 1 << 30, energy: 0, diskWritten: 1_000_000 * s),
                 ProcessRecord(pid: 1, ppid: 0, uid: 0, name: "launchd", path: "/sbin/launchd", args: [], cwd: nil, start: .distantPast,
-                              hasTTY: false, cpuTime: 0, footprint: 0, energy: 0, diskWritten: 0, restricted: true)]
+                              hasTTY: false, cpuTime: 0, footprint: 0, energy: 0, diskWritten: 0, restricted: true)] + extra.withLock { $0 }
     }
     func listeningPorts(pids: [Int32]) -> [Int32: [Int]] { count("ports"); return [:] }
     func thermal() -> Level { .ok }
@@ -119,12 +121,12 @@ final class FakeProbe: SystemProbe {
         await tick(s, p, 0)
         await tick(s, p, 2)
         let id = s.snapshot.groups.first { $0.name == "Claude Code" }!.id
-        #expect(s.stop(groupID: id, force: true) == .done(count: 1))
+        #expect(s.stop(groupID: id, pids: [100], force: true) == .done(count: 1))
         #expect(sent.count == 1 && sent[0].0 == [100] && sent[0].1)
         p.start100.withLock { $0 = $0.addingTimeInterval(5) }   // pid 100 artık başka süreç
-        #expect(s.stop(groupID: id, force: false) == .notFound)
+        #expect(s.stop(groupID: id, pids: [100], force: false) == .notFound)
         #expect(sent.count == 1)
-        #expect(s.stop(groupID: "yok", force: false) == .notFound)
+        #expect(s.stop(groupID: "yok", pids: [100], force: false) == .notFound)
     }
 
     @Test func stopRefusesSystemGroup() async {
@@ -134,7 +136,7 @@ final class FakeProbe: SystemProbe {
         s.setDetailInterest(true)
         await tick(s, p, 0)
         await tick(s, p, 2)
-        #expect(s.stop(groupID: "sys:macos", force: true) == .notPermitted(reason: StopOutcome.foreignReason))
+        #expect(s.stop(groupID: "sys:macos", pids: [], force: true) == .notPermitted(reason: StopOutcome.foreignReason))
         #expect(!called)
     }
 
@@ -146,5 +148,26 @@ final class FakeProbe: SystemProbe {
         let line = LiveSource.logLine(s.snapshot)
         #expect(line.hasPrefix("mystat cpu=65.0 user=55.0 sys=10.0 mem=54.0 "))
         #expect(line.contains(" memGB=") && line.contains(" down=2.40 up=0.30"))
+    }
+
+    /// Onay penceresi açıkken grubun kimliği başka oturuma geçebilir (aynı klasörde iki oturum, biri bitti):
+    /// sinyal yalnızca pencere açıldığındaki üyelerden hâlâ grupta olanlara gider.
+    @Test func stopOnlyHitsMembersFromConfirmTime() async {
+        let p = FakeProbe(busyCores: 1), s = source(p)
+        var sent: [[Int32]] = []
+        s.signaler = { pids, _ in sent.append(pids); return .done(count: pids.count) }
+        s.setDetailInterest(true)
+        await tick(s, p, 0)
+        await tick(s, p, 2)
+        let g = s.snapshot.groups.first { $0.name == "Claude Code" }!
+        #expect(s.stop(groupID: g.id, pids: [999], force: false) == .notFound)
+        // pencere açıldığında gruptaydı, şimdi yaşıyor ama başka grupta (ör. kimliği devralınan oturum)
+        p.extra.withLock { $0 = [ProcessRecord(pid: 300, ppid: 1, uid: 501, name: "node", path: "/opt/homebrew/bin/node", args: ["node", "x.js"],
+                                               cwd: "/tmp", start: Date(timeIntervalSince1970: 1_793_000_000), hasTTY: false, cpuTime: 0,
+                                               footprint: 1 << 20, energy: 0, diskWritten: 0)] }
+        await tick(s, p, 4)
+        #expect(s.stop(groupID: g.id, pids: [300], force: false) == .notFound)
+        #expect(sent.isEmpty)
+        #expect(s.stop(groupID: g.id, pids: g.pids, force: false) == .done(count: 1) && sent == [[100]])
     }
 }

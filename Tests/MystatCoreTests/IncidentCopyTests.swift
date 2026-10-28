@@ -63,4 +63,34 @@ import Testing
         #expect(lede(s) == "Prizde değilsin. En çok Claude Code harcıyor.")
         #expect(SectionText.system(s).lede == "Prizde değilsin; pil %\(s.system.battery).")
     }
+
+    /// Genel Bakış: canlıda ilişkili sunucu yoksa eşlik iddiası, bellek/disk sorunluysa "normal" iddiası yazılmaz.
+    @Test func overviewLedeFollowsData() {
+        let a = live(.cpu, culprits: ["claude-acmecorp"], values: ["4,2"], unit: "çekirdek", cpu: 91)
+        let cores = Fmt.dec1(a.groups.first { $0.id == "claude-acmecorp" }!.cpuCores)
+        #expect(MonitorPresentation.overviewLede(a) == "acmecorp projesinde \(cores) çekirdek kullanıyor. Bellek, disk ve ağ normal.")
+        var b = a
+        b.memory.pressureLevel = .warn
+        #expect(!MonitorPresentation.overviewLede(b).contains("normal"))
+        var calm = SampleSource(seed: 1).snapshot
+        calm.capabilities = SourceCapabilities(docker: false, sensors: false, diskScan: false, netDetails: false)
+        #expect(!MonitorPresentation.overviewLede(calm).contains("Docker"))
+    }
+
+    @Test func panelCpuCellFollowsTotal() {
+        let a = live(.cpu, culprits: ["claude-acmecorp"], values: ["4,2"], unit: "çekirdek", cpu: 76)
+        #expect(PanelPresentation.cells(a)[0].sub == "9 dakikadır %70 üzerinde")
+        let b = live(.cpu, culprits: ["claude-acmecorp"], values: ["4,2"], unit: "çekirdek", cpu: 40)
+        #expect(PanelPresentation.cells(b)[0].sub == "9 dakikadır yoğun")
+    }
+
+    /// Bellek baskısı var ama son 10 dakikada belirgin büyüyen grup yok.
+    @Test func memoryWithoutCulprit() {
+        var s = live(.memory, culprits: [], values: [], unit: "GB")
+        s.memory.swapGB = 2.5
+        let h = GroupPresentation.panelHeadline(s)
+        #expect(String(h.title.characters) == "Bellek baskısı yükseldi.")
+        #expect(h.lede == "Swap 2,5 GB'a çıktı.")
+        #expect(MonitorPresentation.incidentSentence(s) == "Bellek baskısı 9 dakikadır orta.")
+    }
 }

@@ -25,7 +25,10 @@ public enum PanelPresentation {
     public static func cells(_ s: Snapshot) -> [PanelCell] {
         let inc = s.incident
         let cpuLevel = Thresholds.cpuTotal(s.cpu.percent)
-        let cpuSub = inc?.kind == .cpu ? "\(inc!.minutes) dakikadır %90 üzerinde" : "\(s.cpu.cores.count) çekirdek, sakin"
+        let cpuSub: String
+        if let inc, inc.kind == .cpu {   // toplam düşükse olay tek grubun yükü: yüzde iddiası yazılmaz
+            cpuSub = s.cpu.percent >= 70 ? "\(inc.minutes) dakikadır %\(Int(s.cpu.percent / 10) * 10) üzerinde" : "\(inc.minutes) dakikadır yoğun"
+        } else { cpuSub = "\(s.cpu.cores.count) çekirdek, sakin" }
         let dockerCores = s.docker.containers.reduce(0) { $0 + $1.cpuPercent } / 100
         let sysSub: String
         if let drain = s.system.batteryDrain30m, drain > 0 { sysSub = "Pil %\(s.system.battery), prizde değil" }

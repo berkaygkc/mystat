@@ -71,18 +71,21 @@ public struct AreaChart: View {
             }
         }
         for s in series where !s.values.isEmpty {
-            var line = Path()
-            for (i, v) in s.values.enumerated() {
-                let pt = CGPoint(x: g.x(i), y: g.y(v))
-                i == 0 ? line.move(to: pt) : line.addLine(to: pt)
+            for seg in ChartGeometry.segments(s.values) {   // eksik noktalar (uyku) boşluk olarak kalır
+                var line = Path()
+                for i in seg {
+                    let pt = CGPoint(x: g.x(i), y: g.y(s.values[i]))
+                    i == seg.lowerBound ? line.move(to: pt) : line.addLine(to: pt)
+                }
+                if s.fill {
+                    var area = line
+                    area.addLine(to: CGPoint(x: g.x(seg.upperBound - 1), y: g.plotHeight)); area.addLine(to: CGPoint(x: g.x(seg.lowerBound), y: g.plotHeight))
+                    area.closeSubpath()
+                    ctx.fill(area, with: .linearGradient(Gradient(colors: [s.color.opacity(0.2), s.color.opacity(0)]),
+                                                         startPoint: .zero, endPoint: CGPoint(x: 0, y: g.plotHeight)))
+                }
+                ctx.stroke(line, with: .color(s.color), style: StrokeStyle(lineWidth: 1.6, lineJoin: .round))
             }
-            if s.fill {
-                var area = line
-                area.addLine(to: CGPoint(x: g.x(s.values.count - 1), y: g.plotHeight)); area.addLine(to: CGPoint(x: g.x(0), y: g.plotHeight)); area.closeSubpath()
-                ctx.fill(area, with: .linearGradient(Gradient(colors: [s.color.opacity(0.2), s.color.opacity(0)]),
-                                                     startPoint: .zero, endPoint: CGPoint(x: 0, y: g.plotHeight)))
-            }
-            ctx.stroke(line, with: .color(s.color), style: StrokeStyle(lineWidth: 1.6, lineJoin: .round))
         }
     }
 
@@ -96,7 +99,7 @@ public struct AreaChart: View {
         let px = g.x(i)
         Rectangle().fill(Theme.ink3).frame(width: 1, height: g.plotHeight).position(x: px, y: g.plotHeight / 2)
         let live = series.indices.filter { !series[$0].values.isEmpty }
-        ForEach(live, id: \.self) { si in
+        ForEach(live.filter { series[$0].values[min(i, series[$0].values.count - 1)].isFinite }, id: \.self) { si in
             Circle().fill(series[si].color).frame(width: 8, height: 8)
                 .overlay(Circle().strokeBorder(Theme.inv, lineWidth: 2))
                 .position(x: px, y: g.y(series[si].values[min(i, series[si].values.count - 1)]))

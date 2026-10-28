@@ -22,9 +22,9 @@ struct CPUSection<Source: MetricsSource>: View {
                     AreaChart(series: [ChartSeries(cpu, color: hot ? Theme.red : Theme.chart, fill: true, name: "toplam"),
                                        ChartSeries(source.series(.cpuSystem, range: state.range), color: Theme.chart2, name: "sistem")],
                               max: 100, height: 190, range: state.range, format: Fmt.pct, formatY: Fmt.pct)
-                    StatsRow(items: [("Kullanıcı", Fmt.pct(s.cpu.percent * 0.78), nil), ("Sistem", Fmt.pct(s.cpu.systemPercent), nil),
+                    StatsRow(items: [("Kullanıcı", Fmt.pct(s.cpu.percent - s.cpu.systemPercent), nil), ("Sistem", Fmt.pct(s.cpu.systemPercent), nil),
                                      ("Yük ortalaması", s.cpu.loadAvg.map(Fmt.dec1).joined(separator: " · "), nil),
-                                     ("Zirve (bu aralık)", Fmt.pct(cpu.max() ?? 0), nil)])
+                                     ("Zirve (bu aralık)", Fmt.pct(cpu.filter(\.isFinite).max() ?? 0), nil)])
                 }
             }
             .padding(.top, 26)
@@ -43,8 +43,9 @@ struct CPUSection<Source: MetricsSource>: View {
     }
 
     private func cores(_ s: Snapshot) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            SecH("Çekirdekler", note: "10 performans · 4 verimlilik")
+        let names = MonitorPresentation.coreLabels(count: s.cpu.cores.count, machine: s.system.machine)
+        return VStack(alignment: .leading, spacing: 0) {
+            SecH("Çekirdekler", note: names.note)
             HStack(spacing: 6) {
                 ForEach(Array(s.cpu.cores.enumerated()), id: \.offset) { _, v in
                     RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.line2)
@@ -58,7 +59,7 @@ struct CPUSection<Source: MetricsSource>: View {
             }
             HStack(spacing: 6) {
                 ForEach(0..<s.cpu.cores.count, id: \.self) { i in
-                    Text(i < 10 ? "P\(i + 1)" : "V\(i - 9)").frame(maxWidth: .infinity)
+                    Text(names.labels[i]).frame(maxWidth: .infinity)
                 }
             }
             .font(.system(size: 10)).foregroundStyle(Theme.ink3).padding(.top, 5)

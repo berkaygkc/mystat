@@ -98,7 +98,7 @@ public enum Actions {
             message: "\(g.processCount) süreç " + (force ? "hemen sonlandırılacak. Kaydedilmemiş iş varsa kaybolur."
                                                          : "kapanması için uyarılacak. Cevap vermezse zorla kapatmayı seçebilirsin."),
             confirm: force ? "Zorla kapat" : "Durdur", destructive: force,
-            onConfirm: { ToastCenter.shared.show(stopToast(g, force: force, source.stop(groupID: g.id, force: force))) })
+            onConfirm: { ToastCenter.shared.show(stopToast(g, force: force, source.stop(groupID: g.id, pids: g.pids, force: force))) })
     }
 
     static func stopToast(_ g: ProcessGroup, force: Bool, _ o: StopOutcome) -> String {

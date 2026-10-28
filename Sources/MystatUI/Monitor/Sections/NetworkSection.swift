@@ -19,7 +19,7 @@ struct NetworkSection<Source: MetricsSource>: View {
                               height: 180, range: state.range, format: { Fmt.rate($0) + " MB/s" }, formatY: { Fmt.int($0) + " MB/s" })
                     StatsRow(items: [("Bugün indirilen", Fmt.dec1(s.net.todayDownGB) + " GB", nil),
                                      ("Bugün gönderilen", Fmt.dec1(s.net.todayUpGB) + " GB", nil),
-                                     ("Zirve (bu aralık)", Fmt.rate(down.max() ?? 0) + " MB/s", nil),
+                                     ("Zirve (bu aralık)", Fmt.rate(down.filter(\.isFinite).max() ?? 0) + " MB/s", nil),
                                      ("Gecikme", s.capabilities.netDetails ? Fmt.int(s.net.latencyMs) + " ms" : "—", "yönlendirici")])
                 }
             }

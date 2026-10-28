@@ -49,4 +49,36 @@ import Testing
         m.groups.insert(group("sys:macos", "macOS", ctx: "sistem süreçleri", cores: 3.5), at: 0)
         #expect(SnapshotBuilder.build(m, incident: nil, capabilities: .all).calmTop.name == "Brave Browser")
     }
+
+    /// Pildeyken yavaş erime uyarı değildir: erime yalnızca pil olayı varken taşınır (menü çubuğu sakin kalır).
+    @Test func batteryDrainOnlyDuringBatteryIncident() {
+        let m0 = measurements()
+        let m = LiveMeasurements(cpu: m0.cpu, memory: m0.memory, disk: m0.disk, net: m0.net, iface: m0.iface, ip: m0.ip, groups: m0.groups,
+                                 thermal: .ok, battery: BatteryReading(percent: 80, charging: false, onAC: false, adapterWatts: 0, adapterUSBC: false,
+                                                                       cycles: 75, designCapacity: 8579, maxCapacity: 7787),
+                                 batteryDrain30m: 3, machine: m0.machine, downloads: [], coreCount: 14)
+        let calm = SnapshotBuilder.build(m, incident: nil, capabilities: .all)
+        #expect(calm.system.batteryDrain30m == nil && !calm.system.onAC)
+        #expect(StatusBlockLayout.alert(calm) == nil)
+        let inc = Incident(kind: .battery, level: .warn, startedAt: "10:00", minutes: 3, peakPercent: 25, culpritIDs: [], culpritValues: [],
+                           culpritUnit: "çekirdek", facts: [])
+        #expect(SnapshotBuilder.build(m, incident: inc, capabilities: .all).system.batteryDrain30m == 3)
+    }
+
+    /// Mantıksal CPU 0–3 verimlilik, 4–13 performans çekirdeği (ioreg cluster-type); arayüz performansı önce gösterir.
+    @Test func coresArePerformanceFirst() {
+        let m0 = measurements()
+        var cpu = m0.cpu
+        cpu.cores = (0..<14).map(Double.init)
+        let m = LiveMeasurements(cpu: cpu, memory: m0.memory, disk: m0.disk, net: m0.net, iface: m0.iface, ip: m0.ip, groups: m0.groups,
+                                 thermal: .ok, battery: nil, batteryDrain30m: nil, machine: m0.machine, downloads: [], coreCount: 14)
+        let s = SnapshotBuilder.build(m, incident: nil, capabilities: .all)
+        let order: [Double] = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 0, 1, 2, 3]
+        #expect(s.cpu.cores == order)
+        let labels: [String] = ["P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P9", "P10", "V1", "V2", "V3", "V4"]
+        #expect(MonitorPresentation.coreLabels(count: 14, machine: m0.machine).labels == labels)
+        #expect(MonitorPresentation.coreLabels(count: 14, machine: m0.machine).note == "10 performans · 4 verimlilik")
+        let m4 = MachineInfo(model: "MacBook Air", chip: "M2", pCores: 4, eCores: 4, memoryGB: 16, boot: now)
+        #expect(MonitorPresentation.coreLabels(count: 8, machine: m4).labels == ["P1", "P2", "P3", "P4", "V1", "V2", "V3", "V4"])
+    }
 }

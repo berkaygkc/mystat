@@ -71,6 +71,8 @@ public struct ProcessRecord: Sendable, Equatable {
     public let hasTTY: Bool
     /// Kullanıcı + sistem CPU süresi, nanosaniye (Mach birimi probe'da çevrilir).
     public let cpuTime: UInt64
+    /// Ölüp toplanmış çocukların kullanıcı + sistem süresi, nanosaniye (`ri_child_*`): kısa ömürlü işler ebeveyne yazılır.
+    public let childCPUTime: UInt64
     public let footprint: UInt64, energy: UInt64, diskWritten: UInt64
     public let restricted: Bool
     /// cwd'den yukarı en yakın git kökü (probe hesaplar): "acmecorp/web" bağlamı için.
@@ -80,10 +82,11 @@ public struct ProcessRecord: Sendable, Equatable {
 
     public init(pid: Int32, ppid: Int32, uid: UInt32, name: String, path: String?, args: [String], cwd: String?, start: Date, hasTTY: Bool,
                 cpuTime: UInt64, footprint: UInt64, energy: UInt64, diskWritten: UInt64, restricted: Bool = false,
-                projectRoot: String? = nil, terminal: String? = nil) {
+                projectRoot: String? = nil, terminal: String? = nil, childCPUTime: UInt64 = 0) {
         self.pid = pid; self.ppid = ppid; self.uid = uid; self.name = name; self.path = path; self.args = args; self.cwd = cwd
         self.start = start; self.hasTTY = hasTTY; self.cpuTime = cpuTime; self.footprint = footprint; self.energy = energy
         self.diskWritten = diskWritten; self.restricted = restricted; self.projectRoot = projectRoot; self.terminal = terminal
+        self.childCPUTime = childCPUTime
     }
 }
 

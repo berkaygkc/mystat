@@ -18,8 +18,18 @@ public struct ChartGeometry: Sendable {
 
     /// Verilmezse en büyük değer × 1,15; hepsi sıfırsa 1.
     public static func autoMax(_ series: [[Double]]) -> Double {
-        let m = series.flatMap { $0 }.max() ?? 0
+        let m = series.flatMap { $0 }.filter(\.isFinite).max() ?? 0
         return m > 0 ? m * 1.15 : 1
+    }
+
+    /// Kesintisiz parçalar: eksik nokta (NaN; uyku, kapalı kalma) çizgiyi böler, boşluk düz çizgiyle köprülenmez.
+    public static func segments(_ v: [Double]) -> [Range<Int>] {
+        var out: [Range<Int>] = [], start: Int?
+        for (i, x) in v.enumerated() {
+            if x.isFinite { if start == nil { start = i } } else if let s = start { out.append(s..<i); start = nil }
+        }
+        if let s = start { out.append(s..<v.count) }
+        return out
     }
 
     public func x(_ i: Int) -> CGFloat { capacity > 1 ? CGFloat(i + offset) / CGFloat(capacity - 1) * width : 0 }

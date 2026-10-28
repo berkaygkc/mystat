@@ -47,8 +47,10 @@ public enum GroupPresentation {
             return (kicker, title(emph: lead?.name ?? "", rest: " işlemciyi zorluyor."), lead.map { cpuLede($0, s, inc) } ?? "")
         case .memory:
             let grew = zip(inc.culpritIDs, inc.culpritValues).prefix(2).map { "\(name($0)) \($1.dropFirst()) GB" }
-            return (kicker, title(before: "Bellek baskısı yükseldi; en çok ", emph: name(inc.culpritIDs.first ?? ""), rest: " büyüdü."),
-                    "Son \(inc.minutes) dakikada \(grew.joined(separator: ", ")) büyüdü. Swap \(Fmt.dec1(s.memory.swapGB)) GB'a çıktı.")
+            let swap = "Swap \(Fmt.dec1(s.memory.swapGB)) GB'a çıktı."
+            guard let top = inc.culpritIDs.first else { return (kicker, AttributedString("Bellek baskısı yükseldi."), swap) }   // büyüyen grup yok
+            return (kicker, title(before: "Bellek baskısı yükseldi; en çok ", emph: name(top), rest: " büyüdü."),
+                    "Son \(inc.minutes) dakikada \(grew.joined(separator: ", ")) büyüdü. " + swap)
         case .disk:
             var parts: [String] = []
             if let lost = fact(inc, "Son 24 sa") { parts.append("Son 24 saatte \(lost.trimmingCharacters(in: ["−", "-"])) azaldı.") }

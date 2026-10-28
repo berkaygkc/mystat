@@ -94,13 +94,14 @@ public final class HistoryStore: Sendable {
         sqlite3_exec(db, "COMMIT", nil, nil, nil)
     }
 
-    /// `.h24`: 10 dk × 144, `.d7`: 1 sa × 168. Yalnızca "şimdi"ye ulaşan kesintisiz son dilim döner:
-    /// uygulama kapalı kalan süre düz çizgiyle köprülenmez, eski veri yeni gibi gösterilmez.
+    /// `.h24`: 10 dk × 144, `.d7`: 1 sa × 168. Aralıktaki ilk veriden "şimdi"ye kadar kova başına bir nokta;
+    /// uyku ya da kapalı kalınan kovalar NaN döner (grafik orada boşluk bırakır, düz çizgiyle köprülemez).
     public func series(_ key: SeriesKey, _ range: TimeRange, now: Date) -> [Double] {
         guard let k = Self.name(key), range == .h24 || range == .d7 else { return [] }
         let tier: Int64 = range == .h24 ? 600 : 3600
         let nowBucket = Int64(now.timeIntervalSince1970) / tier
-        let from = (nowBucket - Int64(range.pointCount)) * tier
+        let first = nowBucket - Int64(range.pointCount) + 1
+        let from = first * tier
         return state.withLock { s -> [Double] in
             var pts: [(Int64, Double)] = []
             if let db = s.db {
@@ -114,10 +115,9 @@ public final class HistoryStore: Sendable {
                 sqlite3_finalize(st)
             }
             if let p = s.partial[tier]?[k], p.bucket > (pts.last?.0 ?? .min) { pts.append((p.bucket, p.sum / Double(p.n))) }
-            guard let lastBucket = pts.last?.0, nowBucket - lastBucket <= 2 else { return [] }
-            var start = pts.count - 1
-            while start > 0, pts[start].0 - pts[start - 1].0 == 1 { start -= 1 }
-            return Array(pts[start...].map(\.1).suffix(range.pointCount))
+            let byBucket = Dictionary(pts.filter { $0.0 >= first && $0.0 <= nowBucket }, uniquingKeysWith: { _, b in b })
+            guard let start = byBucket.keys.min() else { return [] }
+            return (start...nowBucket).map { byBucket[$0] ?? .nan }
         }
     }
 
@@ -147,6 +147,15 @@ public final class HistoryStore: Sendable {
             }
             sqlite3_exec(db, "DELETE FROM incidents WHERE t < \(t - 30 * 86_400)", nil, nil, nil)
             sqlite3_exec(db, "PRAGMA wal_checkpoint(TRUNCATE)", nil, nil, nil)
+        }
+    }
+
+    /// Yarım kovaları o ana kadarki ortalamayla yazar (uygulama kapanırken): yeniden başlatmada son dilim kaybolmaz.
+    public func flush() {
+        state.withLock { s in
+            guard let db = s.db else { return }
+            let rows = s.partial.flatMap { tier, keys in keys.map { k, p in (tier, k, p.bucket * tier, p.sum / Double(p.n)) } }
+            if !rows.isEmpty { Self.insert(db, rows) }
         }
     }
 

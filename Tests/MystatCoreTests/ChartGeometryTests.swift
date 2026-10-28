@@ -29,4 +29,12 @@ import Testing
         #expect(g.index(atX: 1190) == 29)
         #expect(ChartGeometry(count: 0, capacity: 120, width: 100, plotHeight: 10, max: 1).index(atX: 50) == nil)
     }
+
+    /// Eksik noktalar (NaN) çizgiyi böler; ölçek onları yok sayar.
+    @Test func missingPointsSplitTheLine() {
+        let v = [1, .nan, .nan, 2, 3, .nan, 4]
+        #expect(ChartGeometry.segments(v) == [0..<1, 3..<5, 6..<7])
+        #expect(ChartGeometry.segments([.nan, .nan]).isEmpty)
+        #expect(ChartGeometry.autoMax([v]) == 4 * 1.15)
+    }
 }

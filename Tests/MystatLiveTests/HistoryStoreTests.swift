@@ -64,4 +64,32 @@ import Testing
                                   culpritValues: ["4,2"], culpritUnit: "çekirdek", facts: []), at: t0)
         #expect(s.incidentCount() == 1)
     }
+
+    /// Gece uykusu ya da yeniden başlatma geçmişi silmez: boşluk eksik nokta (NaN) olarak kalır, öncesi görünür.
+    @Test func gapsStayAsMissingPoints() throws {
+        let s = try HistoryStore(url: tempURL())
+        _ = fill(s, minutes: 120)                                   // 0–2 sa
+        let resume = t0.addingTimeInterval(5 * 3600)                // 3 sa uyku
+        for m in 0..<60 { s.append([(.cpu, 50)], at: resume.addingTimeInterval(Double(m) * 60)) }
+        let end = resume.addingTimeInterval(59 * 60)
+        let h24 = s.series(.cpu, .h24, now: end)
+        try #require(h24.count == 36)                               // ilk kovadan şimdiye 6 sa = 36 × 10 dk
+        #expect(h24.prefix(12).allSatisfy(\.isFinite) && h24[12..<30].allSatisfy(\.isNaN) && h24.suffix(6).allSatisfy { $0 == 50 })
+        let d7 = s.series(.cpu, .d7, now: end)
+        try #require(d7.count == 6)
+        #expect(d7[0] == 29.5 && d7[2].isNaN && d7[5] == 50)
+    }
+
+    /// Kapanırken yarım kova yazılır: yeniden başlatmada son 10 dakika / saat kaybolmaz.
+    @Test func flushKeepsPartialBucket() throws {
+        let url = tempURL()
+        do {
+            let s = try HistoryStore(url: url)
+            for m in 0..<5 { s.append([(.cpu, 40)], at: t0.addingTimeInterval(Double(m) * 60)) }
+            s.flush()
+            s.close()
+        }
+        let again = try HistoryStore(url: url)
+        #expect(again.series(.cpu, .h24, now: t0.addingTimeInterval(4 * 60)) == [40])
+    }
 }

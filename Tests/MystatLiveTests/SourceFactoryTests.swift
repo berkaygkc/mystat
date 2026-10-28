@@ -13,6 +13,6 @@ import Testing
         let s = SourceFactory.make(arguments: ["mystat"])
         #expect(s.snapshot.capabilities == SourceCapabilities(docker: false, sensors: false, diskScan: false, netDetails: false))
         #expect(s.snapshot.groups.isEmpty && s.snapshot.incident == nil)
-        #expect(s.stop(groupID: "yok", force: false) == .notFound)
+        #expect(s.stop(groupID: "yok", pids: [], force: false) == .notFound)
     }
 }

@@ -8,7 +8,7 @@ public enum ProcessGrouper {
     static let dockerVM = "com.apple.Virtualization.VirtualMachine"
 
     private enum Kind: Hashable {
-        case claude(root: Int32), dev(root: Int32), docker, app(String), system, other(String)
+        case claude(root: Int32), dev(root: Int32), docker, app(String), systemApp(String), system, other(String)
     }
 
     public static func groups(_ r: [ProcessRecord], cores: [Int32: Double], ports: [Int32: [Int]],
@@ -57,6 +57,11 @@ public enum ProcessGrouper {
             case .app(let path):
                 let name = ((path as NSString).lastPathComponent as NSString).deletingPathExtension
                 out.append(make(id: "app:\(path)", name: name, context: ms.count > 1 ? "\(ms.count) süreç" : "", ms, cores, owner, now: now))
+            case .systemApp(let path):   // loginwindow, Dock, Finder: kullanıcının uid'iyle çalışır ama durdurulmamalı
+                var g = make(id: "app:\(path)", name: ((path as NSString).lastPathComponent as NSString).deletingPathExtension, context: "macOS",
+                             ms, cores, owner, now: now)
+                g.foreign = true
+                out.append(g)
             case .other(let name):
                 out.append(make(id: "proc:\(name)", name: name, context: ms.count > 1 ? "\(ms.count) süreç" : "", ms, cores, owner, now: now))
             case .system:
@@ -113,7 +118,7 @@ public enum ProcessGrouper {
         if let dev = belowClaude.last(where: { marks[$0.pid]?.dev == true }) { return .dev(root: dev.pid) }
         if firstClaude != nil, let top = chain.last(where: { marks[$0.pid]?.claude == true }) { return .claude(root: top.pid) }
         if p.name == dockerVM { return .docker }
-        if let app = marks[p.pid]?.app { return .app(app) }
+        if let app = marks[p.pid]?.app { return app.hasPrefix("/System/") ? .systemApp(app) : .app(app) }
         if marks[p.pid]?.system == true { return .system }
         return .other(p.name)
     }

@@ -63,4 +63,16 @@ import Testing
         let peak = stride(from: 0.0, through: 0.45, by: 0.01).map { StatusBlockLayout.alertAppearance(.appear, elapsed: $0).scale }.max()!
         #expect(peak > 1 && peak < 1.03)
     }
+
+    /// Canlı veride sensör yok: ılık termal durum tek başına öğe açmaz; olay varken derece yerine durum yazılır.
+    @Test func liveAlertFollowsIncidentWithoutSensors() {
+        var s = SampleSource(seed: 1).snapshot
+        s.capabilities = SourceCapabilities(docker: false, sensors: false, diskScan: false, netDetails: false)
+        s.system.chipTemp = 0
+        s.system.thermal = .warn
+        #expect(StatusBlockLayout.alert(s) == nil)
+        s.incident = Incident(kind: .heat, level: .warn, startedAt: "10:00", minutes: 2, peakPercent: 0, culpritIDs: [], culpritValues: [],
+                              culpritUnit: "çekirdek", facts: [])
+        #expect(StatusBlockLayout.alert(s) == StatusMetric(label: "ISI", value: "Ilık", level: .warn))
+    }
 }

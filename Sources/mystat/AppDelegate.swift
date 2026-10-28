@@ -42,6 +42,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         LoginItem.ensureRegistered()
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        (source as? LiveSource)?.flushHistory()
+    }
+
     func togglePanel() {
         guard let button = status?.button else { return }
         panel?.toggle(relativeTo: button)
