@@ -67,8 +67,18 @@ public enum Theme {
 
     public enum Fonts {
         public static func kicker() -> Font { .system(size: 10.5, weight: .semibold) }
-        /// Mockup'taki 650 ağırlığı (semibold 0,3 ile bold 0,4 arası).
-        public static func headline(_ size: CGFloat = 28) -> Font { Font(NSFont.systemFont(ofSize: size, weight: NSFont.Weight(0.35))) }
+        /// Mockup `h2.hl` 650 ağırlığı.
+        public static func headline(_ size: CGFloat = 28) -> Font { Font(headlineNSFont(size)) }
+        static func headlineNSFont(_ size: CGFloat) -> NSFont { sf(size, wght: 650) }
+
+        /// CSS ağırlığı (ör. 650, 550) SF'nin değişken `wght` ekseniyle; `systemFont(weight:)` ara değerleri
+        /// adlandırılmış ağırlığa yuvarlar (0,35 → Bold 700).
+        static func sf(_ size: CGFloat, wght: Double, tabular: Bool = false) -> NSFont {
+            let base = tabular ? NSFont.monospacedDigitSystemFont(ofSize: size, weight: .regular) : NSFont.systemFont(ofSize: size)
+            let axis = NSNumber(value: 0x7767_6874)   // 'wght'
+            let d = base.fontDescriptor.addingAttributes([.variation: [axis: NSNumber(value: wght)]])
+            return NSFont(descriptor: d, size: size) ?? base
+        }
         public static func big(_ size: CGFloat = 34) -> Font { .system(size: size, weight: .light).monospacedDigit() }
         public static func body(_ size: CGFloat = 13.5, _ w: Font.Weight = .regular) -> Font { .system(size: size, weight: w) }
     }

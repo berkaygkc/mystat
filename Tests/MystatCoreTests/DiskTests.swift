@@ -53,4 +53,20 @@ import Testing
         #expect(ScanPhase.ready(scannedAt: t0).effective(now: t0 + 3600) == .none)
         #expect(ScanPhase.ready(scannedAt: t0).validityText(now: t0 + 3600) == nil)
     }
+    /// Tohum mockup'taki gibi `floor(hash01(yol + "#") · 1e9) + 11`; boyutlar (karıştırmadan önce çekilir)
+    /// tarayıcıdan bağımsız olarak mockup `genKids` ile aynı olmalı (WebKit dökümünden).
+    @Test func generatedSizesMatchMockup() {
+        let t = SampleSource(seed: 1).diskTree
+        let expected: [String: [Double]] = [
+            "Movies": [3.6873, 3.0061, 0.4029, 0.3837, 0.3094, 0.1893, 0.1213, 0.9],
+            "Pictures": [2.4058, 1.5922, 0.6190, 0.6117, 0.1713, 0.6],
+            ".npm": [1.4177, 1.3530, 0.6081, 0.3262, 0.0749, 0.42],
+            ".cache": [1.3842, 0.6933, 0.4281, 0.2845, 0.31],
+        ]
+        for (name, sizes) in expected {
+            let got = t.node(at: [name])?.children?.map(\.size) ?? []
+            #expect(got.count == sizes.count, "\(name)")
+            for (a, b) in zip(got, sizes) { #expect(abs(a - b) < 0.0001, "\(name)") }
+        }
+    }
 }

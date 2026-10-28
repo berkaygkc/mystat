@@ -57,4 +57,22 @@ import Testing
         #expect(e.hitTest(CGPoint(x: lib.x, y: lib.y), current: nil)?.name == "Library")
         #expect(e.hitTest(CGPoint(x: 2, y: 2), current: nil) == nil)
     }
+    /// Tarama sürerken balonlar yerinde büyür (spec §6.4 "Tarama sırasında"); bitince tam boyda.
+    @Test func scanGrowsBubblesInPlace() {
+        let e = BubbleEngine(tree: SampleSource(seed: 1).diskTree, path: [], viewSize: size)
+        let full = e.frame(at: 2, hover: nil, selection: { _ in .none })
+        e.scanProgress = 0.3
+        let part = e.frame(at: 2, hover: nil, selection: { _ in .none })
+        for (a, b) in zip(full.mains, part.mains) {
+            #expect(abs(a.x - b.x) < 1e-9 && abs(a.y - b.y) < 1e-9)
+            #expect(b.r > 0 && b.r < a.r)
+        }
+        #expect(part.droplets.count == full.droplets.count)
+        #expect(part.droplets[0].r < full.droplets[0].r)
+        e.scanProgress = 1
+        let done = e.frame(at: 2, hover: nil, selection: { _ in .none })
+        for (a, b) in zip(full.mains, done.mains) { #expect(abs(a.r - b.r) < 1e-9) }
+        #expect(BubbleEngine.scanGrowth(phase: 0.9, progress: 1) == 1)
+        #expect(BubbleEngine.scanGrowth(phase: 0.2, progress: 0) > 0)
+    }
 }

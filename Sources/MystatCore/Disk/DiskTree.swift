@@ -76,7 +76,9 @@ enum SampleGenerator {
 
     static func generate(_ n: DiskNode, path: [String]) {
         guard n.children == nil, n.canHaveChildren else { return }
-        var r = Mulberry32(seed: fnv1a(path.joined(separator: "/") + "#"))
+        // Mockup: rng(Math.floor(hash01(yol + '#') * 1e9) + 11), hash01 = (fnv % 1000) / 1000.
+        let h01 = Double(fnv1a(path.joined(separator: "/") + "#") % 1000) / 1000
+        var r = Mulberry32(seed: UInt32((h01 * 1e9).rounded(.down)) + 11)
         let nm = n.name
         var pool = "gen", fileP = 0.28
         if nm.hasPrefix("node_modules") { pool = "nm"; fileP = 0 }

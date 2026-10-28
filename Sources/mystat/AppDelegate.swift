@@ -20,6 +20,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel?.onVisibilityChange = { [weak self] open in self?.status?.isHighlighted = open }
         monitor = MonitorWindowController(source: source)
         installKeys()
+        #if DEBUG
+        if args.contains("--scan-ready") { monitor?.state.disk.scan = .ready(scannedAt: Date()) }   // haritayı taramasız denemek için
+        #endif
         if let i = args.firstIndex(of: "--section"), args.indices.contains(i + 1), let sec = MonitorSection(rawValue: args[i + 1]) {
             openMonitor(sec, nil)
         }

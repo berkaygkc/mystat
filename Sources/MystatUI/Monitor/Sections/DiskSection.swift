@@ -1,7 +1,7 @@
 import MystatCore
 import SwiftUI
 
-/// Disk (mockup `secDisk`). Harita alanı Task 18'de `BubbleMapView` ile dolar.
+/// Disk (mockup `secDisk`): doluluk, cam balon haritası, kenar menüsü ve disk etkinliği.
 struct DiskSection<Source: MetricsSource>: View {
     let source: Source
     @Bindable var state: MonitorState
@@ -16,7 +16,7 @@ struct DiskSection<Source: MetricsSource>: View {
             HStack(alignment: .top, spacing: 22) {
                 VStack(alignment: .leading, spacing: 0) {
                     crumbs.padding(.bottom, 10)
-                    DiskMapArea(disk: disk, homeGB: source.diskTree.root.size) { DiskMapPlaceholder() }
+                    DiskMapArea(disk: disk, homeGB: source.diskTree.root.size) { BubbleMapView(source: source, state: state) }
                 }
                 DiskSidePanel(source: source, disk: disk, state: state)
             }
@@ -178,12 +178,5 @@ struct DiskMapArea<Map: View>: View {
             }
         }
         .animation(.easeOut(duration: 0.3), value: disk.path.isEmpty)
-    }
-}
-
-/// Task 18'e kadar harita yerine geçen sakin yer tutucu.
-struct DiskMapPlaceholder: View {
-    var body: some View {
-        Text("Balon haritası").font(.system(size: 13)).foregroundStyle(Theme.ink3).frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

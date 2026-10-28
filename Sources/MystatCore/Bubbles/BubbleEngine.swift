@@ -52,6 +52,8 @@ public final class BubbleEngine {
     public private(set) var path: [String]
     public private(set) var items: [BubbleItem] = []
     public var isAnimating: Bool { anim != nil }
+    /// Tarama sürerken 0…1: balonlar yerinde büyür (spec §6.4). `nil` = tarama yok.
+    public var scanProgress: Double?
 
     private let tree: DiskTree
     private var size: CGSize
@@ -106,6 +108,11 @@ public final class BubbleEngine {
         computeGeometry()
         anim = nil
         items = layout(path)
+    }
+
+    /// Taramanın `progress` anında bir balonun ulaştığı boyut oranı; evreye göre farklı hızda, sonunda 1.
+    public static func scanGrowth(phase: Double, progress: Double) -> Double {
+        min(1, max(0.04, progress * 1.3 - phase * 0.3))
     }
 
     /// Mockup'taki `hash01`: FNV-1a, 1000'e göre.
@@ -229,16 +236,17 @@ public final class BubbleEngine {
             var o = off[it.id] ?? .zero
             if let f = fly { o.x += (it.x - f.x) * f.k; o.y += (it.y - f.y) * f.k }
             let (sx, sy) = S(it.x + dr.x + o.x, it.y + dr.y + o.y)
+            let k = scanProgress.map { sqrt(Self.scanGrowth(phase: it.phase, progress: $0)) } ?? 1
             let sel: Double
             if atRest, items.contains(where: { $0.id == it.id }) {
                 switch selection(it.id.split(separator: "/").map(String.init)) { case .selected: sel = 1; case .implied: sel = 0.5; case .none: sel = 0 }
             } else { sel = 0 }
-            mains.append(MainBubble(item: it, x: sx, y: sy, r: it.r * cam.s, alpha: a * (it.kind == .other ? 0.8 : 1), hover: hov,
+            mains.append(MainBubble(item: it, x: sx, y: sy, r: it.r * cam.s * k, alpha: a * (it.kind == .other ? 0.8 : 1), hover: hov,
                                     amp: 0.018 * boost * (1 + 0.6 * hov) * ampMul, selection: sel))
             if pa > 0.004 {
                 for g in it.kids {
                     let (gx, gy) = S(g.x + dr.x + o.x, g.y + dr.y + o.y)
-                    drops.append(Droplet(x: gx, y: gy, r: g.r * cam.s, alpha: pa))
+                    drops.append(Droplet(x: sx + (gx - sx) * k, y: sy + (gy - sy) * k, r: g.r * cam.s * k, alpha: pa))
                 }
             }
         }

@@ -3,7 +3,7 @@ import MystatCore
 import MystatUI
 import SwiftUI
 
-/// `mystat --snapshot <menubar|panel|monitor> --out x.png [--dark] [--incident] [--kind k] [--section s] [--size WxH] [--scan s]`
+/// `mystat --snapshot <menubar|panel|monitor|bubbles|charts> --out x.png [--dark] [--incident] [--kind k] [--section s] [--size WxH] [--scan s]`
 /// Görünümü ekran dışı bir pencerede çizip PNG'ye yazar; mockup karşılaştırması içindir.
 @MainActor
 enum SnapshotMode {
@@ -12,6 +12,7 @@ enum SnapshotMode {
         var dark = false, incident = false
         var kind: IncidentKind = .cpu
         var section = "overview", scan = "ready", confirm = "", toast = ""
+        var bmPath: [String] = [], bmSelect: [[String]] = [], bmZoom: String?, bmP = 0.0, bmHover: String?
         var size = CGSize(width: 1400, height: 900)
     }
 
@@ -29,6 +30,11 @@ enum SnapshotMode {
             case "--scan": o.scan = next()
             case "--confirm": o.confirm = next()
             case "--toast": o.toast = next()
+            case "--bm-path": o.bmPath = next().split(separator: "/").map(String.init)
+            case "--bm-select": o.bmSelect = next().split(separator: ",").map { $0.split(separator: "/").map(String.init) }
+            case "--bm-zoom": o.bmZoom = next()
+            case "--bm-p": o.bmP = Double(next()) ?? 0
+            case "--bm-hover": o.bmHover = next()
             case "--size":
                 let p = next().split(separator: "x").compactMap { Double($0) }
                 if p.count == 2 { o.size = CGSize(width: p[0], height: p[1]) }
@@ -87,10 +93,21 @@ enum SnapshotMode {
                 state.disk.toggle(["Downloads", "Xcode_26.2.xip"], tree: source.diskTree)
             }
             return AnyView(MonitorView(source: source, state: state)
+                .environment(\.bubbleStill, BubbleStill())
                 .frame(width: o.size.width - 92, height: o.size.height - 96)
                 .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
                 .shadow(color: .black.opacity(0.35), radius: 40, y: 30)
                 .padding(.top, 56))
+        case "bubbles":
+            // Yalnızca harita, mockup karesiyle aynı boyutta: --bm-path, --bm-select, --bm-zoom, --bm-p, --bm-hover
+            let state = MonitorState()
+            state.go(.disk)
+            state.disk.scan = o.scan == "scanning" ? .scanning(progress: 0.55, scannedGB: 128, currentPath: "~/Library/Caches") : .ready(scannedAt: Date())
+            state.disk.path = o.bmPath
+            for p in o.bmSelect { state.disk.toggle(p, tree: source.diskTree) }
+            return AnyView(BubbleMapView(source: source, state: state)
+                .environment(\.bubbleStill, BubbleStill(zoom: o.bmZoom, progress: o.bmP, hover: o.bmHover))
+                .frame(width: o.size.width, height: o.size.height))
         case "charts":
             let cpu = source.series(.cpu, range: .m10), sys = source.series(.cpuSystem, range: .m10)
             let red = source.snapshot.incident != nil
