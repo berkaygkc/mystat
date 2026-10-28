@@ -93,4 +93,33 @@ import Testing
         #expect(h.lede == "Swap 2,5 GB'a çıktı.")
         #expect(MonitorPresentation.incidentSentence(s) == "Bellek baskısı 9 dakikadır orta.")
     }
+
+    /// Docker olayının metni nedene göre: yoğun, sürekli yeniden başlıyor, sağlıksız.
+    @Test func dockerCopyFollowsCause() {
+        func snap(_ health: String, _ name: String, _ value: String, project: String, level: Level, others: [Container] = []) -> Snapshot {
+            var s = SampleSource(seed: 1).snapshot
+            s.docker.containers = others
+            s.incident = Incident(kind: .docker, level: level, startedAt: "10:00", minutes: 3, peakPercent: 62, culpritIDs: [name],
+                                  culpritValues: [value], culpritUnit: "CPU",
+                                  facts: [Fact("Proje", project), Fact("Süre", "3 dk"), Fact("Sağlık", health)])
+            return s
+        }
+        let busy = snap("sağlıklı", "verifier", "%62", project: "deploy", level: .warn,
+                        others: [Container(name: "verifier", image: "i", cpuPercent: 62, memoryMB: 1, healthy: true, uptime: "", project: "deploy"),
+                                 Container(name: "pg", image: "i", cpuPercent: 35, memoryMB: 1, healthy: true, uptime: "", project: "deploy")])
+        #expect(GroupPresentation.panelHeadline(busy).lede == "deploy projesinde %62 CPU kullanıyor.")
+        #expect(StatusBlockLayout.alert(busy) == StatusMetric(label: "DOCKER", value: "%62", level: .warn))
+
+        let loop = snap("yeniden başlıyor", "authgate", "yeniden başlıyor", project: "infra", level: .crit)
+        let h = GroupPresentation.panelHeadline(loop)
+        #expect(String(h.title.characters) == "authgate sürekli yeniden başlıyor.")
+        #expect(h.lede == "infra projesinde; Docker onu tekrar tekrar başlatıyor.")
+        #expect(MonitorPresentation.incidentSentence(loop) == "authgate 3 dakikadır yeniden başlıyor.")
+        #expect(StatusBlockLayout.alert(loop) == StatusMetric(label: "DOCKER", value: "hata", level: .crit))
+
+        let sick = snap("sağlıksız", "api", "sağlıksız", project: "deploy", level: .crit)
+        #expect(String(GroupPresentation.panelHeadline(sick).title.characters) == "api sağlıksız.")
+        #expect(GroupPresentation.panelHeadline(sick).lede == "deploy projesinde; sağlık denetimi başarısız.")
+        #expect(MonitorPresentation.incidentSentence(sick) == "api 3 dakikadır sağlıksız.")
+    }
 }

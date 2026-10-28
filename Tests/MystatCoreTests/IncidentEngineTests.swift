@@ -111,4 +111,36 @@ import Testing
         #expect(TurkishSuffix.genitive(after: "90") == "'ın" && TurkishSuffix.genitive(after: "70") == "'in")
         #expect(TurkishSuffix.genitive(after: "80") == "'in" && TurkishSuffix.genitive(after: "60") == "'ın")
     }
+
+    func container(_ name: String, cpu: Double, project: String = "deploy", restarting: Bool = false, healthy: Bool = true) -> Container {
+        Container(name: name, image: "img", cpuPercent: cpu, memoryMB: 100, healthy: healthy, uptime: "2 gün", project: project,
+                  dockerID: name, restarting: restarting)
+    }
+
+    /// §7.2 Docker: bir container ≥ %50 CPU, 2 dk boyunca → dikkat.
+    @Test func dockerBusyAfterTwoMinutes() {
+        var e = IncidentEngine()
+        var i = inputs()
+        i.containers = [container("acmecorp-verifier", cpu: 62), container("pg", cpu: 4)]
+        #expect(run(&e, i, from: 0, seconds: 118) == nil)
+        let inc = e.update(i, at: t0.addingTimeInterval(120))
+        #expect(inc?.kind == .docker && inc?.level == .warn)
+        #expect(inc?.culpritIDs == ["acmecorp-verifier"] && inc?.culpritValues == ["%62"] && inc?.culpritUnit == "CPU")
+        #expect(inc?.facts.first { $0.label == "Proje" }?.value == "deploy" && inc?.facts.first { $0.label == "Sağlık" }?.value == "sağlıklı")
+    }
+
+    /// Sürekli yeniden başlama ya da unhealthy → kritik (30 sn süreklilik); düzelince 30 sn sonra biter.
+    @Test func dockerRestartingIsCritical() {
+        var e = IncidentEngine()
+        var bad = inputs()
+        bad.containers = [container("authgate", cpu: 0, project: "infra", restarting: true)]
+        #expect(run(&e, bad, from: 0, seconds: 28) == nil)
+        let inc = e.update(bad, at: t0.addingTimeInterval(30))
+        #expect(inc?.kind == .docker && inc?.level == .crit && inc?.culpritValues == ["yeniden başlıyor"])
+        #expect(inc?.facts.first { $0.label == "Sağlık" }?.value == "yeniden başlıyor")
+        var ok = inputs()
+        ok.containers = [container("authgate", cpu: 1, project: "infra")]
+        #expect(run(&e, ok, from: 32, seconds: 28)?.kind == .docker)
+        #expect(e.update(ok, at: t0.addingTimeInterval(62)) == nil)
+    }
 }

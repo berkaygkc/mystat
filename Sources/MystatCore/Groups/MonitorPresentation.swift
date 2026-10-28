@@ -41,7 +41,12 @@ public enum MonitorPresentation {
             let lost = GroupPresentation.fact(inc, "Son 24 sa").map { "; son 24 saatte \($0.trimmingCharacters(in: ["−", "-"])) azaldı" } ?? ""
             return "Diskte \(Fmt.int(s.disk.freeGB)) GB kaldı\(lost)."
         case .docker:
-            return "\(inc.culpritIDs.first ?? "") \(m) dakikadır \(inc.culpritValues.first ?? "") CPU kullanıyor."
+            let who = inc.culpritIDs.first ?? "Bir container"
+            switch GroupPresentation.fact(inc, "Sağlık") {
+            case "yeniden başlıyor": return "\(who) \(m) dakikadır yeniden başlıyor."
+            case "sağlıksız": return "\(who) \(m) dakikadır sağlıksız."
+            default: return "\(who) \(m) dakikadır \(inc.culpritValues.first ?? "") CPU kullanıyor."
+            }
         case .heat:
             return s.capabilities.sensors ? "Çip \(m) dakikadır ısınıyor; fanlar \(Fmt.int(s.system.fanRPM)) dev/dk ile dönüyor."
                                           : "Çip \(m) dakikadır ısınıyor; termal durum \(s.system.thermal.thermalWord.lowercased(with: Fmt.tr))."

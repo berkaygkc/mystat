@@ -57,7 +57,10 @@ public enum StatusBlockLayout {
             return StatusMetric(label: "ISI", value: value, level: s.system.thermal == .ok ? inc.level : s.system.thermal)
         }
         if inc.kind == .battery, let drain = s.system.batteryDrain30m { return StatusMetric(label: "PİL", value: "−" + Fmt.pct(drain), level: .warn) }
-        if inc.kind == .docker { return StatusMetric(label: "DOCKER", value: inc.culpritValues.first ?? "", level: inc.level) }
+        if inc.kind == .docker {   // yüzde değilse (yeniden başlama, sağlıksız) kısa durum
+            let v = inc.culpritValues.first ?? ""
+            return StatusMetric(label: "DOCKER", value: v.hasPrefix("%") ? v : "hata", level: inc.level)
+        }
         return nil
     }
 

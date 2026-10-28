@@ -59,8 +59,19 @@ public enum GroupPresentation {
             if !writer.isEmpty { parts.append(writer + ".") }
             return (kicker, title(before: "Diskte ", emph: "\(Fmt.int(s.disk.freeGB)) GB", rest: " kaldı."), parts.joined(separator: " "))
         case .docker:
-            return (kicker, title(emph: inc.culpritIDs[0], rest: " \(inc.minutes) dakikadır yoğun."),
-                    "\(fact(inc, "Proje") ?? "Docker") projesinde \(inc.culpritValues[0]) CPU kullanıyor. Diğer container'lar sakin.")
+            let who = inc.culpritIDs.first ?? "Bir container"
+            let inProject = fact(inc, "Proje").flatMap { $0 == "—" ? nil : "\($0) projesinde" }
+            switch fact(inc, "Sağlık") {
+            case "yeniden başlıyor":
+                return (kicker, title(emph: who, rest: " sürekli yeniden başlıyor."),
+                        inProject.map { "\($0); Docker onu tekrar tekrar başlatıyor." } ?? "Docker onu tekrar tekrar başlatıyor.")
+            case "sağlıksız":
+                return (kicker, title(emph: who, rest: " sağlıksız."), inProject.map { "\($0); sağlık denetimi başarısız." } ?? "Sağlık denetimi başarısız.")
+            default:
+                let othersCalm = !s.docker.containers.contains { $0.name != who && $0.cpuPercent >= 30 }
+                return (kicker, title(emph: who, rest: " \(inc.minutes) dakikadır yoğun."),
+                        (inProject.map { $0 + " " } ?? "") + "\(inc.culpritValues.first ?? "") CPU kullanıyor." + (othersCalm ? " Diğer container'lar sakin." : ""))
+            }
         case .heat:
             let fans = s.capabilities.sensors ? "Fanlar \(Fmt.int(s.system.fanRPM)) dev/dk ile dönüyor. " : ""
             let slow = s.system.thermal == .crit ? "macOS işlemciyi yavaşlatıyor." : "macOS henüz yavaşlatmaya başlamadı."

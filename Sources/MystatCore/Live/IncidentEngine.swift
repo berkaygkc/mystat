@@ -15,16 +15,20 @@ public struct IncidentInputs: Sendable {
     public var memoryGrowthGB: [String: Double]
     /// Grup id → son 1 saatte diske yazılan (GB).
     public var diskWrittenGB1h: [String: Double]
+    /// Çalışan container'lar (Docker çalışmıyorsa boş).
+    public var containers: [Container]
 
     public init(cpu: CPUState, memory: MemoryState, swapGrowing: Bool, disk: DiskState, groups: [ProcessGroup], thermal: Level,
-                batteryDrain30m: Double?, onAC: Bool, memoryGrowthGB: [String: Double], diskWrittenGB1h: [String: Double]) {
+                batteryDrain30m: Double?, onAC: Bool, memoryGrowthGB: [String: Double], diskWrittenGB1h: [String: Double],
+                containers: [Container] = []) {
+        self.containers = containers
         self.cpu = cpu; self.memory = memory; self.swapGrowing = swapGrowing; self.disk = disk; self.groups = groups
         self.thermal = thermal; self.batteryDrain30m = batteryDrain30m; self.onAC = onAC
         self.memoryGrowthGB = memoryGrowthGB; self.diskWrittenGB1h = diskWrittenGB1h
     }
 }
 
-/// Süreklilik süreli olaylar (spec §7.2, §7.2.1). Docker türü 2b'de eklenir.
+/// Süreklilik süreli olaylar (spec §7.2, §7.2.1).
 /// - Olay, koşul başladığında başlar (başlangıç saati o an); süre dolunca görünür.
 /// - Koşul eşiğin altında 30 sn kalınca biter. Uzun aralıkta (uyku) bütün süreklilik sıfırlanır.
 /// - Birden fazla olay varsa kritik, eşitlikte en eski öne çıkar.
@@ -36,6 +40,8 @@ public struct IncidentEngine: Sendable {
 
     private var since: [IncidentKind: Since] = [:]
     private var groupSince: [String: Since] = [:]
+    /// Container başına: yoğunluk (≥ %50, 120 sn) ve sorun (yeniden başlama/unhealthy, 30 sn) ayrı tutulur.
+    private var busySince: [String: Since] = [:], troubleSince: [String: Since] = [:]
     private var active: [IncidentKind: Active] = [:]
     private var last: Date?
 
@@ -73,6 +79,19 @@ public struct IncidentEngine: Sendable {
         let bat = level(drain > 35, drain > 20)
         step(.battery, instant: bat, sustained: bat, metric: drain, now)
 
+        var dockerLevel = Level.ok, dockerSustained = Level.ok, dockerPeak = 0.0
+        for c in i.containers {
+            let trouble: Level = c.restarting || !c.healthy ? .crit : .ok, busy: Level = c.cpuPercent >= 50 ? .warn : .ok
+            dockerLevel = max(dockerLevel, trouble, busy)
+            dockerPeak = max(dockerPeak, c.cpuPercent)
+            dockerSustained = max(dockerSustained, sustain(&troubleSince[c.id, default: Since()], trouble, now, after: 30),
+                                  sustain(&busySince[c.id, default: Since()], busy, now, after: 120))
+        }
+        let ids = Set(i.containers.map(\.id))
+        busySince = busySince.filter { ids.contains($0.key) }
+        troubleSince = troubleSince.filter { ids.contains($0.key) }
+        step(.docker, instant: dockerLevel, sustained: dockerSustained, metric: dockerPeak, now)
+
         guard let (kind, a) = active.sorted(by: { $0.value.level != $1.value.level ? $0.value.level > $1.value.level : $0.value.start < $1.value.start }).first
         else { return nil }
         return incident(kind, a, i, now)
@@ -103,8 +122,11 @@ public struct IncidentEngine: Sendable {
             }
             active[k] = a
         } else if sustained >= .warn {
-            let onset = k == .cpu ? ([since[.cpu]?.warn] + groupSince.values.map(\.warn)).compactMap { $0 }.min()
-                                  : since[k]?.warn
+            let onset = switch k {
+            case .cpu: ([since[.cpu]?.warn] + groupSince.values.map(\.warn)).compactMap { $0 }.min()
+            case .docker: (busySince.values.map(\.warn) + troubleSince.values.map(\.crit)).compactMap { $0 }.min()
+            default: since[k]?.warn
+            }
             active[k] = Active(start: onset ?? now, level: sustained, peak: metric)
         }
     }
@@ -132,7 +154,18 @@ public struct IncidentEngine: Sendable {
             let t = top(i.diskWrittenGB1h, 2, min: 0.1)
             ids = t.map(\.0); values = t.map { $0.1 >= 10 ? Fmt.int($0.1) : Fmt.dec1($0.1) }; unit = "GB yazdı"
             facts = [Fact("Boş alan", Fmt.int(i.disk.freeGB) + " GB"), Fact("Sistemin boşaltabileceği", Fmt.int(i.disk.purgeableGB) + " GB")]
-        case .heat, .battery, .docker:
+        case .docker:
+            let bad = i.containers.filter { $0.restarting || !$0.healthy }
+            let trouble = a.level == .crit && !bad.isEmpty
+            let shown = trouble ? Array(bad.prefix(3)) : Array(i.containers.filter { $0.cpuPercent >= 50 }.sorted { $0.cpuPercent > $1.cpuPercent }.prefix(3))
+            ids = shown.map(\.name)
+            values = shown.map { trouble ? ($0.restarting ? "yeniden başlıyor" : "sağlıksız") : Fmt.pct($0.cpuPercent) }
+            unit = trouble ? "" : "CPU"
+            let first = shown.first
+            let health = first.map { $0.restarting ? "yeniden başlıyor" : $0.healthy ? "sağlıklı" : "sağlıksız" } ?? "sağlıklı"
+            facts = [Fact("Proje", first.map { $0.project.isEmpty ? "—" : $0.project } ?? "—"),
+                     Fact("Süre", "\(Int(now.timeIntervalSince(a.start) / 60)) dk"), Fact("Sağlık", health)]
+        case .heat, .battery:
             // Enerji (W) 2c'de; o zamana kadar sorumlu CPU'ya göre.
             ids = byCPU.map(\.id); values = byCPU.map { Fmt.dec1($0.cpuCores) }; unit = "çekirdek"
             facts = k == .battery ? [Fact("Erime", "30 dk'da " + Fmt.pct(a.peak)), Fact("Şarj", "prizde değil")]
