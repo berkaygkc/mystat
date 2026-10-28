@@ -22,6 +22,11 @@ public enum SystemPresentation {
          ("Bellek", "Paylaşımlı"), ("Ekranlar", s.displays > 0 ? String(s.displays) : "—")]
     }
 
+    /// GPU kartının durum hapı: kullanım ≥ %70 "Yoğun".
+    public static func gpuPill(_ s: SystemState) -> (String, Level) { s.gpuPercent >= 70 ? ("Yoğun", .warn) : ("Sakin", .ok) }
+
+    public static func wattsText(_ g: ProcessGroup) -> String { Fmt.dec1(g.watts) + " W" }
+
     /// Watt'a göre azalan; toplu macOS satırı ve 0 W gruplar hariç.
     public static func energyTop(_ groups: [ProcessGroup], n: Int) -> [ProcessGroup] {
         Array(groups.filter { $0.id != "sys:macos" && $0.watts > 0 }.sorted { $0.watts > $1.watts }.prefix(n))

@@ -1,3 +1,4 @@
+import AppKit
 import MystatCore
 import SwiftUI
 
@@ -18,10 +19,10 @@ struct SystemSection<Source: MetricsSource>: View {
                 if s.capabilities.sensors {
                     card(title: "Isı ve fan", pill: Pill(text: warm ? "Ilık" : "Normal", level: sys.thermal),
                          big: Fmt.int(sys.chipTemp), unit: "°C", bigLevel: sys.thermal,
-                         label: "Çip ortalaması · fan " + (sys.fanRPM > 0 ? Fmt.int(sys.fanRPM) + " dev/dk" : "duruyor"),
+                         label: "Çip ortalaması · fan " + SystemPresentation.fanText(sys),
                          series: ChartSeries(source.series(.temp, range: state.range), color: warm ? Theme.orange : Theme.chart, fill: true, name: "°C"),
                          max: 105, format: { Fmt.int($0) + "°" },
-                         facts: [("İşlemci", Fmt.int(sys.chipTemp) + "°"), ("GPU", Fmt.int(sys.gpuTemp) + "°"), ("SSD", Fmt.int(sys.ssdTemp) + "°"),
+                         facts: [("İşlemci", Fmt.int(sys.chipTemp) + "°"), ("GPU", degrees(sys.gpuTemp)), ("SSD", degrees(sys.ssdTemp)),
                                  ("Yavaşlatma", warm ? "Henüz yok" : "Yok")])
                 } else {
                     // Sensörler 2c'de: sahte sıcaklık yerine termal durum.
@@ -32,18 +33,19 @@ struct SystemSection<Source: MetricsSource>: View {
                 }
                 card(title: "Güç ve pil", pill: Pill(text: onBattery ? "Pilde" : "Prizde", level: onBattery ? .warn : .ok),
                      big: String(sys.battery), unit: "%", bigLevel: onBattery ? .warn : .ok,
-                     label: s.capabilities.sensors ? (sys.battery == 100 ? "Tam dolu" : "Pil") + " · şu an \(Fmt.int(sys.watts)) W harcanıyor"
+                     label: s.capabilities.sensors && sys.watts > 0 ? (sys.battery == 100 ? "Tam dolu" : "Pil") + " · şu an \(Fmt.int(sys.watts)) W harcanıyor"
                                                    : sys.charging && sys.battery < 100 ? "Şarj oluyor" : sys.battery == 100 ? "Tam dolu" : "Pil",
                      series: ChartSeries(s.capabilities.sensors ? source.series(.power, range: state.range) : [], color: Theme.chart, fill: true, name: "W"),
                      max: 100, format: { Fmt.int($0) + " W" },
                      facts: [("Adaptör", sys.adapter), ("Pil sağlığı", sys.health), ("Döngü", String(sys.cycles)), ("Kapasite", sys.capacity)])
                 if s.capabilities.sensors {
-                    card(title: "GPU", pill: Pill(text: "Sakin", level: .ok),
-                         big: Fmt.int(sys.gpuPercent), unit: "%", bigLevel: .ok,
-                         label: "\(sys.gpuCores) çekirdekli GPU · \(Fmt.int(sys.gpuTemp))°",
+                    let pill = SystemPresentation.gpuPill(sys)
+                    card(title: "GPU", pill: Pill(text: pill.0, level: pill.1),
+                         big: Fmt.int(sys.gpuPercent), unit: "%", bigLevel: pill.1,
+                         label: "\(sys.gpuCores) çekirdekli GPU" + (sys.gpuTemp > 0 ? " · \(Fmt.int(sys.gpuTemp))°" : ""),
                          series: ChartSeries(source.series(.gpu, range: state.range), color: Theme.chart, fill: true, name: "GPU"),
                          max: 100, format: Fmt.pct,
-                         facts: [("En çok kullanan", "WindowServer"), ("İkinci", "Brave Browser"), ("Bellek", "Paylaşımlı"), ("Ekranlar", "2")])
+                         facts: SystemPresentation.gpuFacts(withDisplays(sys)))
                 } else {
                     card(title: "GPU", pill: Pill(text: "—", level: .ok), big: "—", unit: "", bigLevel: .ok, label: "sensörler bağlanmadı",
                          series: ChartSeries([], color: Theme.chart, fill: true, name: "GPU"), max: 100, format: Fmt.pct, facts: [])
@@ -69,18 +71,27 @@ struct SystemSection<Source: MetricsSource>: View {
         .frame(maxWidth: .infinity)
     }
 
+    private func degrees(_ t: Double) -> String { t > 0 ? Fmt.int(t) + "°" : "—" }
+
+    /// Canlı kaynak ekran sayısını bilmez; arayüz NSScreen'den tamamlar (örnek veride sabit 2).
+    private func withDisplays(_ s: SystemState) -> SystemState {
+        var s = s
+        if s.displays == 0 { s.displays = NSScreen.screens.count }
+        return s
+    }
+
     private func energy(_ s: Snapshot) -> some View {
-        let top = GroupPresentation.sorted(s.groups, by: .cpu).prefix(5)
-        let maxC = top.first?.cpuCores ?? 1
+        let top = SystemPresentation.energyTop(s.groups, n: 5)
+        let maxW = max(0.001, top.first?.watts ?? 1)
         return VStack(alignment: .leading, spacing: 0) {
-            SecH("En çok enerji harcayanlar", note: "son \(state.range.title)")
+            SecH("En çok enerji harcayanlar", note: "son 10 dk")   // grup watt'ı 10 dk penceresinin ortalaması
             ForEach(Array(top.enumerated()), id: \.offset) { i, g in
                 HStack(spacing: 10) {
                     Text("\(i + 1)").foregroundStyle(Theme.ink3).frame(width: 16, alignment: .leading)
                     Text("\(Text(g.name).fontWeight(.semibold).foregroundColor(Theme.ink))  \(Text(g.context).foregroundColor(Theme.ink2))")
                         .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
-                    Bar(fraction: g.cpuCores / maxC, color: g.cpuCores >= 2 ? Theme.red : Theme.chart.opacity(0.7), height: 4).frame(width: 140)
-                    Text(Fmt.dec1(g.cpuCores * 6.2) + " W").monospacedDigit().foregroundStyle(Theme.ink2).frame(width: 70, alignment: .trailing)
+                    Bar(fraction: g.watts / maxW, color: g.cpuCores >= 2 ? Theme.red : Theme.chart.opacity(0.7), height: 4).frame(width: 140)
+                    Text(SystemPresentation.wattsText(g)).monospacedDigit().foregroundStyle(Theme.ink2).frame(width: 70, alignment: .trailing)
                 }
                 .font(.system(size: 13)).padding(.vertical, 9).hairlineTop(Theme.line2)
                 .contentShape(Rectangle())

@@ -46,7 +46,7 @@ public struct GroupHistory: Sendable {
     /// Süreçler kapalı panelde 5 sn'de bir okunur; boşluk eşiği 3 tempo.
     public static let gap: TimeInterval = 15
 
-    private struct Point: Sendable { let t: Date; let cores: Double; let mem: Double }
+    private struct Point: Sendable { let t: Date; let cores: Double; let mem: Double; let watts: Double }
     private var points: [String: [Point]] = [:]
     private var writes: [String: [Int64: UInt64]] = [:]   // dakika → bayt
     private var last: Date?
@@ -57,7 +57,7 @@ public struct GroupHistory: Sendable {
     public mutating func add(_ groups: [ProcessGroup], writtenBytes: [String: UInt64], at: Date) {
         if let l = last, at.timeIntervalSince(l) > Self.gap { points.removeAll(); writes.removeAll() }
         last = at
-        for g in groups { points[g.id, default: []].append(Point(t: at, cores: g.cpuCores, mem: g.memoryGB)) }
+        for g in groups { points[g.id, default: []].append(Point(t: at, cores: g.cpuCores, mem: g.memoryGB, watts: g.watts)) }
         let minute = Int64((at.timeIntervalSince1970 / 60).rounded(.down))
         for (id, b) in writtenBytes where b > 0 { writes[id, default: [:]][minute, default: 0] &+= b }
         let cut = at.addingTimeInterval(-Self.window)
@@ -77,6 +77,11 @@ public struct GroupHistory: Sendable {
     /// Pencerenin başından bu yana ayak izi değişimi (GB).
     public func memoryGrowthGB() -> [String: Double] {
         points.compactMapValues { ps in ps.count > 1 ? ps.last!.mem - ps.first!.mem : nil }
+    }
+
+    /// Pencere (10 dk) boyunca ortalama watt: "En çok enerji harcayanlar · son 10 dk".
+    public func wattsAverage() -> [String: Double] {
+        points.mapValues { ps in ps.reduce(0) { $0 + $1.watts } / Double(ps.count) }
     }
 
     /// Son 1 saatte yazılan (GB, ondalık).

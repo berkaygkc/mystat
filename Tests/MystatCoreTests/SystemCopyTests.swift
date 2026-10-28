@@ -53,4 +53,25 @@ import Testing
         s.system.fanCount = 0
         #expect(!SectionText.system(s).lede.contains("Fanlar"))
     }
+
+    @Test func gpuPillLevels() {
+        var s = calm.system
+        s.gpuPercent = 28
+        #expect(SystemPresentation.gpuPill(s) == ("Sakin", .ok))
+        s.gpuPercent = 82
+        #expect(SystemPresentation.gpuPill(s) == ("Yoğun", .warn))
+    }
+
+    /// "En çok enerji harcayanlar · son 10 dk": grupların watt'ı 10 dk penceresinin ortalaması.
+    @Test func energyListUsesTenMinuteAverage() {
+        var h = GroupHistory()
+        var g = calm.groups[0]
+        let t0 = Date(timeIntervalSince1970: 1_793_163_600)
+        g.watts = 2
+        h.add([g], writtenBytes: [:], at: t0)
+        g.watts = 4
+        h.add([g], writtenBytes: [:], at: t0.addingTimeInterval(5))
+        #expect(h.wattsAverage()[g.id] == 3)
+        #expect(SystemPresentation.wattsText(g) == "4,0 W")
+    }
 }

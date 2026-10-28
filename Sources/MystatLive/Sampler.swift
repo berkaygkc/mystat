@@ -198,6 +198,8 @@ public actor Sampler {
         var byGroup: [String: UInt64] = [:]
         for g in groups { byGroup[g.id] = g.pids.reduce(0) { $0 &+ (delta[$1] ?? 0) } }
         groupHistory.add(groups, writtenBytes: byGroup, at: now)
+        let avg = groupHistory.wattsAverage()   // anlık watt çok oynak: liste ve olay sorumluları 10 dk ortalamasıyla
+        for i in groups.indices { groups[i].watts = avg[groups[i].id] ?? groups[i].watts }
         lastProc = now
     }
 
