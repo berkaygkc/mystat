@@ -35,15 +35,28 @@ struct DiskSidePanel<Source: MetricsSource>: View {
             } else if case .none = source.diskScan.effective(now: Date()) {
                 Text("Harita için önce taramayı başlat.").font(.system(size: 12)).foregroundStyle(Theme.ink3)
             } else {
-                ForEach(kids.sorted { $0.size > $1.size }, id: \.name) { c in row(c, tree: tree) }
+                let sorted = kids.sorted { $0.size > $1.size }
+                if sorted.count > Self.plainRows {   // gerçek taramada binlerce satır olabilir (node_modules)
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 0) {
+                            ForEach(sorted.indices, id: \.self) { i in row(sorted[i], tree: tree) }
+                        }
+                    }
+                    .frame(height: CGFloat(Self.plainRows) * Self.rowHeight)
+                } else {
+                    ForEach(sorted, id: \.name) { c in row(c, tree: tree) }
+                }
                 basket(tree).padding(.top, 14)
             }
         }
         .frame(width: 300, alignment: .leading)
     }
 
+    static var plainRows: Int { 12 }
+    static var rowHeight: CGFloat { 33 }
+
     private var scanProgress: Double? {
-        if case .scanning(let p, _, _) = source.diskScan { return p }
+        if source.diskScanSimulated, case .scanning(let p, _, _) = source.diskScan { return p }
         return nil
     }
 
@@ -56,13 +69,19 @@ struct DiskSidePanel<Source: MetricsSource>: View {
         let st = disk.basket.state(of: p)
         let other = c.kind == .other
         let folder = c.canHaveChildren
+        let locked = DeletionGuard.reason(path: p)
+        var name = c.name
+        if case .other(let n)? = c.ref { name += " · \(Fmt.int(Double(n))) küçük dosya" }
         return HStack(spacing: 8) {
             Group {
-                if other { Color.clear } else { CheckCircle(state: st) { disk.toggle(p, tree: tree) } }
+                if other { Color.clear }
+                else if let locked {   // korunuyor (§6.4): seçilemez, içi seçilebilir
+                    Image(systemName: "lock.fill").font(.system(size: 9.5, weight: .semibold)).foregroundStyle(Theme.ink3).help(locked)
+                } else { CheckCircle(state: st) { disk.toggle(p, tree: tree) } }
             }
             .frame(width: 18, height: 18)
             Circle().fill(Theme.kindColor(c.kind)).frame(width: 8, height: 8)
-            Text(c.name).font(.system(size: 13, weight: .medium)).foregroundStyle(other ? Theme.ink2 : Theme.ink).lineLimit(1).truncationMode(.middle)
+            Text(name).font(.system(size: 13, weight: .medium)).foregroundStyle(other ? Theme.ink2 : Theme.ink).lineLimit(1).truncationMode(.middle)
             Spacer(minLength: 6)
             Text(Fmt.size(scanned(c))).font(.system(size: 12.5).monospacedDigit()).foregroundStyle(Theme.ink2)
             Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.ink3).opacity(folder ? 1 : 0).frame(width: 16)

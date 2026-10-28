@@ -180,4 +180,63 @@ import Testing
         for l in m.labels { #expect(l.x * 2 == (l.x * 2).rounded() && l.y * 2 == (l.y * 2).rounded()) }
         #expect(changes < 30)
     }
+
+    // MARK: Gerçek tarama (Faz 2d)
+
+    /// Canlı taramada balonlar benzetimle küçültülmez; ağaç büyüdükçe yeniden yerleşir.
+    @Test func liveScanGrowsByRelayoutNotSimulation() throws {
+        let src = SampleSource(seed: 1); src.diskScanSimulated = false
+        let idx = ScanIndex(rootName: "~")
+        let a = idx.addDirectory(parent: 0, name: "a", fileID: 1)
+        idx.addFiles(dir: a, big: [], smallBytes: 5_000_000_000, smallCount: 1)
+        let tree = DiskTree.scanned(idx); _ = tree.node(at: [])
+        src.diskTree = tree
+        src.diskScan = .scanning(progress: 0.3, scannedGB: 5, currentPath: "~")
+        let st = MonitorState(); st.go(.disk)
+        let m = BubbleMapModel(source: src, state: st)
+        let scanning = try #require(m.frame(at: 0, size: size)?.mains.first?.r)
+        src.diskScan = .ready(scannedAt: Date())
+        let ready = try #require(BubbleMapModel(source: src, state: st).frame(at: 0, size: size)?.mains.first?.r)
+        #expect(abs(scanning - ready) < 0.5)
+        src.diskScan = .scanning(progress: 0.3, scannedGB: 5, currentPath: "~")
+        let b = idx.addDirectory(parent: 0, name: "b", fileID: 2)
+        idx.addFiles(dir: b, big: [], smallBytes: 3_000_000_000, smallCount: 1)
+        tree.refresh()
+        src.diskScan = .scanning(progress: 0.5, scannedGB: 8, currentPath: "~/b")
+        _ = m.frame(at: 2.5, size: size)
+        let f = try #require(m.frame(at: 4, size: size))
+        #expect(Set(f.mains.map(\.item.name)) == ["a", "b"])
+    }
+
+    /// Kaynağın ağacı değişince (tarama başladı, önbellekten yüklendi) harita yeni ağaçla kurulur; yol yoksa köke.
+    @Test func treeSwapRebuildsEngine() throws {
+        let (src, st, m) = make()
+        let idx = ScanIndex(rootName: "~")
+        let x = idx.addDirectory(parent: 0, name: "x", fileID: 1)
+        idx.addFiles(dir: x, big: [], smallBytes: 2_000_000_000, smallCount: 1)
+        st.disk.path = ["Library"]
+        _ = m.frame(at: 0.1, size: size)
+        src.diskTree = DiskTree.scanned(idx)
+        let f = try #require(m.frame(at: 0.2, size: size))
+        #expect(f.mains.map(\.item.name) == ["x"])
+        #expect(st.disk.path.isEmpty)
+    }
+
+    /// Korunan klasörün balonunda ＋ yok (§6.4).
+    @Test func protectedBubbleHasNoPlusButton() {
+        let (_, _, m) = make()
+        _ = m.mouseMoved(center(m, "Library", at: 2))
+        for i in 0..<40 { _ = m.frame(at: 2 + Double(i) / 60, size: size) }
+        #expect(m.buttons.isEmpty)
+        _ = m.mouseMoved(center(m, ".npm", at: 2.7))
+        for i in 0..<40 { _ = m.frame(at: 2.7 + Double(i) / 60, size: size) }
+        #expect(m.buttons.map(\.path) == [[".npm"]])
+    }
+
+    @Test func deleteToastFromSource() async {
+        let (src, st, _) = make()
+        st.disk.toggle([".npm"], tree: src.diskTree)
+        await st.disk.performDelete(tree: src.diskTree, source: src)
+        #expect(ToastCenter.shared.message == "4,2 GB boşaldı (örnek)")
+    }
 }

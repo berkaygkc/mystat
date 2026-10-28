@@ -316,5 +316,21 @@ final class FakeProbe: SystemProbe {
         _ = await s.sample(at: t0.addingTimeInterval(4))
         #expect(p.n("dataVolume") == 2)
     }
-}
 
+    /// Disk bölümü açıkken ağaç bellekte; başka bölüm ya da monitör kapalı → bırakılır (§6.4).
+    @Test func diskSectionVisibilityLoadsAndDropsTree() async throws {
+        let fx = try DiskScanControllerTests.Fixture()
+        let s = LiveSource(probe: FakeProbe(), historyURL: nil, persistToday: false, autostart: false, dockerAPI: FakeDockerAPI(),
+                           disk: fx.controller())
+        #expect(LiveSource.capabilities.diskScan)
+        s.setVisibleSection("disk"); s.startDiskScan(); await s.disk.waitUntilIdle()
+        #expect(s.diskTree.node(at: ["a"]) != nil)
+        if case .ready = s.diskScan {} else { Issue.record("\(s.diskScan)") }
+        s.setVisibleSection("net")
+        #expect(s.diskTree.root.children == nil)
+        s.setVisibleSection("disk"); await s.disk.waitUntilIdle()
+        #expect(s.diskTree.node(at: ["a"]) != nil)
+        s.setVisibleSection(nil)
+        #expect(s.diskTree.root.children == nil)
+    }
+}

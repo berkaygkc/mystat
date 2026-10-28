@@ -8,10 +8,10 @@ import Observation
 @MainActor
 @Observable
 public final class LiveSource: MetricsSource {
-    public nonisolated static let capabilities = SourceCapabilities(docker: true, sensors: false, diskScan: false, netDetails: false)
+    public nonisolated static let capabilities = SourceCapabilities(docker: true, sensors: false, diskScan: true, netDetails: false)
 
     public private(set) var snapshot: Snapshot
-    @ObservationIgnored let disk = DiskScanController()
+    @ObservationIgnored let disk: DiskScanController
     public var diskTree: DiskTree { disk.tree }
     public var diskScan: ScanPhase { disk.phase }
     public var diskInaccessible: Int { disk.inaccessible }
@@ -28,7 +28,9 @@ public final class LiveSource: MetricsSource {
     @ObservationIgnored var signaler: @MainActor ([Int32], Bool) -> StopOutcome = { ProcessActions.signal($0, force: $1) }
 
     public init(probe: some SystemProbe = DefaultProbe(), historyURL: URL? = HistoryStore.defaultURL,
-                persistToday: Bool = true, autostart: Bool = true, dockerAPI: some DockerAPI = DockerClient()) {
+                persistToday: Bool = true, autostart: Bool = true, dockerAPI: some DockerAPI = DockerClient(),
+                disk: DiskScanController? = nil) {
+        self.disk = disk ?? DiskScanController()
         snapshot = .empty(capabilities: Self.capabilities)
         let store = historyURL.flatMap { try? HistoryStore(url: $0) }
         history = store

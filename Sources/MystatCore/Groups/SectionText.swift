@@ -52,16 +52,27 @@ public enum SectionText {
                     level: level)
     }
 
-    public static func disk(_ s: Snapshot, homeGB: Double, freedGB: Double) -> Head {
-        guard s.capabilities.diskScan else {   // harita kalemleri tarama ister (2d)
+    /// `home`: tarama ağacının kökü; tarama yoksa (ya da ağaç bellekte değilse) nil veya çocuksuz.
+    public static func disk(_ s: Snapshot, home: DiskNode?, freedGB: Double) -> Head {
+        guard s.capabilities.diskScan, let home, let kids = home.children else {   // harita kalemleri tarama ister
             let p = s.disk.purgeableGB
             return Head(title: "\(Fmt.pct(s.disk.percent)) dolu.", soft: "\(Fmt.int(s.disk.freeGB)) GB boş.",
                         lede: p >= 1 ? "Sistem gerektiğinde \(Fmt.int(p)) GB'ı kendiliğinden boşaltabilir." : "",
                         level: Thresholds.diskFree(s.disk.freeGB))
         }
-        let lede = freedGB > 0
-            ? "Bu oturumda \(Fmt.size(freedGB)) yer açtın. Ev klasörün şu an \(Fmt.size(homeGB))."
-            : "Ev klasörün \(Fmt.size(homeGB)). En büyük kalem Library; içinde Docker'ın \(Fmt.int(s.docker.disk.rawGB ?? s.docker.disk.dataGB)) GB'lık diski duruyor. Şu an diske en çok Docker yazıyor."
+        var lede: String
+        if freedGB > 0 {
+            lede = "Bu oturumda \(Fmt.size(freedGB)) yer açtın. Ev klasörün şu an \(Fmt.size(home.size))."
+        } else {
+            lede = "Ev klasörün \(Fmt.size(home.size))."
+            if let top = kids.filter({ $0.kind != .other }).max(by: { $0.size < $1.size }) {
+                lede = "Ev klasörün \(Fmt.size(home.size)). En büyük kalem \(top.name)"
+                let docker = s.docker.disk.rawGB ?? s.docker.disk.dataGB
+                if top.name == "Library", s.capabilities.docker, docker >= 1 { lede += "; içinde Docker'ın \(Fmt.int(docker)) GB'lık diski duruyor" }
+                lede += "."
+            }
+            if let w = s.disk.topWriter { lede += " Şu an diske en çok \(w) yazıyor." }
+        }
         return Head(title: "\(Fmt.pct(s.disk.percent)) dolu.", soft: "\(Fmt.int(s.disk.freeGB)) GB boş.", lede: lede,
                     level: Thresholds.diskFree(s.disk.freeGB))
     }

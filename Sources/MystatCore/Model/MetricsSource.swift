@@ -17,6 +17,9 @@ public protocol MetricsSource: AnyObject, Observable {
     var diskTree: DiskTree { get }
     /// Disk taraması (§6.4): yalnızca elle başlar, 1 saat geçerli. Örnek kaynakta ≈ 4 sn'lik benzetim.
     var diskScan: ScanPhase { get }
+    /// Örnek veride tarama benzetimdir: ağaç baştan tam, balonlar ilerlemeyle büyütülerek çizilir. Gerçek taramada ağaç
+    /// gerçekten büyür.
+    var diskScanSimulated: Bool { get }
     func startDiskScan()
     /// Tam Disk Erişimi var mı; yoksa taramada korumalı klasörler atlanır (§6.4).
     var diskFullAccess: Bool { get }
@@ -37,6 +40,10 @@ public protocol MetricsSource: AnyObject, Observable {
     /// Grubun süreçlerine SIGTERM (`force` ise SIGKILL); yalnızca kendi süreçlerin (spec §7.4).
     /// `pids`: onay penceresi açıldığındaki üyeler; yalnızca hâlâ grupta olanlara sinyal gider.
     func stop(groupID: String, pids: [Int32], force: Bool) -> StopOutcome
+}
+
+public extension MetricsSource {
+    var diskScanSimulated: Bool { false }
 }
 
 public enum StopOutcome: Sendable, Equatable {

@@ -96,7 +96,8 @@ enum BubbleOverlayContent {
         var buttons: [BubbleButton] = []
         if !e.isAnimating {
             let ang = -Double.pi / 4
-            for m in f.mains where m.item.kind != .other && m.r >= 20 && m.alpha >= 0.6 {
+            for m in f.mains where m.item.kind != .other && m.r >= 20 && m.alpha >= 0.6
+                && DeletionGuard.reason(path: e.path + [m.item.name]) == nil {   // korunan klasörde ＋ yok (§6.4)
                 let st: SelState = m.selection >= 1 ? .selected : m.selection > 0 ? .implied : .none
                 if st == .none && m.hover < 0.3 { continue }
                 buttons.append(BubbleButton(id: m.item.id, path: e.path + [m.item.name], state: st,
@@ -115,7 +116,7 @@ enum BubbleStillRender {
         -> (image: CGImage?, labels: [BubbleLabel], buttons: [BubbleButton]) {
         guard size.width > 50, size.height > 50 else { return (nil, [], []) }
         let e = BubbleEngine(tree: source.diskTree, path: disk.path, viewSize: size)
-        if case .scanning(let p, _, _) = source.diskScan { e.scanProgress = p }
+        if source.diskScanSimulated, case .scanning(let p, _, _) = source.diskScan { e.scanProgress = p }
         let sel: ([String]) -> SelState = { disk.basket.state(of: $0) }
         var t = cfg.time
         if cfg.hover != nil { for i in 0..<60 { _ = e.frame(at: t - 1 + Double(i) / 60, hover: cfg.hover, selection: sel) } }
@@ -151,6 +152,10 @@ final class BubbleMapModel {
     @ObservationIgnored private var token: Int
     @ObservationIgnored private var lastFrame: BubbleFrame?
     @ObservationIgnored private var shownProgress: Double?
+    /// Gerçek tarama: ağaç büyüdükçe yeniden yerleşim (en sık 2 sn'de bir; arada gezinme serbest kalsın).
+    @ObservationIgnored private var lastScannedGB: Double?
+    @ObservationIgnored private var lastGrowth = -Double.infinity
+    static let growthInterval = 2.0
 
     init(source: some MetricsSource, state: MonitorState) {
         self.source = source
@@ -163,10 +168,20 @@ final class BubbleMapModel {
     func frame(at t: Double, size: CGSize) -> BubbleFrame? {
         guard size.width > 50, size.height > 50 else { return nil }
         let e: BubbleEngine
-        if let x = engine { e = x; e.resize(size) } else { e = BubbleEngine(tree: source.diskTree, path: disk.path, viewSize: size); engine = e }
+        let tree = source.diskTree
+        if let x = engine, x.tree === tree {
+            e = x; e.resize(size)
+        } else {   // ağaç değişti (tarama başladı, önbellekten yüklendi, bırakıldı): yeni ağaçta var olan en yakın klasör
+            var p = disk.path
+            while !p.isEmpty, tree.node(at: p) == nil { p.removeLast() }
+            if p != disk.path { disk.path = p }
+            e = BubbleEngine(tree: tree, path: p, viewSize: size); engine = e
+            hover = nil; lastScannedGB = nil
+        }
         sync(e, at: t)
-        // Tarama: ilerleme 100 ms'de bir atlar; balonlar yumuşak büyüsün diye izlenir, bitince 1'e süzülür.
-        if case .scanning(let p, _, _) = source.diskScan {
+        if !source.diskScanSimulated { growLive(e, at: t) }
+        // Örnek tarama: ilerleme 100 ms'de bir atlar; balonlar yumuşak büyüsün diye izlenir, bitince 1'e süzülür.
+        if source.diskScanSimulated, case .scanning(let p, _, _) = source.diskScan {
             shownProgress = shownProgress.map { $0 + (p - $0) * 0.1 } ?? 0
         } else if let s = shownProgress {
             shownProgress = s > 0.998 ? nil : s + (1 - s) * 0.1
@@ -180,6 +195,20 @@ final class BubbleMapModel {
         labels = o.labels
         if o.buttons != buttons { buttons = o.buttons }
         return f
+    }
+
+    /// Gerçek tarama: kaynak saniyede bir ağacı günceller; harita en sık `growthInterval`'da bir yeniden yerleşir,
+    /// tarama bitince bir kez daha.
+    private func growLive(_ e: BubbleEngine, at t: Double) {
+        let gb: Double? = if case .scanning(_, let g, _) = source.diskScan { g } else { nil }
+        if let gb {
+            guard gb != lastScannedGB, t - lastGrowth >= Self.growthInterval else { return }
+            lastScannedGB = gb; lastGrowth = t
+            e.relayout(at: t)
+        } else if lastScannedGB != nil {   // bitti ya da durduruldu
+            lastScannedGB = nil
+            e.relayout(at: t)
+        }
     }
 
     /// Yol değişikliklerini (harita, yol satırı, kenar listesi, Esc) animasyonla uygular. Geçiş sürerken

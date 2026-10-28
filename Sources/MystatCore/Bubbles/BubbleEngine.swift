@@ -55,7 +55,7 @@ public final class BubbleEngine {
     /// Tarama sürerken 0…1: balonlar yerinde büyür (spec §6.4). `nil` = tarama yok.
     public var scanProgress: Double?
 
-    private let tree: DiskTree
+    public let tree: DiskTree
     private var size: CGSize
     private var R0 = 0.0
     private var C = CGPoint.zero

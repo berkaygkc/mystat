@@ -51,7 +51,7 @@ import Testing
 
     /// Tarama yokken harita kalemleri (Library, Docker'ın diski) anlatılmaz.
     @Test func diskTextWithoutScan() {
-        let h = SectionText.disk(live(), homeGB: 0, freedGB: 0)
+        let h = SectionText.disk(live(), home: nil, freedGB: 0)
         #expect(h.lede == "Sistem gerektiğinde 12 GB'ı kendiliğinden boşaltabilir.")
         #expect(h.title == "%62 dolu.")
     }

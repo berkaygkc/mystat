@@ -6,7 +6,9 @@ import Observation
 @Observable
 public final class SampleSource: MetricsSource {
     public private(set) var snapshot: Snapshot
-    @ObservationIgnored public let diskTree: DiskTree
+    /// İnceleme ve testler için değiştirilebilir.
+    @ObservationIgnored public var diskTree: DiskTree
+    public var diskScanSimulated = true
     /// İnceleme için dışarıdan da yazılır (`--snapshot … --scan`).
     public var diskScan: ScanPhase = .none
     public var diskFullAccess = true
@@ -160,7 +162,7 @@ public final class SampleSource: MetricsSource {
                                 pressurePercent: memInc ? 78 : cpuInc ? 44 : 41, pressureLevel: memInc ? .crit : .ok,
                                 swapGB: memInc ? 3.2 : 0),
             disk: DiskState(percent: diskInc ? 98 : (285 - freedGB) / 460 * 100, freeGB: diskInc ? 8 : 175 + freedGB, usedGB: diskInc ? 452 : 285 - freedGB,
-                            purgeableGB: 12, readMBps: read, writeMBps: write),
+                            purgeableGB: 12, readMBps: read, writeMBps: write, topWriter: "Docker"),
             net: NetState(downMBps: liveDown, upMBps: liveDown * 0.13, todayDownGB: 12.4, todayUpGB: 1.8, latencyMs: 18,
                           iface: "Wi‑Fi", ssid: "Ev", details: SampleData.netDetails),
             docker: DockerState(running: dockerRunning, containers: dockerRunning ? containers : [], vmMemoryGB: 10.2, vmCores: 8,

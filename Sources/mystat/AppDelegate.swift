@@ -33,7 +33,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         installKeys()
         #if DEBUG
-        if args.contains("--scan-ready") { (source as? SampleSource)?.diskScan = .ready(scannedAt: Date()) }   // haritayı taramasız denemek için
         if args.contains("--log-values") { startValueLog() }
         #endif
         if args.contains("--panel") {   // maliyet ölçümü: panel açık (durum düğmesinin penceresi açılışta henüz yok)

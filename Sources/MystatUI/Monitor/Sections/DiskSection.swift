@@ -8,7 +8,7 @@ struct DiskSection<Source: MetricsSource>: View {
 
     var body: some View {
         let s = source.snapshot, disk = state.disk
-        let h = SectionText.disk(s, homeGB: source.diskTree.root.size, freedGB: disk.freedGB)
+        let h = SectionText.disk(s, home: source.diskTree.root, freedGB: disk.freedGB)
         VStack(alignment: .leading, spacing: 0) {
             SectionHead("DİSK", title: h.title, soft: h.soft, lede: h.lede, level: h.level, pulsing: h.level != .ok)
             if s.incident?.kind == .disk { IncidentBlock(source: source, state: state, inOverview: false).padding(.top, 20) }
@@ -77,7 +77,7 @@ struct DiskSection<Source: MetricsSource>: View {
             }
             Spacer()
             ScanStatus(scan: source.diskScan, note: DiskPresentation.accessNote(fullDiskAccess: source.diskFullAccess, scanned: true, inaccessible: source.diskInaccessible),
-                       start: source.startDiskScan)
+                       start: source.startDiskScan, stop: source.cancelDiskScan)
         }
         .font(.system(size: 13))
     }
@@ -89,12 +89,15 @@ struct ScanStatus: View {
     /// Hazır durumda okunamayan klasör sayısı (Tam Disk Erişimi yoksa).
     let note: String?
     let start: () -> Void
+    let stop: () -> Void
     var body: some View {
         TimelineView(.periodic(from: .now, by: 15)) { ctx in
             HStack(spacing: 6) {
                 switch scan.effective(now: ctx.date) {
                 case .scanning(_, let gb, let path):
-                    Text("Taranıyor · \(Fmt.size(gb)) · \(path)").monospacedDigit()
+                    Text("Taranıyor · \(Fmt.size(gb)) · \(path) ·").monospacedDigit().lineLimit(1).truncationMode(.middle)
+                    Text("Durdur").fontWeight(.semibold).foregroundStyle(Theme.ink2)
+                        .onTapGesture { stop() }
                 case .ready:
                     if let note {
                         Text(note + " ·").help("Tam Disk Erişimi verirsen bu klasörler de taranır.")

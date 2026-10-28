@@ -109,6 +109,8 @@ public struct DiskState: Sendable {
     public var purgeableGB: Double
     public var readMBps: Double
     public var writeMBps: Double
+    /// Şu an diske en çok yazan (örnek veride "Docker"); bilinmiyorsa nil.
+    public var topWriter: String? = nil
 }
 
 public struct NetState: Sendable {

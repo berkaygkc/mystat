@@ -5,11 +5,11 @@ import Testing
 @MainActor @Suite struct DiskSectionTests {
     @Test func headText() {
         let src = SampleSource(seed: 1)
-        let h = SectionText.disk(src.snapshot, homeGB: src.diskTree.root.size, freedGB: 0)
+        let h = SectionText.disk(src.snapshot, home: src.diskTree.root, freedGB: 0)
         #expect(h.title == "%62 dolu."); #expect(h.soft == "175 GB boş.")
         #expect(h.lede == "Ev klasörün 236 GB. En büyük kalem Library; içinde Docker'ın 27 GB'lık diski duruyor. Şu an diske en çok Docker yazıyor.")
         src.applyDeletion(gb: 24)
-        let after = SectionText.disk(src.snapshot, homeGB: 212, freedGB: 24)
+        let after = SectionText.disk(src.snapshot, home: DiskNode("Ev", 212, []), freedGB: 24)
         #expect(after.title == "%57 dolu."); #expect(after.soft == "199 GB boş.")
         #expect(after.lede == "Bu oturumda 24 GB yer açtın. Ev klasörün şu an 212 GB.")
     }
@@ -34,5 +34,22 @@ import Testing
         #expect(DiskPresentation.accessNote(fullDiskAccess: true, scanned: true, inaccessible: 144) == "144 klasör okunamadı (macOS korumalı)")
         #expect(DiskPresentation.accessNote(fullDiskAccess: false, scanned: true, inaccessible: 1_440) == "1.440 klasör okunamadı (macOS korumalı)")
     }
-}
 
+    /// Gerçek taramada cümle ağaçtan kurulur; örnek verideki "en çok yazan" yalnızca veri varsa.
+    @Test func ledeFromScannedTree() {
+        var s = SampleSource(seed: 1).snapshot
+        s.disk.topWriter = nil
+        let idx = ScanIndex(rootName: "~")
+        let lib = idx.addDirectory(parent: 0, name: "Library", fileID: 1)
+        idx.addFiles(dir: lib, big: [], smallBytes: 60_000_000_000, smallCount: 1)
+        let doc = idx.addDirectory(parent: 0, name: "Documents", fileID: 2)
+        idx.addFiles(dir: doc, big: [], smallBytes: 20_000_000_000, smallCount: 1)
+        let t = DiskTree.scanned(idx); _ = t.node(at: [])
+        s.docker.disk.rawGB = 27
+        #expect(SectionText.disk(s, home: t.root, freedGB: 0).lede == "Ev klasörün 80 GB. En büyük kalem Library; içinde Docker'ın 27 GB'lık diski duruyor.")
+        s.capabilities = SourceCapabilities(docker: false, sensors: true, diskScan: true, netDetails: true)
+        #expect(SectionText.disk(s, home: t.root, freedGB: 0).lede == "Ev klasörün 80 GB. En büyük kalem Library.")
+        #expect(SectionText.disk(s, home: nil, freedGB: 0).lede == "Sistem gerektiğinde 12 GB'ı kendiliğinden boşaltabilir.")
+        #expect(SectionText.disk(s, home: DiskNode("~", 0), freedGB: 0).lede == "Sistem gerektiğinde 12 GB'ı kendiliğinden boşaltabilir.")
+    }
+}

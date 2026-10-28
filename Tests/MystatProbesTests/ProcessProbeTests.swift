@@ -30,7 +30,8 @@ import Testing
         while Date() < until { x += sin(x) }
         let measured = m.update(probe.processes(), at: Date())
         let cores = try #require(measured?[getpid()])
-        #expect(cores > 0.6 && cores < 4, "ölçülen \(cores) çekirdek, x=\(x)")
+        // Üst sınır çekirdek sayısı: test süreci başka suite'leri (4 iş parçacıklı tarama) paralel koşar; birim hatası ~41 kat sapar.
+        #expect(cores > 0.6 && cores < Double(ProcessInfo.processInfo.activeProcessorCount) + 1, "ölçülen \(cores) çekirdek, x=\(x)")
     }
 
     @Test func listeningPortIsFound() throws {
