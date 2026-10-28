@@ -60,7 +60,7 @@ public enum GroupPresentation {
             return (kicker, title(before: "Diskte ", emph: "\(Fmt.int(s.disk.freeGB)) GB", rest: " kaldı."), parts.joined(separator: " "))
         case .docker:
             return (kicker, title(emph: inc.culpritIDs[0], rest: " \(inc.minutes) dakikadır yoğun."),
-                    "\(s.docker.project) projesinde \(inc.culpritValues[0]) CPU kullanıyor. Diğer container'lar sakin.")
+                    "\(fact(inc, "Proje") ?? "Docker") projesinde \(inc.culpritValues[0]) CPU kullanıyor. Diğer container'lar sakin.")
         case .heat:
             let fans = s.capabilities.sensors ? "Fanlar \(Fmt.int(s.system.fanRPM)) dev/dk ile dönüyor. " : ""
             let slow = s.system.thermal == .crit ? "macOS işlemciyi yavaşlatıyor." : "macOS henüz yavaşlatmaya başlamadı."

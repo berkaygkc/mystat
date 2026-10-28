@@ -91,7 +91,7 @@ public final class SampleSource: MetricsSource {
         }
         let containers = SampleData.containers.map { c in
             let cpu = cpuInc ? c.2.1 : (inc && kind == .docker && c.0 == "acmecorp-verifier") ? 62 : c.2.0
-            return Container(name: c.0, image: c.1, cpuPercent: cpu, memoryMB: c.3, healthy: true, uptime: "45 sa")
+            return Container(name: c.0, image: c.1, cpuPercent: cpu, memoryMB: c.3, healthy: true, uptime: "45 sa", project: "deploy")
         }
         var coreRNG = Mulberry32(seed: 77)
         let cores = (0..<14).map { i in
@@ -111,10 +111,12 @@ public final class SampleSource: MetricsSource {
                             purgeableGB: 12, readMBps: read, writeMBps: write),
             net: NetState(downMBps: liveDown, upMBps: liveDown * 0.13, todayDownGB: 12.4, todayUpGB: 1.8, latencyMs: 18,
                           iface: "Wi‑Fi", ssid: "Ev", details: SampleData.netDetails),
-            docker: DockerState(project: "deploy", containers: containers, vmMemoryGB: 10.2, vmCores: 8,
+            docker: DockerState(containers: containers, vmMemoryGB: 10.2, vmCores: 8,
                                 disk: DockerDisk(imagesGB: 8.8, imagesReclaimGB: 2.8, imagesCount: 21,
                                                  volumesGB: 16.9, volumesReclaimGB: 12.6, volumesCount: 192,
-                                                 buildCacheGB: 0, rawGB: 27)),
+                                                 buildCacheGB: 0, rawGB: 27, imagesUnusedCount: 4, volumesUnusedCount: 177,
+                                                 volumesAnonReclaimGB: 7.1, volumesAnonUnusedCount: 116, containersGB: 1.3),
+                                trend30GB: 9),
             system: SystemState(chipTemp: heat ? 91 : 48, gpuTemp: heat ? 63 : 41, ssdTemp: 38, fanRPM: heat ? 4800 : 0,
                                 thermal: heat ? .warn : .ok, battery: bat ? 62 : 100, charging: !bat, batteryDrain30m: bat ? 25 : nil,
                                 watts: bat ? 38 : load ? 78 : 14, adapter: "140 W USB‑C", health: "%91 · iyi",
@@ -232,7 +234,7 @@ public final class SampleSource: MetricsSource {
         memory: MemoryState(percent: 0, usedGB: 0, totalGB: 48, apps: 0, wired: 0, compressed: 0, free: 0, pressurePercent: 0, pressureLevel: .ok, swapGB: 0),
         disk: DiskState(percent: 0, freeGB: 0, usedGB: 0, purgeableGB: 0, readMBps: 0, writeMBps: 0),
         net: NetState(downMBps: 0, upMBps: 0, todayDownGB: 0, todayUpGB: 0, latencyMs: 0, iface: "", ssid: "", details: []),
-        docker: DockerState(project: "", containers: [], vmMemoryGB: 0, vmCores: 0,
+        docker: DockerState(running: false, containers: [], vmMemoryGB: 0, vmCores: 0,
                             disk: DockerDisk(imagesGB: 0, imagesReclaimGB: 0, imagesCount: 0, volumesGB: 0, volumesReclaimGB: 0, volumesCount: 0, buildCacheGB: 0, rawGB: 0)),
         system: SystemState(chipTemp: 0, gpuTemp: 0, ssdTemp: 0, fanRPM: 0, thermal: .ok, battery: 0, charging: true, batteryDrain30m: nil,
                             watts: 0, adapter: "", health: "", capacity: "", cycles: 0, gpuPercent: 0, gpuCores: 0),

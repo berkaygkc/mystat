@@ -33,10 +33,13 @@ public enum SectionText {
             return Head(title: "Docker'a bağlanılmadı.", soft: "", lede: "Container'lar ve Docker'ın diski burada görünecek.", level: .ok)
         }
         let d = s.docker
+        guard d.running else {   // Docker Desktop kapalı ya da yok (§9.1): sakin durum
+            return Head(title: "Docker çalışmıyor.", soft: "", lede: "Docker Desktop açılınca container'lar ve Docker'ın diski burada görünür.", level: .ok)
+        }
         let cpu = d.containers.reduce(0) { $0 + $1.cpuPercent }
         let mem = d.containers.reduce(0) { $0 + $1.memoryMB } / 1024
         let n = d.containers.count
-        let disk = "Docker'ın diski \(Fmt.int(d.disk.rawGB)) GB"
+        let disk = d.disk.rawGB.map { "Docker'ın diski \(Fmt.int($0)) GB" } ?? "Docker'ın verisi \(Fmt.dec1(d.disk.dataGB)) GB"
         let reclaim = "\(Fmt.dec1(d.disk.volumesReclaimGB)) GB'ı geri kazanılabilir."
         let level: Level = s.incident?.kind == .docker ? s.incident!.level : .ok
         if let top = d.containers.max(by: { $0.cpuPercent < $1.cpuPercent }), top.cpuPercent >= 30 {
@@ -58,7 +61,7 @@ public enum SectionText {
         }
         let lede = freedGB > 0
             ? "Bu oturumda \(Fmt.size(freedGB)) yer açtın. Ev klasörün şu an \(Fmt.size(homeGB))."
-            : "Ev klasörün \(Fmt.size(homeGB)). En büyük kalem Library; içinde Docker'ın \(Fmt.int(s.docker.disk.rawGB)) GB'lık diski duruyor. Şu an diske en çok Docker yazıyor."
+            : "Ev klasörün \(Fmt.size(homeGB)). En büyük kalem Library; içinde Docker'ın \(Fmt.int(s.docker.disk.rawGB ?? s.docker.disk.dataGB)) GB'lık diski duruyor. Şu an diske en çok Docker yazıyor."
         return Head(title: "\(Fmt.pct(s.disk.percent)) dolu.", soft: "\(Fmt.int(s.disk.freeGB)) GB boş.", lede: lede,
                     level: Thresholds.diskFree(s.disk.freeGB))
     }

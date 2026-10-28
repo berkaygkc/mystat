@@ -9,7 +9,7 @@ public extension Snapshot {
                                 pressurePercent: 0, pressureLevel: .ok, swapGB: 0),
             disk: DiskState(percent: 0, freeGB: 0, usedGB: 0, purgeableGB: 0, readMBps: 0, writeMBps: 0),
             net: NetState(downMBps: 0, upMBps: 0, todayDownGB: 0, todayUpGB: 0, latencyMs: 0, iface: "", ssid: "", details: []),
-            docker: DockerState(project: "", containers: [], vmMemoryGB: 0, vmCores: 0,
+            docker: DockerState(running: false, containers: [], vmMemoryGB: 0, vmCores: 0,
                                 disk: DockerDisk(imagesGB: 0, imagesReclaimGB: 0, imagesCount: 0, volumesGB: 0, volumesReclaimGB: 0,
                                                  volumesCount: 0, buildCacheGB: 0, rawGB: 0)),
             system: SystemState(chipTemp: 0, gpuTemp: 0, ssdTemp: 0, fanRPM: 0, thermal: .ok, battery: 0, charging: false,

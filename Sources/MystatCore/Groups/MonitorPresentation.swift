@@ -9,7 +9,7 @@ public enum MonitorPresentation {
         case "mem": (Fmt.pct(s.memory.percent), s.memory.pressureLevel)
         case "disk": (Fmt.pct(s.disk.percent), Thresholds.diskFree(s.disk.freeGB))
         case "net": ("↓" + Fmt.rate(s.net.downMBps), .ok)
-        case "docker": s.capabilities.docker ? (String(s.docker.containers.count), s.incident?.kind == .docker ? s.incident!.level : .ok) : ("—", .ok)
+        case "docker": s.capabilities.docker && s.docker.running ? (String(s.docker.containers.count), s.incident?.kind == .docker ? s.incident!.level : .ok) : ("—", .ok)
         case "sys": (s.capabilities.sensors ? Fmt.int(s.system.chipTemp) + "°" : "", s.system.batteryDrain30m != nil ? .warn : s.system.thermal)
         default: ("", .ok)
         }
@@ -76,7 +76,7 @@ extension MonitorPresentation {
     /// Genel Bakış başlığının altındaki paragraf (mockup `secOverview`).
     public static func overviewLede(_ s: Snapshot) -> String {
         guard let inc = s.incident else {
-            let docker = s.capabilities.docker ? ", Docker \(s.docker.containers.count) container ile sessizce ayakta" : ""
+            let docker = s.capabilities.docker && s.docker.running ? ", Docker \(s.docker.containers.count) container ile sessizce ayakta" : ""
             return "Makine rahat. En yoğun uygulama \(s.calmTop.name)\(docker). Diskte \(Fmt.int(s.disk.freeGB)) GB boş yer var."
         }
         guard inc.kind == .cpu, let lead = s.groups.first(where: { $0.id == inc.culpritIDs.first }) else {

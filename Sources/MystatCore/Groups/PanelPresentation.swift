@@ -45,7 +45,9 @@ public enum PanelPresentation {
                       level: Thresholds.diskFree(s.disk.freeGB)),
             PanelCell(section: "net", label: "Ağ", big: Fmt.rate(s.net.downMBps), unit: "MB/s",
                       sub: "↑ \(Fmt.rate(s.net.upMBps)) MB/s · \(s.net.iface)", level: .ok),
-            caps.docker
+            caps.docker && !s.docker.running
+                ? PanelCell(section: "docker", label: "Docker", big: "—", unit: nil, sub: "çalışmıyor", level: .ok)
+                : caps.docker
                 ? PanelCell(section: "docker", label: "Docker", big: String(s.docker.containers.count), unit: nil,
                             sub: "container · \(Fmt.cores(dockerCores)) çekirdek", level: inc?.kind == .docker ? inc!.level : .ok)
                 : PanelCell(section: "docker", label: "Docker", big: "—", unit: nil, sub: "bağlanmadı", level: .ok),
@@ -61,7 +63,8 @@ public enum PanelPresentation {
             if let g = s.groups.first(where: { $0.id == id }) {
                 return CulpritRow(name: g.name, context: g.context, value: value, unit: inc.culpritUnit, groupID: g.id)
             }
-            return CulpritRow(name: id, context: s.docker.project, value: value, unit: inc.culpritUnit, groupID: "docker")
+            let project = s.docker.containers.first { $0.name == id }?.project ?? ""
+            return CulpritRow(name: id, context: project, value: value, unit: inc.culpritUnit, groupID: "docker")
         }
     }
 }

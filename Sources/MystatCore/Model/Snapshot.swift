@@ -37,13 +37,20 @@ public struct ProcessGroup: Identifiable, Sendable {
 }
 
 public struct Container: Identifiable, Sendable {
-    public var id: String { name }
+    public var id: String { dockerID.isEmpty ? name : dockerID }
+    /// Compose servisi; yoksa "/" olmadan container adı.
     public let name: String
     public let image: String
+    /// %100 = 1 çekirdek (Docker'ın alışıldık gösterimi, §6.3).
     public var cpuPercent: Double
     public let memoryMB: Double
+    /// false = unhealthy.
     public let healthy: Bool
     public let uptime: String
+    /// Compose projesi; yoksa "".
+    public var project: String = ""
+    public var dockerID: String = ""
+    public var restarting: Bool = false
 }
 
 public enum IncidentKind: String, CaseIterable, Sendable { case cpu, memory, disk, docker, heat, battery }
@@ -117,15 +124,26 @@ public struct DockerDisk: Sendable {
     public var imagesGB: Double, imagesReclaimGB: Double, imagesCount: Int
     public var volumesGB: Double, volumesReclaimGB: Double, volumesCount: Int
     public var buildCacheGB: Double
-    public var rawGB: Double
+    /// Sanal disk dosyasının diskte kapladığı; okunamadıysa nil.
+    public var rawGB: Double?
+    public var imagesUnusedCount = 0, volumesUnusedCount = 0
+    /// Yalnızca adsız volume'ler (güvenli temizlik; adlı veri volume'lerine dokunulmaz).
+    public var volumesAnonReclaimGB = 0.0, volumesAnonUnusedCount = 0
+    public var buildCacheReclaimGB = 0.0, containersGB = 0.0
+
+    /// Docker'ın verisi: image + volume + build cache + container katmanları.
+    public var dataGB: Double { imagesGB + volumesGB + buildCacheGB + containersGB }
 }
 
 public struct DockerState: Sendable {
-    public var project: String
+    /// Docker'a (daemon) ulaşılıyor mu.
+    public var running = true
     public var containers: [Container]
     public var vmMemoryGB: Double
     public var vmCores: Int
     public var disk: DockerDisk
+    /// Son 30 günün farkı (GB); 2 günden az veri varsa nil.
+    public var trend30GB: Double? = nil
 }
 
 public struct SystemState: Sendable {

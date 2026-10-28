@@ -48,7 +48,7 @@ struct DockerSection<Source: MetricsSource>: View {
                                             (k.volumesGB - k.volumesReclaimGB, Theme.c2, false), (k.volumesReclaimGB, Theme.c2, true), (1.3, Theme.c4, false)]
         return Card {
             VStack(alignment: .leading, spacing: 0) {
-                SecH("Docker'ın diski", note: "\(Fmt.int(k.rawGB)) GB · son 30 gün +9 GB")
+                SecH("Docker'ın diski", note: "\(Fmt.int(k.rawGB ?? k.dataGB)) GB · son 30 gün +9 GB")
                 GeometryReader { g in
                     let total = segs.reduce(0) { $0 + $1.0 }, gaps = CGFloat(segs.count - 1) * 2
                     HStack(spacing: 2) {
@@ -63,7 +63,7 @@ struct DockerSection<Source: MetricsSource>: View {
                 diskRow(Theme.c1, "Image'lar · \(k.imagesCount)", Fmt.dec1(k.imagesReclaimGB) + " GB kullanılmıyor", Fmt.dec1(k.imagesGB) + " GB")
                 diskRow(Theme.c2, "Volume'ler · \(k.volumesCount)", Fmt.dec1(k.volumesReclaimGB) + " GB kullanılmıyor", Fmt.dec1(k.volumesGB) + " GB")
                 diskRow(Theme.c4, "Build cache", nil, Fmt.int(k.buildCacheGB) + " GB")
-                diskRow(Theme.c4, "Sanal disk dosyası", nil, Fmt.int(k.rawGB) + " GB")
+                diskRow(Theme.c4, "Sanal disk dosyası", nil, k.rawGB.map { Fmt.int($0) + " GB" } ?? "—")
                 Sparkline(source.series(.dockerTrend30, range: .m10), color: Theme.c1, height: 34, max: 30, fillOpacity: 0.2).padding(.top, 10)
                 VStack(spacing: 7) {
                     cleanButton("Kullanılmayan volume'leri temizle", k.volumesReclaimGB) { state.confirm = DockerActions.prune(volumes: true, gb: k.volumesReclaimGB) }
@@ -105,7 +105,7 @@ struct DockerSection<Source: MetricsSource>: View {
             HStack(spacing: 10) {
                 Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.ink3)
                     .rotationEffect(.degrees(projectOpen ? 90 : 0)).frame(width: 18)
-                Text("\(Text(d.project).fontWeight(.semibold).foregroundColor(Theme.ink))  \(Text("\(d.containers.count) container · hepsi çalışıyor").font(.system(size: 12.5)).foregroundColor(Theme.ink2))")
+                Text("\(Text(d.containers.first?.project ?? "").fontWeight(.semibold).foregroundColor(Theme.ink))  \(Text("\(d.containers.count) container · hepsi çalışıyor").font(.system(size: 12.5)).foregroundColor(Theme.ink2))")
                     .font(.system(size: 13.5))
                 Spacer()
                 Text("\(Fmt.pct(cpu)) CPU · \(Fmt.dec1(mem)) GB").font(.system(size: 12.5).monospacedDigit()).foregroundStyle(Theme.ink2)
