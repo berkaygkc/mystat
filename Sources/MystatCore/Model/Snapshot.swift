@@ -56,6 +56,12 @@ public struct Incident: Sendable {
     /// Sorumlu değerlerinin birimi: "çekirdek", "GB", "W" …
     public let culpritUnit: String
     public let facts: [Fact]
+
+    public init(kind: IncidentKind, level: Level, startedAt: String, minutes: Int, peakPercent: Double, culpritIDs: [String],
+                culpritValues: [String], culpritUnit: String, facts: [Fact]) {
+        self.kind = kind; self.level = level; self.startedAt = startedAt; self.minutes = minutes; self.peakPercent = peakPercent
+        self.culpritIDs = culpritIDs; self.culpritValues = culpritValues; self.culpritUnit = culpritUnit; self.facts = facts
+    }
 }
 
 public enum SuggestionTarget: Sendable, Equatable { case group(String), docker, disk([String]) }
