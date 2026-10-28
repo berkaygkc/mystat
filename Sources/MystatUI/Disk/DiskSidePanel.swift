@@ -32,7 +32,7 @@ struct DiskSidePanel<Source: MetricsSource>: View {
             }
             if !source.snapshot.capabilities.diskScan {
                 Text("Klasör listesi tarama bağlanınca gelecek.").font(.system(size: 12)).foregroundStyle(Theme.ink3)
-            } else if case .none = disk.scan.effective(now: Date()) {
+            } else if case .none = source.diskScan.effective(now: Date()) {
                 Text("Harita için önce taramayı başlat.").font(.system(size: 12)).foregroundStyle(Theme.ink3)
             } else {
                 ForEach(kids.sorted { $0.size > $1.size }, id: \.name) { c in row(c, tree: tree) }
@@ -43,7 +43,7 @@ struct DiskSidePanel<Source: MetricsSource>: View {
     }
 
     private var scanProgress: Double? {
-        if case .scanning(let p, _, _) = disk.scan { return p }
+        if case .scanning(let p, _, _) = source.diskScan { return p }
         return nil
     }
 

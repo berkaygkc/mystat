@@ -11,7 +11,9 @@ public final class LiveSource: MetricsSource {
     public nonisolated static let capabilities = SourceCapabilities(docker: true, sensors: false, diskScan: false, netDetails: false)
 
     public private(set) var snapshot: Snapshot
-    @ObservationIgnored public let diskTree = DiskTree(root: DiskNode("~", 0, []))
+    @ObservationIgnored let disk = DiskScanController()
+    public var diskTree: DiskTree { disk.tree }
+    public var diskScan: ScanPhase { disk.phase }
     @ObservationIgnored private var buffer = SeriesBuffer()
     @ObservationIgnored private var groupHistory = GroupHistory()
     @ObservationIgnored private let sampler: Sampler
@@ -73,7 +75,11 @@ public final class LiveSource: MetricsSource {
 
     public func perform(_ action: DockerAction) async -> DockerActionOutcome { await docker.perform(action) }
 
+    public func startDiskScan() { disk.start() }
+    public func cancelDiskScan() { disk.cancel() }
+
     public func setVisibleSection(_ section: String?) {
+        disk.setVisible(section == "disk")
         guard section == "docker" else { return }
         let docker = docker
         Task { await docker.requestDisk(at: Date()) }

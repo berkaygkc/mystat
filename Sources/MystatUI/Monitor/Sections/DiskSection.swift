@@ -16,7 +16,7 @@ struct DiskSection<Source: MetricsSource>: View {
             HStack(alignment: .top, spacing: 22) {
                 VStack(alignment: .leading, spacing: 0) {
                     crumbs.padding(.bottom, 10)
-                    DiskMapArea(disk: disk, tree: source.diskTree, scanAvailable: s.capabilities.diskScan) { BubbleMapView(source: source, state: state) }
+                    DiskMapArea(disk: disk, scan: source.diskScan, scanAvailable: s.capabilities.diskScan, start: source.startDiskScan) { BubbleMapView(source: source, state: state) }
                 }
                 DiskSidePanel(source: source, disk: disk, state: state)
             }
@@ -74,7 +74,7 @@ struct DiskSection<Source: MetricsSource>: View {
                     .onTapGesture { if !current { disk.open(c.path) } }
             }
             Spacer()
-            ScanStatus(disk: disk, tree: source.diskTree)
+            ScanStatus(scan: source.diskScan, start: source.startDiskScan)
         }
         .font(.system(size: 13))
     }
@@ -82,18 +82,18 @@ struct DiskSection<Source: MetricsSource>: View {
 
 /// Yol satırının sağındaki tarama durumu: taranıyor / X dk daha geçerli · Yeniden tara.
 struct ScanStatus: View {
-    @Bindable var disk: DiskUIState
-    let tree: DiskTree
+    let scan: ScanPhase
+    let start: () -> Void
     var body: some View {
         TimelineView(.periodic(from: .now, by: 15)) { ctx in
             HStack(spacing: 6) {
-                switch disk.scan.effective(now: ctx.date) {
+                switch scan.effective(now: ctx.date) {
                 case .scanning(_, let gb, let path):
                     Text("Taranıyor · \(Fmt.size(gb)) · \(path)").monospacedDigit()
                 case .ready:
-                    Text((disk.scan.validityText(now: ctx.date) ?? "") + " ·")
+                    Text((scan.validityText(now: ctx.date) ?? "") + " ·")
                     Text("Yeniden tara").fontWeight(.semibold).foregroundStyle(Theme.ink2)
-                        .onTapGesture { disk.startScan(tree: tree) }
+                        .onTapGesture { start() }
                 case .none:
                     EmptyView()
                 }
@@ -106,14 +106,15 @@ struct ScanStatus: View {
 /// Harita kartı: durumlar (boş / taranıyor / hazır), ince ilerleme çizgisi, cam Geri düğmesi, lejant, ipucu.
 struct DiskMapArea<Map: View>: View {
     @Bindable var disk: DiskUIState
-    let tree: DiskTree
+    let scan: ScanPhase
     /// Gerçek tarama 2d'de bağlanır; o zamana kadar canlı kaynakta düğme yok.
     var scanAvailable = true
+    let start: () -> Void
     @ViewBuilder let map: () -> Map
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 15)) { ctx in
-            let phase = disk.scan.effective(now: ctx.date)
+            let phase = scan.effective(now: ctx.date)
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Theme.card)
                 if case .none = phase { emptyState } else { map() }
@@ -145,7 +146,7 @@ struct DiskMapArea<Map: View>: View {
                 .font(.system(size: 13)).lineSpacing(3).multilineTextAlignment(.center).foregroundStyle(Theme.ink2)
                 .frame(maxWidth: 340).padding(.top, 6)
             if scanAvailable {
-                Btn("Taramayı başlat", icon: "magnifyingglass", style: .primary) { disk.startScan(tree: tree) }
+                Btn("Taramayı başlat", icon: "magnifyingglass", style: .primary) { start() }
                     .fixedSize().padding(.top, 18)
             } else {
                 Text("Disk haritası taraması henüz bağlanmadı.").font(.system(size: 12.5)).foregroundStyle(Theme.ink3).padding(.top, 18)

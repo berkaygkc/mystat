@@ -2,40 +2,20 @@ import MystatCore
 import Observation
 import SwiftUI
 
-/// Disk bölümünün durumu: konum, toplu seçim, silme modu, elle tarama (spec §6.4).
+/// Disk bölümünün durumu: konum, toplu seçim, silme modu (spec §6.4). Tarama kaynağın (`MetricsSource.diskScan`).
 @MainActor @Observable
 public final class DiskUIState {
     public var path: [String] = []
     public var basket = SelectionBasket()
     public var mode: DeleteMode = .permanent
-    public var scan: ScanPhase = .none
     public var freedGB: Double = 0
     public var hoverName: String?
     /// Silme sonrası harita yeniden yerleşsin diye artar.
     public private(set) var relayoutToken = 0
     /// Harita geçiş yaparken gezinme yok sayılır (mockup `openDisk`); haritanın modeli yazar.
     @ObservationIgnored public internal(set) var isMapAnimating = false
-    @ObservationIgnored private var scanTask: Task<Void, Never>?
 
     public init() {}
-
-    static let scanPaths = ["~/Library/Caches", "~/Library/Containers/Docker", "~/Documents/apps/acmecorp/node_modules",
-                            "~/Library/Application Support", "~/Downloads", "~/Movies", "~/Documents/hobby-projects"]
-
-    /// Faz 1: ~4 sn süren örnek tarama; sonra 1 saat geçerli.
-    public func startScan(tree: DiskTree) {
-        scanTask?.cancel()
-        scan = .scanning(progress: 0, scannedGB: 0, currentPath: "~")
-        scanTask = Task { [weak self] in
-            for i in 1...40 {
-                try? await Task.sleep(for: .milliseconds(100))
-                guard let self, !Task.isCancelled else { return }
-                let p = Double(i) / 40
-                self.scan = .scanning(progress: p, scannedGB: BubbleEngine.scannedTotal(tree, progress: p), currentPath: Self.scanPaths[(i / 6) % Self.scanPaths.count])
-            }
-            self?.scan = .ready(scannedAt: Date())
-        }
-    }
 
     public func toggle(_ p: [String], tree: DiskTree) {
         if basket.toggle(p, in: tree) == .blockedByAncestor { ToastCenter.shared.show("Üst klasörü zaten seçili") }

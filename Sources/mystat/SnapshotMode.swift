@@ -88,9 +88,9 @@ enum SnapshotMode {
             if o.confirm == "prune" { state.confirm = DockerActions.request(.pruneAnonymousVolumes, disk: source.snapshot.docker.disk, source: source) }
             if !o.toast.isEmpty { ToastCenter.shared.show(o.toast) }
             switch o.scan {
-            case "none": state.disk.scan = .none
-            case "scanning": state.disk.scan = .scanning(progress: 0.55, scannedGB: BubbleEngine.scannedTotal(source.diskTree, progress: 0.55), currentPath: "~/Library/Caches")
-            default: state.disk.scan = .ready(scannedAt: Date().addingTimeInterval(-18 * 60))
+            case "none": source.diskScan = .none
+            case "scanning": source.diskScan = .scanning(progress: 0.55, scannedGB: BubbleEngine.scannedTotal(source.diskTree, progress: 0.55), currentPath: "~/Library/Caches")
+            default: source.diskScan = .ready(scannedAt: Date().addingTimeInterval(-18 * 60))
             }
             if o.section == "disk", o.confirm == "basket" {
                 state.disk.path = ["Library"]
@@ -108,7 +108,7 @@ enum SnapshotMode {
             // Yalnızca harita, mockup karesiyle aynı boyutta: --bm-path, --bm-select, --bm-zoom, --bm-p, --bm-hover
             let state = MonitorState()
             state.go(.disk)
-            state.disk.scan = o.scan == "scanning" ? .scanning(progress: 0.55, scannedGB: 128, currentPath: "~/Library/Caches") : .ready(scannedAt: Date())
+            source.diskScan = o.scan == "scanning" ? .scanning(progress: 0.55, scannedGB: 128, currentPath: "~/Library/Caches") : .ready(scannedAt: Date())
             state.disk.path = o.bmPath
             for p in o.bmSelect { state.disk.toggle(p, tree: source.diskTree) }
             return AnyView(BubbleMapView(source: source, state: state)

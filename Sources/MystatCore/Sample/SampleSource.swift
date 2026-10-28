@@ -7,6 +7,9 @@ import Observation
 public final class SampleSource: MetricsSource {
     public private(set) var snapshot: Snapshot
     @ObservationIgnored public let diskTree: DiskTree
+    /// İnceleme için dışarıdan da yazılır (`--snapshot … --scan`).
+    public var diskScan: ScanPhase = .none
+    @ObservationIgnored private var scanTask: Task<Void, Never>?
 
     @ObservationIgnored private var isIncident: Bool
     @ObservationIgnored private var kind: IncidentKind
@@ -47,6 +50,31 @@ public final class SampleSource: MetricsSource {
     public var capabilities: SourceCapabilities = .all { didSet { snapshot = build() } }
     /// İnceleme için: "Docker çalışmıyor" durumunu örnek veriyle görmek (`--snapshot … --docker down`).
     public var dockerRunning = true { didSet { snapshot = build() } }
+
+    static let scanPaths = ["~/Library/Caches", "~/Library/Containers/Docker", "~/Documents/apps/acmecorp/node_modules",
+                            "~/Library/Application Support", "~/Downloads", "~/Movies", "~/Documents/hobby-projects"]
+
+    /// ≈ 4 sn süren örnek tarama; sonra 1 saat geçerli.
+    public func startDiskScan() {
+        scanTask?.cancel()
+        diskScan = .scanning(progress: 0, scannedGB: 0, currentPath: "~")
+        let tree = diskTree
+        scanTask = Task { [weak self] in
+            for i in 1...40 {
+                try? await Task.sleep(for: .milliseconds(100))
+                guard let self, !Task.isCancelled else { return }
+                let p = Double(i) / 40
+                self.diskScan = .scanning(progress: p, scannedGB: BubbleEngine.scannedTotal(tree, progress: p),
+                                          currentPath: Self.scanPaths[(i / 6) % Self.scanPaths.count])
+            }
+            self?.diskScan = .ready(scannedAt: Date())
+        }
+    }
+
+    public func cancelDiskScan() {
+        scanTask?.cancel(); scanTask = nil
+        diskScan = .none
+    }
 
     public func setDetailInterest(_ visible: Bool) {}
     public func setVisibleSection(_ section: String?) {}

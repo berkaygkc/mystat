@@ -115,7 +115,7 @@ enum BubbleStillRender {
         -> (image: CGImage?, labels: [BubbleLabel], buttons: [BubbleButton]) {
         guard size.width > 50, size.height > 50 else { return (nil, [], []) }
         let e = BubbleEngine(tree: source.diskTree, path: disk.path, viewSize: size)
-        if case .scanning(let p, _, _) = disk.scan { e.scanProgress = p }
+        if case .scanning(let p, _, _) = source.diskScan { e.scanProgress = p }
         let sel: ([String]) -> SelState = { disk.basket.state(of: $0) }
         var t = cfg.time
         if cfg.hover != nil { for i in 0..<60 { _ = e.frame(at: t - 1 + Double(i) / 60, hover: cfg.hover, selection: sel) } }
@@ -166,7 +166,7 @@ final class BubbleMapModel {
         if let x = engine { e = x; e.resize(size) } else { e = BubbleEngine(tree: source.diskTree, path: disk.path, viewSize: size); engine = e }
         sync(e, at: t)
         // Tarama: ilerleme 100 ms'de bir atlar; balonlar yumuşak büyüsün diye izlenir, bitince 1'e süzülür.
-        if case .scanning(let p, _, _) = disk.scan {
+        if case .scanning(let p, _, _) = source.diskScan {
             shownProgress = shownProgress.map { $0 + (p - $0) * 0.1 } ?? 0
         } else if let s = shownProgress {
             shownProgress = s > 0.998 ? nil : s + (1 - s) * 0.1

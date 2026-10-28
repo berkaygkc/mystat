@@ -11,7 +11,7 @@ import Testing
         let src = SampleSource(seed: 1)
         let st = MonitorState()
         st.go(.disk)
-        st.disk.scan = .ready(scannedAt: Date())
+        src.diskScan = .ready(scannedAt: Date())
         let m = BubbleMapModel(source: src, state: st)
         _ = m.frame(at: 0, size: size)
         return (src, st, m)
@@ -147,12 +147,12 @@ import Testing
     }
 
     @Test func scanningGrowsThenSettles() {
-        let (_, st, m) = make()
+        let (src, _, m) = make()
         let full = m.frame(at: 2, size: size)!.mains[0].r
-        st.disk.scan = .scanning(progress: 0.3, scannedGB: 50, currentPath: "~")
+        src.diskScan = .scanning(progress: 0.3, scannedGB: 50, currentPath: "~")
         let early = m.frame(at: 2, size: size)!.mains[0].r
         #expect(early < full * 0.5)
-        st.disk.scan = .ready(scannedAt: Date())
+        src.diskScan = .ready(scannedAt: Date())
         var r = 0.0
         for i in 0..<120 { r = m.frame(at: 2 + Double(i) / 60, size: size)!.mains[0].r }
         #expect(abs(r - full) < 3)                                     // süzülme payı içinde tam boy

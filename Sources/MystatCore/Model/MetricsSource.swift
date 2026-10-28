@@ -15,11 +15,17 @@ public protocol MetricsSource: AnyObject, Observable {
     var snapshot: Snapshot { get }
     func series(_ key: SeriesKey, range: TimeRange) -> [Double]
     var diskTree: DiskTree { get }
+    /// Disk taraması (§6.4): yalnızca elle başlar, 1 saat geçerli. Örnek kaynakta ≈ 4 sn'lik benzetim.
+    var diskScan: ScanPhase { get }
+    func startDiskScan()
+    /// Süren taramayı durdurur; önceki durum (yok ya da önceki sonuç) geri gelir.
+    func cancelDiskScan()
     /// Disk haritasından silinen alanı doluluğa yansıtır (Faz 1'de örnek; Faz 2'de yeniden ölçüm).
     func applyDeletion(gb: Double)
     /// Panel ya da monitör açık mı: süreç listesi açıkken 2 sn, kapalıyken 5 sn (spec §9.2).
     func setDetailInterest(_ visible: Bool)
-    /// Monitörde görünen bölüm ("docker", "net" …); monitör kapalıysa nil. Docker'ın diski bölüm açılınca yenilenir (§9.2).
+    /// Monitörde görünen bölüm ("docker", "net" …); monitör kapalıysa nil. Docker'ın diski bölüm açılınca yenilenir (§9.2);
+    /// disk ağacı yalnızca "disk" açıkken bellekte tutulur (§6.4).
     func setVisibleSection(_ section: String?)
     /// Docker eylemi (§7.4); onaydan sonra çağrılır. Uzun sürebilir (temizlik); arayüz beklemez.
     func perform(_ action: DockerAction) async -> DockerActionOutcome

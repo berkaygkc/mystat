@@ -1,0 +1,118 @@
+import Foundation
+import MystatCore
+import Testing
+@testable import MystatLive
+
+@MainActor @Suite struct DiskScanControllerTests {
+    final class Clock { var now = Date(timeIntervalSince1970: 1_800_000_000) }
+
+    /// Geçici kök (a/: 12 MB + 1 MB, b/: 2 MB) ve önbellek yolu.
+    final class Fixture {
+        let dir: URL, root: URL, cache: URL
+        let clock = Clock()
+        init() throws {
+            dir = FileManager.default.temporaryDirectory.appendingPathComponent("mystat-ctl-\(UUID().uuidString)")
+            root = dir.appendingPathComponent("ev"); cache = dir.appendingPathComponent("önbellek/diskscan.cache")
+            for d in ["a", "b"] { try FileManager.default.createDirectory(at: root.appendingPathComponent(d), withIntermediateDirectories: true) }
+            try Self.write(root.appendingPathComponent("a/büyük.bin"), 12_000_000)
+            try Self.write(root.appendingPathComponent("a/küçük.bin"), 1_000_000)
+            try Self.write(root.appendingPathComponent("b/orta.bin"), 2_000_000)
+        }
+        deinit { try? FileManager.default.removeItem(at: dir) }
+        static func write(_ url: URL, _ n: Int) throws {
+            var d = Data(count: n); d.withUnsafeMutableBytes { arc4random_buf($0.baseAddress!, n) }
+            try d.write(to: url)
+        }
+        @MainActor func controller() -> DiskScanController {
+            DiskScanController(root: root.path, cacheURL: cache, now: { [clock] in clock.now }, usedBytes: { 100_000_000 })
+        }
+        var cacheExists: Bool { FileManager.default.fileExists(atPath: cache.path) }
+    }
+
+    @Test func scanProducesReadyTreeAndCache() async throws {
+        let fx = try Fixture(), c = fx.controller()
+        c.setVisible(true)
+        c.start()
+        if case .scanning = c.phase {} else { Issue.record("tarama başlamadı: \(c.phase)") }
+        await c.waitUntilIdle()
+        #expect(c.phase == .ready(scannedAt: fx.clock.now))
+        #expect(c.tree.node(at: ["a"])?.children?.map(\.name) == ["büyük.bin", "Diğer"])
+        #expect(c.tree.root.size > 0.0149 && c.tree.root.size < 0.0160)
+        #expect(fx.cacheExists)
+    }
+
+    @Test func progressNeverReachesOneBeforeDone() {
+        #expect(DiskScanController.progress(bytes: 50, estimate: 100) == 0.5)
+        #expect(DiskScanController.progress(bytes: 200, estimate: 100) == 0.99)
+        #expect(DiskScanController.progress(bytes: 10, estimate: 0) == 0)
+        #expect(DiskScanController.shortPath("/Users/x/Library/Caches", root: "/Users/x") == "~/Library/Caches")
+        #expect(DiskScanController.shortPath("/Users/x", root: "/Users/x") == "~")
+    }
+
+    @Test func cacheLoadsWithinHour() async throws {
+        let fx = try Fixture(), c1 = fx.controller()
+        let t0 = fx.clock.now
+        c1.setVisible(true); c1.start(); await c1.waitUntilIdle()
+        fx.clock.now = t0.addingTimeInterval(30 * 60)
+        let c2 = fx.controller()
+        #expect(c2.phase == .ready(scannedAt: t0))   // açılışta yalnızca başlık okunur
+        #expect(c2.tree.root.children == nil)
+        c2.setVisible(true); await c2.waitUntilIdle()
+        #expect(c2.tree.node(at: ["a"])?.children?.map(\.name) == ["büyük.bin", "Diğer"])
+        #expect(abs(c2.tree.root.size - c1.tree.root.size) < 1e-9)
+    }
+
+    @Test func cacheExpiresAfterHour() async throws {
+        let fx = try Fixture(), c1 = fx.controller()
+        c1.setVisible(true); c1.start(); await c1.waitUntilIdle()
+        fx.clock.now = fx.clock.now.addingTimeInterval(61 * 60)
+        let c2 = fx.controller()
+        #expect(c2.phase == .none)
+        #expect(!fx.cacheExists)
+        // Açık kalan oturumda da süre dolunca sonuç bırakılır.
+        c1.setVisible(true)
+        #expect(c1.phase == .none); #expect(c1.tree.root.children == nil)
+    }
+
+    @Test func corruptCacheIgnored() async throws {
+        let fx = try Fixture()
+        try FileManager.default.createDirectory(at: fx.cache.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data((0..<300).map { _ in UInt8.random(in: 0...255) }).write(to: fx.cache)
+        let c = fx.controller()
+        #expect(c.phase == .none)
+        // Başlığı sağlam, içeriği bozuk önbellek: yüklenemeyince bırakılır.
+        let good = fx.controller(); good.setVisible(true); good.start(); await good.waitUntilIdle()
+        var data = try Data(contentsOf: fx.cache)
+        data.replaceSubrange(40..<data.count, with: Data(repeating: 7, count: data.count - 40))
+        try data.write(to: fx.cache)
+        let c2 = fx.controller()
+        #expect(c2.phase != .none)
+        c2.setVisible(true); await c2.waitUntilIdle()
+        #expect(c2.phase == .none); #expect(!fx.cacheExists)
+    }
+
+    @Test func hiddenDropsTree() async throws {
+        let fx = try Fixture(), c = fx.controller()
+        c.setVisible(true); c.start(); await c.waitUntilIdle()
+        #expect(c.tree.root.children != nil)
+        let ready = c.phase
+        c.setVisible(false)
+        #expect(c.tree.root.children == nil)
+        #expect(c.phase == ready)
+        c.setVisible(true); await c.waitUntilIdle()
+        #expect(c.tree.node(at: ["a"]) != nil)
+    }
+
+    @Test func cancelReturnsToPrevious() async throws {
+        let fx = try Fixture(), c = fx.controller()
+        c.setVisible(true)
+        c.start(); c.cancel(); await c.waitUntilIdle()
+        #expect(c.phase == .none); #expect(!fx.cacheExists)
+        c.start(); await c.waitUntilIdle()
+        let ready = c.phase
+        fx.clock.now = fx.clock.now.addingTimeInterval(60)
+        c.start(); c.cancel(); await c.waitUntilIdle()
+        #expect(c.phase == ready)
+        #expect(c.tree.node(at: ["a"])?.children?.isEmpty == false)
+    }
+}
