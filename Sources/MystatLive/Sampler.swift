@@ -11,6 +11,8 @@ public actor Sampler {
         public let snapshot: Snapshot
         public let series: SeriesBuffer
         public let groups: GroupHistory
+        /// Son süreç listesindeki kendi süreçlerin başlangıcı: durdururken pid hâlâ aynı süreç mi diye bakılır.
+        public let starts: [Int32: Date]
     }
 
     private struct ProcKey: Hashable { let pid: Int32; let start: Date }
@@ -27,7 +29,7 @@ public actor Sampler {
     private var series = SeriesBuffer(), groupHistory = GroupHistory()
     private var lastCPU: CPUState?, lastNet = (down: 0.0, up: 0.0, todayDown: 0.0, todayUp: 0.0), lastIO: (read: Double, write: Double)?
     private var lastProc: Date?, lastSlow: Date?, lastDownloads: Date?, lastPrune: Date?
-    private var groups: [ProcessGroup] = [], ports: [Int32: [Int]] = [:], written: [ProcKey: UInt64] = [:]
+    private var groups: [ProcessGroup] = [], ports: [Int32: [Int]] = [:], written: [ProcKey: UInt64] = [:], starts: [Int32: Date] = [:]
     private var volume: VolumeCapacity?, battery: BatteryReading?, downloads: [(name: String, gb: Double, idleDays: Int)] = []
     private var iface: String?, ip: String?
     private var swap: [Double] = []
@@ -126,7 +128,7 @@ public actor Sampler {
                                  thermal: probe.thermal(), battery: battery, batteryDrain30m: drain, machine: machine,
                                  downloads: downloads, coreCount: max(1, ticks.count))
         return Output(snapshot: SnapshotBuilder.build(m, incident: incident, capabilities: LiveSource.capabilities2a),
-                      series: series, groups: groupHistory)
+                      series: series, groups: groupHistory, starts: starts)
     }
 
     /// Süreçler → gruplar. Başka kullanıcıların süreçleri ölçülemez; toplamdan kalan "macOS" satırına gider.
@@ -138,6 +140,7 @@ public actor Sampler {
             ports = candidates.isEmpty ? [:] : probe.listeningPorts(pids: candidates)
         }
         let own = records.filter { !$0.restricted }
+        starts = Dictionary(own.map { ($0.pid, $0.start) }, uniquingKeysWith: { a, _ in a })
         let ownCores = own.reduce(0) { $0 + (cores[$1.pid] ?? 0) }
         let ownMemGB = Double(own.reduce(UInt64(0)) { $0 &+ $1.footprint }) / 1_073_741_824
         let residual = (cores: max(0, cpu.percent / 100 * Double(coreCount) - ownCores), memoryGB: max(0, memory.usedGB - ownMemGB))

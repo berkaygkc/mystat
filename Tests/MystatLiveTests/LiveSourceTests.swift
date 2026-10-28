@@ -10,6 +10,8 @@ final class FakeProbe: SystemProbe {
     let calls = Mutex<[String: Int]>([:])
     let step = Mutex(0)
     let busyCores: Double
+    /// pid 100'ün başlangıcı; değişirse pid başka bir sürece geçmiş demektir.
+    let start100 = Mutex(Date(timeIntervalSince1970: 1_793_000_000))
 
     init(busyCores: Double = 0) { self.busyCores = busyCores }
 
@@ -34,7 +36,7 @@ final class FakeProbe: SystemProbe {
     func diskIO() -> DiskIOCounters { DiskIOCounters(bytesRead: 16_400_000 * s, bytesWritten: 9_400_000 * s) }
     func processes() -> [ProcessRecord] {
         count("processes")
-        let start = Date(timeIntervalSince1970: 1_793_000_000)
+        let start = start100.withLock { $0 }
         return [ProcessRecord(pid: 100, ppid: 1, uid: 501, name: "claude", path: "/Users/u/.local/bin/claude", args: ["claude"],
                               cwd: "/Users/u/acmecorp", start: start, hasTTY: true,
                               cpuTime: UInt64(busyCores * 2e9) * s, footprint: 1 << 30, energy: 0, diskWritten: 1_000_000 * s),
@@ -106,5 +108,33 @@ final class FakeProbe: SystemProbe {
         h.setDetailInterest(true)
         for t in stride(from: 0.0, through: 126, by: 2) { await tick(h, q, t) }
         #expect(h.snapshot.incident?.kind == .cpu && h.snapshot.incident?.level == .crit)
+    }
+
+    /// Sinyal, grubun o anki listede hâlâ aynı süreç olan üyelerine gider (Review Focus #2).
+    @Test func stopResolvesCurrentMembers() async {
+        let p = FakeProbe(busyCores: 1), s = source(p)
+        var sent: [([Int32], Bool)] = []
+        s.signaler = { pids, force in sent.append((pids, force)); return .done(count: pids.count) }
+        s.setDetailInterest(true)
+        await tick(s, p, 0)
+        await tick(s, p, 2)
+        let id = s.snapshot.groups.first { $0.name == "Claude Code" }!.id
+        #expect(s.stop(groupID: id, force: true) == .done(count: 1))
+        #expect(sent.count == 1 && sent[0].0 == [100] && sent[0].1)
+        p.start100.withLock { $0 = $0.addingTimeInterval(5) }   // pid 100 artık başka süreç
+        #expect(s.stop(groupID: id, force: false) == .notFound)
+        #expect(sent.count == 1)
+        #expect(s.stop(groupID: "yok", force: false) == .notFound)
+    }
+
+    @Test func stopRefusesSystemGroup() async {
+        let p = FakeProbe(busyCores: 1), s = source(p)
+        var called = false
+        s.signaler = { _, _ in called = true; return .done(count: 1) }
+        s.setDetailInterest(true)
+        await tick(s, p, 0)
+        await tick(s, p, 2)
+        #expect(s.stop(groupID: "sys:macos", force: true) == .notPermitted(reason: StopOutcome.foreignReason))
+        #expect(!called)
     }
 }

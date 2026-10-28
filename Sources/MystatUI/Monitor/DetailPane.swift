@@ -53,12 +53,15 @@ public struct DetailPane<Source: MetricsSource>: View {
                     Btn("Docker'da aç", trailing: "chevron.right") { state.go(.docker) }
                 } else {
                     HStack(spacing: 7) {
-                        Btn("Durdur") { state.confirm = Actions.stop(g, force: false) }
-                        Btn("Zorla kapat", style: .danger) { state.confirm = Actions.stop(g, force: true) }
+                        Btn("Durdur") { state.confirm = Actions.stop(g, force: false, source: source) }
+                        Btn("Zorla kapat", style: .danger) { state.confirm = Actions.stop(g, force: true, source: source) }
                     }
+                    .disabled(g.foreign)
+                    .help(g.foreign ? StopOutcome.foreignReason : "")
                 }
             }
             .padding(.top, 16)
+            if g.foreign && !g.isDocker { note(StopOutcome.foreignReason) }
         }
         .frame(width: 300, alignment: .leading)
     }
@@ -85,16 +88,24 @@ public struct DetailPane<Source: MetricsSource>: View {
     }
 }
 
-/// Onay pencereleri ve eylem metinleri (mockup `askKill`, `askPrune`). Faz 1'de yalnızca bildirim gösterilir.
+/// Onay pencereleri ve eylem metinleri (mockup `askKill`, `askPrune`). Onaylanınca kaynak durdurur, bildirim sonucu söyler.
 @MainActor
 public enum Actions {
-    public static func stop(_ g: ProcessGroup, force: Bool) -> ConfirmRequest {
+    public static func stop(_ g: ProcessGroup, force: Bool, source: any MetricsSource) -> ConfirmRequest {
         let who = g.name + (g.context.isEmpty ? "" : " · " + g.context)
         return ConfirmRequest(
             title: "\(who) " + (force ? "zorla kapatılsın mı?" : "durdurulsun mu?"),
             message: "\(g.processCount) süreç " + (force ? "hemen sonlandırılacak. Kaydedilmemiş iş varsa kaybolur."
                                                          : "kapanması için uyarılacak. Cevap vermezse zorla kapatmayı seçebilirsin."),
             confirm: force ? "Zorla kapat" : "Durdur", destructive: force,
-            onConfirm: { ToastCenter.shared.show("\(g.name) " + (force ? "zorla kapatıldı (örnek)" : "durduruldu (örnek)")) })
+            onConfirm: { ToastCenter.shared.show(stopToast(g, force: force, source.stop(groupID: g.id, force: force))) })
+    }
+
+    static func stopToast(_ g: ProcessGroup, force: Bool, _ o: StopOutcome) -> String {
+        switch o {
+        case .done: "\(g.name) " + (force ? "zorla kapatıldı" : "durduruldu")
+        case .notPermitted(let reason): reason
+        case .notFound: "\(g.name) zaten kapanmış"
+        }
     }
 }

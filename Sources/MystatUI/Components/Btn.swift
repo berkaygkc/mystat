@@ -5,6 +5,7 @@ public struct Btn: View {
     public enum Style { case normal, primary, danger, dangerFill }
     let title: String, icon: String?, trailing: String?, style: Style, action: () -> Void
     @State private var hovering = false
+    @Environment(\.isEnabled) private var enabled
 
     public init(_ title: String, icon: String? = nil, trailing: String? = nil, style: Style = .normal, action: @escaping () -> Void) {
         self.title = title; self.icon = icon; self.trailing = trailing; self.style = style; self.action = action
@@ -22,7 +23,8 @@ public struct Btn: View {
             .foregroundStyle(fg)
             .background(bg, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(style == .normal || style == .danger ? Theme.btnEdge : .clear, lineWidth: 0.5))
-            .brightness(hovering ? 0.03 : 0)
+            .brightness(hovering && enabled ? 0.03 : 0)
+            .opacity(enabled ? 1 : 0.4)
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }

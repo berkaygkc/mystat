@@ -32,6 +32,8 @@ public struct ProcessGroup: Identifiable, Sendable {
     public var children: [ChildProcess]
     /// Grubun süreçleri (canlı veride; durdurma ve disk yazımı için). Örnek veride boş.
     public var pids: [Int32] = []
+    /// Grupta kullanıcının olmayan süreç var; Durdur / Zorla kapat pasif (spec §7.4).
+    public var foreign = false
 }
 
 public struct Container: Identifiable, Sendable {

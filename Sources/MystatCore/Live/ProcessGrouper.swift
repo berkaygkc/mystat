@@ -12,7 +12,8 @@ public enum ProcessGrouper {
     }
 
     public static func groups(_ r: [ProcessRecord], cores: [Int32: Double], ports: [Int32: [Int]],
-                              system: (cores: Double, memoryGB: Double), now: Date, home: String) -> [ProcessGroup] {
+                              system: (cores: Double, memoryGB: Double), now: Date, home: String,
+                              owner: uid_t = getuid()) -> [ProcessGroup] {
         let byPid = Dictionary(r.filter { !$0.restricted }.map { ($0.pid, $0) }, uniquingKeysWith: { a, _ in a })
         var members: [Kind: [ProcessRecord]] = [:]
         for p in r { members[kind(p, byPid), default: []].append(p) }
@@ -24,7 +25,7 @@ public enum ProcessGrouper {
             let rp = byPid[root]!
             let id = "claude:\(rp.cwd ?? "")"
             claudeIDs[root] = id
-            out.append(make(id: id, name: "Claude Code", context: rp.cwd.map { ($0 as NSString).lastPathComponent } ?? "", ms, cores,
+            out.append(make(id: id, name: "Claude Code", context: rp.cwd.map { ($0 as NSString).lastPathComponent } ?? "", ms, cores, owner,
                             now: now, folder: rp.cwd, terminal: ms.lazy.compactMap(\.terminal).first))
         }
         for case let (.dev(root), ms) in members {
@@ -34,22 +35,23 @@ public enum ProcessGrouper {
             let ctx = projectContext(cwd: cwd, root: rp.projectRoot) + (port.map { " · :\($0)" } ?? "")
             let related = ancestors(rp, byPid).lazy.compactMap { claudeIDs[$0.pid] }.first
                 ?? out.first { $0.name == "Claude Code" && $0.folder.map { f in cwd.hasPrefix(f) || rp.projectRoot == f } == true }?.id
-            out.append(make(id: "dev:\(cwd):\(port ?? 0)", name: devName(rp), context: ctx, ms, cores, now: now, folder: cwd,
+            out.append(make(id: "dev:\(cwd):\(port ?? 0)", name: devName(rp), context: ctx, ms, cores, owner, now: now, folder: cwd,
                             terminal: rp.terminal, port: port, orphan: rp.ppid == 1, related: related))
         }
         for (k, ms) in members {
             switch k {
             case .docker:
-                out.append(make(id: "docker:vm", name: "Docker", context: "sanal makine", ms, cores, now: now, docker: true))
+                out.append(make(id: "docker:vm", name: "Docker", context: "sanal makine", ms, cores, owner, now: now, docker: true))
             case .app(let path):
                 let name = ((path as NSString).lastPathComponent as NSString).deletingPathExtension
-                out.append(make(id: "app:\(path)", name: name, context: ms.count > 1 ? "\(ms.count) süreç" : "", ms, cores, now: now))
+                out.append(make(id: "app:\(path)", name: name, context: ms.count > 1 ? "\(ms.count) süreç" : "", ms, cores, owner, now: now))
             case .other(let name):
-                out.append(make(id: "proc:\(name)", name: name, context: ms.count > 1 ? "\(ms.count) süreç" : "", ms, cores, now: now))
+                out.append(make(id: "proc:\(name)", name: name, context: ms.count > 1 ? "\(ms.count) süreç" : "", ms, cores, owner, now: now))
             case .system:
-                var g = make(id: "sys:macos", name: "macOS", context: "sistem süreçleri", ms, cores, now: now)
+                var g = make(id: "sys:macos", name: "macOS", context: "sistem süreçleri", ms, cores, owner, now: now)
                 g.cpuCores += system.cores
                 g.memoryGB += system.memoryGB
+                g.foreign = true
                 out.append(g)
             case .claude, .dev: break
             }
@@ -129,7 +131,7 @@ public enum ProcessGrouper {
         return "\((root as NSString).lastPathComponent)/\(last)"
     }
 
-    private static func make(id: String, name: String, context: String, _ ms: [ProcessRecord], _ cores: [Int32: Double], now: Date,
+    private static func make(id: String, name: String, context: String, _ ms: [ProcessRecord], _ cores: [Int32: Double], _ owner: uid_t, now: Date,
                              folder: String? = nil, terminal: String? = nil, port: Int? = nil, orphan: Bool = false,
                              related: String? = nil, docker: Bool = false) -> ProcessGroup {
         let cpu = ms.reduce(0) { $0 + (cores[$1.pid] ?? 0) }
@@ -139,6 +141,6 @@ public enum ProcessGrouper {
                             uptime: oldest.map { Fmt.uptime(now.timeIntervalSince($0)) } ?? "", processCount: ms.count,
                             folder: folder, terminal: terminal, port: port, isOrphan: orphan, relatedID: related, isDocker: docker,
                             children: ms.map { ChildProcess(name: $0.name, cpuCores: cores[$0.pid] ?? 0) },
-                            pids: ms.filter { !$0.restricted }.map(\.pid))
+                            pids: ms.filter { !$0.restricted }.map(\.pid), foreign: ms.contains { $0.restricted || $0.uid != owner })
     }
 }

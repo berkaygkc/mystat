@@ -33,4 +33,12 @@ import Testing
         }
         #expect(SampleSource(seed: 1, incident: true, kind: .disk).snapshot.disk.freeGB == 8)
     }
+
+    /// Örnekte de WindowServer sistemin süreci: durdurulamaz, diğerleri durdurulur (spec §7.4).
+    @Test func systemGroupIsNotStoppable() {
+        let s = SampleSource(seed: 1)
+        #expect(s.snapshot.groups.filter(\.foreign).map(\.id) == ["windowserver"])
+        #expect(s.stop(groupID: "windowserver", force: false) == .notPermitted(reason: StopOutcome.foreignReason))
+        #expect(s.stop(groupID: "next-web", force: false) == .done(count: 3))
+    }
 }

@@ -50,7 +50,7 @@ public final class SampleSource: MetricsSource {
 
     /// Örnek veride durdurma benzetilir; hiçbir sürece dokunulmaz.
     public func stop(groupID: String, force: Bool) -> StopOutcome {
-        snapshot.groups.first { $0.id == groupID }.map { .done(count: $0.processCount) } ?? .notFound
+        snapshot.groups.first { $0.id == groupID }.map { $0.foreign ? .notPermitted(reason: StopOutcome.foreignReason) : .done(count: $0.processCount) } ?? .notFound
     }
 
     /// 2 sn'de bir çağrılır; mockup'taki `tickLive`.
@@ -87,7 +87,7 @@ public final class SampleSource: MetricsSource {
                 cpuCores: load ? g.cpu.1 : g.cpu.0, memoryGB: mem, netMBps: cpuInc ? g.net.1 : g.net.0,
                 uptime: g.up, processCount: g.n, folder: g.dir, terminal: g.term, port: g.port,
                 isOrphan: g.orphan, relatedID: g.related, isDocker: g.docker,
-                children: g.kids.map { ChildProcess(name: $0.0, cpuCores: load ? $0.2 : $0.1) })
+                children: g.kids.map { ChildProcess(name: $0.0, cpuCores: load ? $0.2 : $0.1) }, foreign: g.id == "windowserver")
         }
         let containers = SampleData.containers.map { c in
             let cpu = cpuInc ? c.2.1 : (inc && kind == .docker && c.0 == "acmecorp-verifier") ? 62 : c.2.0

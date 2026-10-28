@@ -11,7 +11,7 @@ enum SnapshotMode {
         var target = "panel", out = "/tmp/mystat-snapshot.png"
         var dark = false, incident = false
         var kind: IncidentKind = .cpu
-        var section = "overview", scan = "ready", confirm = "", toast = "", caps = "all"
+        var section = "overview", scan = "ready", confirm = "", toast = "", caps = "all", select = ""
         var bmPath: [String] = [], bmSelect: [[String]] = [], bmZoom: String?, bmP = 0.0, bmHover: String?
         var size = CGSize(width: 1400, height: 900)
     }
@@ -31,6 +31,7 @@ enum SnapshotMode {
             case "--confirm": o.confirm = next()
             case "--toast": o.toast = next()
             case "--caps": o.caps = next()
+            case "--select": o.select = next()
             case "--bm-path": o.bmPath = next().split(separator: "/").map(String.init)
             case "--bm-select": o.bmSelect = next().split(separator: ",").map { $0.split(separator: "/").map(String.init) }
             case "--bm-zoom": o.bmZoom = next()
@@ -80,7 +81,8 @@ enum SnapshotMode {
         case "monitor":
             let state = MonitorState()
             state.go(MonitorSection(rawValue: o.section) ?? .overview)
-            if o.confirm == "stop", let g = source.snapshot.groups.first(where: { $0.id == "next-web" }) { state.confirm = Actions.stop(g, force: true) }
+            if !o.select.isEmpty { state.select(.cpu, o.select) }
+            if o.confirm == "stop", let g = source.snapshot.groups.first(where: { $0.id == "next-web" }) { state.confirm = Actions.stop(g, force: true, source: source) }
             if o.confirm == "prune" { state.confirm = DockerActions.prune(volumes: true, gb: 12.6) }
             if !o.toast.isEmpty { ToastCenter.shared.show(o.toast) }
             switch o.scan {

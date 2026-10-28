@@ -17,12 +17,17 @@ public final class LiveSource: MetricsSource {
     @ObservationIgnored private var groupHistory = GroupHistory()
     @ObservationIgnored private let sampler: Sampler
     @ObservationIgnored private let history: HistoryStore?
+    @ObservationIgnored private let probe: any SystemProbe
+    @ObservationIgnored private var starts: [Int32: Date] = [:]
+    /// Testler gerçek sinyal yerine kaydedici koyar.
+    @ObservationIgnored var signaler: @MainActor ([Int32], Bool) -> StopOutcome = { ProcessActions.signal($0, force: $1) }
 
     public init(probe: some SystemProbe = DefaultProbe(), historyURL: URL? = HistoryStore.defaultURL,
                 persistToday: Bool = true, autostart: Bool = true) {
         snapshot = .empty(capabilities: Self.capabilities2a)
         let store = historyURL.flatMap { try? HistoryStore(url: $0) }
         history = store
+        self.probe = probe
         sampler = Sampler(probe: probe, history: store, persistToday: persistToday)
         if autostart { start() }
     }
@@ -41,6 +46,7 @@ public final class LiveSource: MetricsSource {
         snapshot = o.snapshot
         buffer = o.series
         groupHistory = o.groups
+        starts = o.starts
     }
 
     public func series(_ key: SeriesKey, range: TimeRange) -> [Double] {
@@ -55,7 +61,14 @@ public final class LiveSource: MetricsSource {
 
     public func setDetailInterest(_ visible: Bool) { sampler.interest.withLock { $0 = visible } }
 
-    public func stop(groupID: String, force: Bool) -> StopOutcome { .notFound }
+    /// Grubun pid'leri o anki listeden yeniden çözülür: o arada biten ya da başka sürece geçmiş pid'e sinyal gitmez.
+    public func stop(groupID: String, force: Bool) -> StopOutcome {
+        guard let g = snapshot.groups.first(where: { $0.id == groupID }) else { return .notFound }
+        if g.foreign { return .notPermitted(reason: StopOutcome.foreignReason) }
+        let current = Dictionary(probe.processes().map { ($0.pid, $0) }, uniquingKeysWith: { a, _ in a })
+        let pids = g.pids.filter { pid in current[pid].map { !$0.restricted && $0.start == starts[pid] } == true }
+        return pids.isEmpty ? .notFound : signaler(pids, force)
+    }
 }
 
 /// Açılış argümanına göre kaynak: varsayılan canlı, `--sample` örnek veri (`--incident`, `--kind k` ile).

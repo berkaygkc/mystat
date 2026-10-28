@@ -28,7 +28,7 @@ import Testing
 
     func groups(_ r: [ProcessRecord], cores: [Int32: Double] = [:], ports: [Int32: [Int]] = [111: [3011]],
                 system: (cores: Double, memoryGB: Double) = (0, 0)) -> [String: ProcessGroup] {
-        Dictionary(uniqueKeysWithValues: ProcessGrouper.groups(r, cores: cores, ports: ports, system: system, now: now, home: "/Users/u").map { ($0.id, $0) })
+        Dictionary(uniqueKeysWithValues: ProcessGrouper.groups(r, cores: cores, ports: ports, system: system, now: now, home: "/Users/u", owner: 501).map { ($0.id, $0) })
     }
 
     @Test func claudeSessionWithProject() {
@@ -90,7 +90,7 @@ import Testing
     }
 
     @Test func sortedByCPU() {
-        let ids = ProcessGrouper.groups(tree, cores: [102: 0.1, 111: 2.0], ports: [111: [3011]], system: (0, 0), now: now, home: "/Users/u").map(\.id)
+        let ids = ProcessGrouper.groups(tree, cores: [102: 0.1, 111: 2.0], ports: [111: [3011]], system: (0, 0), now: now, home: "/Users/u", owner: 501).map(\.id)
         #expect(ids.first == "dev:\(proj)/apps/web:3011")
     }
 
@@ -100,5 +100,17 @@ import Testing
         #expect(Fmt.uptime(45 * 3600) == "45 sa")
         #expect(Fmt.uptime(3 * 86400) == "3 gün")
         #expect(Fmt.uptime(20) == "1 dk")
+    }
+
+    /// Kullanıcının olmayan süreç içeren grup durdurulamaz (spec §7.4); macOS satırı her zaman sistemin.
+    @Test func foreignMembersMarkGroup() {
+        let helper = ProcessRecord(pid: 300, ppid: 1, uid: 0, name: "VPNHelper", path: "/Applications/VPN.app/Contents/MacOS/VPNHelper",
+                                   args: [], cwd: nil, start: now, hasTTY: false, cpuTime: 0, footprint: 1 << 20, energy: 0, diskWritten: 0)
+        let ui = p(301, 1, "VPN", path: "/Applications/VPN.app/Contents/MacOS/VPN")
+        let g = groups(tree + [helper, ui, p(1, 0, "launchd", path: "/sbin/launchd", restricted: true)])
+        #expect(g["app:/Applications/VPN.app"]?.foreign == true)
+        #expect(g["claude:\(proj)"]?.foreign == false)
+        #expect(g["sys:macos"]?.foreign == true)
+        #expect(groups(tree, system: (0.4, 2))["sys:macos"]?.foreign == true)   // yalnızca kalan pay
     }
 }
