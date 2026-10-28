@@ -14,6 +14,9 @@ public final class LiveSource: MetricsSource {
     @ObservationIgnored let disk = DiskScanController()
     public var diskTree: DiskTree { disk.tree }
     public var diskScan: ScanPhase { disk.phase }
+    public var diskInaccessible: Int { disk.inaccessible }
+    /// Disk bölümü her açıldığında yeniden denetlenir (izin Sistem Ayarları'ndan verilmiş olabilir).
+    public private(set) var diskFullAccess = DiskAccess.hasFullDiskAccess()
     @ObservationIgnored private var buffer = SeriesBuffer()
     @ObservationIgnored private var groupHistory = GroupHistory()
     @ObservationIgnored private let sampler: Sampler
@@ -84,6 +87,7 @@ public final class LiveSource: MetricsSource {
 
     public func setVisibleSection(_ section: String?) {
         disk.setVisible(section == "disk")
+        if section == "disk", DiskAccess.hasFullDiskAccess() != diskFullAccess { diskFullAccess.toggle() }
         guard section == "docker" else { return }
         let docker = docker
         Task { await docker.requestDisk(at: Date()) }

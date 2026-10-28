@@ -18,6 +18,10 @@ public protocol MetricsSource: AnyObject, Observable {
     /// Disk taraması (§6.4): yalnızca elle başlar, 1 saat geçerli. Örnek kaynakta ≈ 4 sn'lik benzetim.
     var diskScan: ScanPhase { get }
     func startDiskScan()
+    /// Tam Disk Erişimi var mı; yoksa taramada korumalı klasörler atlanır (§6.4).
+    var diskFullAccess: Bool { get }
+    /// Son taramada okunamayan klasör sayısı.
+    var diskInaccessible: Int { get }
     /// Süren taramayı durdurur; önceki durum (yok ya da önceki sonuç) geri gelir.
     func cancelDiskScan()
     /// Sepetteki öğeleri siler ya da çöpe taşır (§6.4); onaydan sonra çağrılır. Ağaç yerinde güncellenir, disk doluluğu

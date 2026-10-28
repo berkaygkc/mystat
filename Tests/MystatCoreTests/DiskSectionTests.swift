@@ -25,4 +25,14 @@ import Testing
         _ = b.toggle(["Downloads", "Xcode_26.2.xip"], in: t); _ = b.toggle([".npm"], in: t); _ = b.toggle(["Library", "Caches"], in: t)
         #expect(b.confirmMessage(mode: .trash) == "apps, Caches, Xcode_26.2.xip ve 1 öğe daha. 59 GB çöpe gidecek; çöpü boşaltana kadar geri alabilirsin.")
     }
+
+    @Test func accessNoteCases() {
+        #expect(DiskPresentation.accessNote(fullDiskAccess: false, scanned: false, inaccessible: 0)
+                == "Tam tarama için mystat'a Tam Disk Erişimi ver. Vermezsen korumalı klasörler atlanır.")
+        #expect(DiskPresentation.accessNote(fullDiskAccess: true, scanned: false, inaccessible: 0) == nil)
+        #expect(DiskPresentation.accessNote(fullDiskAccess: true, scanned: true, inaccessible: 0) == nil)
+        #expect(DiskPresentation.accessNote(fullDiskAccess: true, scanned: true, inaccessible: 144) == "144 klasör okunamadı (macOS korumalı)")
+        #expect(DiskPresentation.accessNote(fullDiskAccess: false, scanned: true, inaccessible: 1_440) == "1.440 klasör okunamadı (macOS korumalı)")
+    }
 }
+

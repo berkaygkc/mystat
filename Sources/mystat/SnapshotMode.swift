@@ -12,6 +12,7 @@ enum SnapshotMode {
         var dark = false, incident = false
         var kind: IncidentKind = .cpu
         var section = "overview", scan = "ready", confirm = "", toast = "", caps = "all", select = "", docker = ""
+        var fda = true, inaccessible = 0
         var bmPath: [String] = [], bmSelect: [[String]] = [], bmZoom: String?, bmP = 0.0, bmHover: String?
         var size = CGSize(width: 1400, height: 900)
     }
@@ -33,6 +34,8 @@ enum SnapshotMode {
             case "--caps": o.caps = next()
             case "--select": o.select = next()
             case "--docker": o.docker = next()
+            case "--fda": o.fda = next() != "none"
+            case "--inaccessible": o.inaccessible = Int(next()) ?? 0
             case "--bm-path": o.bmPath = next().split(separator: "/").map(String.init)
             case "--bm-select": o.bmSelect = next().split(separator: ",").map { $0.split(separator: "/").map(String.init) }
             case "--bm-zoom": o.bmZoom = next()
@@ -53,6 +56,7 @@ enum SnapshotMode {
         NSApplication.shared.setActivationPolicy(.prohibited)
         let source = SampleSource(seed: 1, incident: o.incident, kind: o.kind)
         if o.docker == "down" { source.dockerRunning = false }
+        source.diskFullAccess = o.fda; source.diskInaccessible = o.inaccessible
         if o.caps == "none" { source.capabilities = SourceCapabilities(docker: false, sensors: false, diskScan: false, netDetails: false) }
         let content = makeView(o, source)
         let root = NSHostingView(rootView: SnapshotBackdrop(dark: o.dark) { content })

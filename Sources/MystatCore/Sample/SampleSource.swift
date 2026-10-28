@@ -9,6 +9,8 @@ public final class SampleSource: MetricsSource {
     @ObservationIgnored public let diskTree: DiskTree
     /// İnceleme için dışarıdan da yazılır (`--snapshot … --scan`).
     public var diskScan: ScanPhase = .none
+    public var diskFullAccess = true
+    public var diskInaccessible = 0
     @ObservationIgnored private var scanTask: Task<Void, Never>?
 
     @ObservationIgnored private var isIncident: Bool

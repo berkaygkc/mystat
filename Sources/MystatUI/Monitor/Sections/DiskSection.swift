@@ -16,7 +16,9 @@ struct DiskSection<Source: MetricsSource>: View {
             HStack(alignment: .top, spacing: 22) {
                 VStack(alignment: .leading, spacing: 0) {
                     crumbs.padding(.bottom, 10)
-                    DiskMapArea(disk: disk, scan: source.diskScan, scanAvailable: s.capabilities.diskScan, start: source.startDiskScan) { BubbleMapView(source: source, state: state) }
+                    DiskMapArea(disk: disk, scan: source.diskScan, scanAvailable: s.capabilities.diskScan,
+                                accessNote: DiskPresentation.accessNote(fullDiskAccess: source.diskFullAccess, scanned: false, inaccessible: 0),
+                                start: source.startDiskScan) { BubbleMapView(source: source, state: state) }
                 }
                 DiskSidePanel(source: source, disk: disk, state: state)
             }
@@ -74,7 +76,8 @@ struct DiskSection<Source: MetricsSource>: View {
                     .onTapGesture { if !current { disk.open(c.path) } }
             }
             Spacer()
-            ScanStatus(scan: source.diskScan, start: source.startDiskScan)
+            ScanStatus(scan: source.diskScan, note: DiskPresentation.accessNote(fullDiskAccess: source.diskFullAccess, scanned: true, inaccessible: source.diskInaccessible),
+                       start: source.startDiskScan)
         }
         .font(.system(size: 13))
     }
@@ -83,6 +86,8 @@ struct DiskSection<Source: MetricsSource>: View {
 /// Yol satırının sağındaki tarama durumu: taranıyor / X dk daha geçerli · Yeniden tara.
 struct ScanStatus: View {
     let scan: ScanPhase
+    /// Hazır durumda okunamayan klasör sayısı (Tam Disk Erişimi yoksa).
+    let note: String?
     let start: () -> Void
     var body: some View {
         TimelineView(.periodic(from: .now, by: 15)) { ctx in
@@ -91,6 +96,9 @@ struct ScanStatus: View {
                 case .scanning(_, let gb, let path):
                     Text("Taranıyor · \(Fmt.size(gb)) · \(path)").monospacedDigit()
                 case .ready:
+                    if let note {
+                        Text(note + " ·").help("Tam Disk Erişimi verirsen bu klasörler de taranır.")
+                    }
                     Text((scan.validityText(now: ctx.date) ?? "") + " ·")
                     Text("Yeniden tara").fontWeight(.semibold).foregroundStyle(Theme.ink2)
                         .onTapGesture { start() }
@@ -109,7 +117,10 @@ struct DiskMapArea<Map: View>: View {
     let scan: ScanPhase
     /// Gerçek tarama 2d'de bağlanır; o zamana kadar canlı kaynakta düğme yok.
     var scanAvailable = true
+    /// Tam Disk Erişimi yoksa taramadan önce gösterilir (§6.4).
+    var accessNote: String?
     let start: () -> Void
+    @Environment(\.openURL) private var openURL
     @ViewBuilder let map: () -> Map
 
     var body: some View {
@@ -146,8 +157,16 @@ struct DiskMapArea<Map: View>: View {
                 .font(.system(size: 13)).lineSpacing(3).multilineTextAlignment(.center).foregroundStyle(Theme.ink2)
                 .frame(maxWidth: 340).padding(.top, 6)
             if scanAvailable {
-                Btn("Taramayı başlat", icon: "magnifyingglass", style: .primary) { start() }
-                    .fixedSize().padding(.top, 18)
+                if let accessNote {
+                    Text("\(Image(systemName: "lock"))  \(accessNote)")
+                        .font(.system(size: 12.5)).lineSpacing(2).multilineTextAlignment(.center).foregroundStyle(Theme.ink3)
+                        .frame(maxWidth: 340).padding(.top, 12)
+                }
+                HStack(spacing: 8) {
+                    Btn("Taramayı başlat", icon: "magnifyingglass", style: .primary) { start() }
+                    if accessNote != nil { Btn("Ayarları aç", icon: "gearshape") { openURL(DiskPresentation.settingsURL) } }
+                }
+                .fixedSize().padding(.top, 18)
             } else {
                 Text("Disk haritası taraması henüz bağlanmadı.").font(.system(size: 12.5)).foregroundStyle(Theme.ink3).padding(.top, 18)
             }
