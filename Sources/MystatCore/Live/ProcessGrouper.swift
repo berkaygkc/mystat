@@ -13,29 +13,41 @@ public enum ProcessGrouper {
 
     public static func groups(_ r: [ProcessRecord], cores: [Int32: Double], ports: [Int32: [Int]],
                               system: (cores: Double, memoryGB: Double), now: Date, home: String,
-                              owner: uid_t = getuid()) -> [ProcessGroup] {
+                              owner: uid_t = getuid(), cache: ClassCache = .init()) -> [ProcessGroup] {
         let byPid = Dictionary(r.filter { !$0.restricted }.map { ($0.pid, $0) }, uniquingKeysWith: { a, _ in a })
+        let marks = cache.marks(r)
         var members: [Kind: [ProcessRecord]] = [:]
-        for p in r { members[kind(p, byPid), default: []].append(p) }
+        for p in r { members[kind(p, byPid, marks), default: []].append(p) }
         if members[.system] == nil, system.cores > 0 || system.memoryGB > 0 { members[.system] = [] }
 
         var out: [ProcessGroup] = []
         var claudeIDs: [Int32: String] = [:]
-        for case let (.claude(root), ms) in members {
+        // Aynı klasörde iki oturum ya da portsuz iki sunucu: en küçük pid sade kimliği alır, kimlik turdan tura sabit.
+        var used = Set<String>()
+        func unique(_ id: String, _ root: Int32) -> String {
+            let u = used.contains(id) ? "\(id)#\(root)" : id
+            used.insert(u)
+            return u
+        }
+        let roots = members.keys.sorted { rootPid($0) < rootPid($1) }
+        for case .claude(let root) in roots {
+            let ms = members[.claude(root: root)]!
             let rp = byPid[root]!
-            let id = "claude:\(rp.cwd ?? "")"
+            let id = unique("claude:\(rp.cwd ?? "")", root)
             claudeIDs[root] = id
             out.append(make(id: id, name: "Claude Code", context: rp.cwd.map { ($0 as NSString).lastPathComponent } ?? "", ms, cores, owner,
                             now: now, folder: rp.cwd, terminal: ms.lazy.compactMap(\.terminal).first))
         }
-        for case let (.dev(root), ms) in members {
+        for case .dev(let root) in roots {
+            let ms = members[.dev(root: root)]!
             let rp = byPid[root]!
             let port = ms.compactMap { ports[$0.pid]?.min() }.min() ?? argPort(rp.args)
             let cwd = rp.cwd ?? ""
-            let ctx = projectContext(cwd: cwd, root: rp.projectRoot) + (port.map { " · :\($0)" } ?? "")
+            let svc = service(rp).flatMap { $0 == (cwd as NSString).lastPathComponent ? nil : "/" + $0 } ?? ""
+            let ctx = projectContext(cwd: cwd, root: rp.projectRoot) + svc + (port.map { " · :\($0)" } ?? "")
             let related = ancestors(rp, byPid).lazy.compactMap { claudeIDs[$0.pid] }.first
                 ?? out.first { $0.name == "Claude Code" && $0.folder.map { f in cwd.hasPrefix(f) || rp.projectRoot == f } == true }?.id
-            out.append(make(id: "dev:\(cwd):\(port ?? 0)", name: devName(rp), context: ctx, ms, cores, owner, now: now, folder: cwd,
+            out.append(make(id: unique("dev:\(cwd)\(svc):\(port ?? 0)", root), name: devName(rp), context: ctx, ms, cores, owner, now: now, folder: cwd,
                             terminal: rp.terminal, port: port, orphan: rp.ppid == 1, related: related))
         }
         for (k, ms) in members {
@@ -60,23 +72,49 @@ public enum ProcessGrouper {
     }
 
     /// Dinlenen portu okunacak süreçler: geliştirme sunucusu gibi görünenler ve torunları.
-    public static func devServerCandidates(_ r: [ProcessRecord]) -> [Int32] {
+    public static func devServerCandidates(_ r: [ProcessRecord], cache: ClassCache = .init()) -> [Int32] {
         let byPid = Dictionary(r.filter { !$0.restricted }.map { ($0.pid, $0) }, uniquingKeysWith: { a, _ in a })
-        return r.filter { p in !p.restricted && ([p] + ancestors(p, byPid)).contains { devKind($0) != nil } }.map(\.pid)
+        let marks = cache.marks(r)
+        return r.filter { p in !p.restricted && ([p] + ancestors(p, byPid)).contains { marks[$0.pid]?.dev == true } }.map(\.pid)
     }
 
     // MARK: - Sınıflandırma
 
-    private static func kind(_ p: ProcessRecord, _ byPid: [Int32: ProcessRecord]) -> Kind {
+    /// Bir sürecin ömrü boyunca değişmeyen sınıflandırması (argüman ve yol taraması). Örnekleyici turlar arasında
+    /// tutar; anahtar (pid, başlangıç) olduğundan yeniden kullanılan pid yeniden hesaplanır. Boşta maliyetin çoğu buradaydı.
+    public final class ClassCache {
+        struct Key: Hashable { let pid: Int32; let start: Date }
+        struct Entry { let claude: Bool, dev: Bool, app: String?, system: Bool }
+        private var entries: [Key: Entry] = [:]
+        public init() {}
+        public var count: Int { entries.count }
+
+        /// Bu turun kendi süreçleri için sınıflar; listede olmayan kayıtlar atılır.
+        fileprivate func marks(_ r: [ProcessRecord]) -> [Int32: Entry] {
+            var next: [Key: Entry] = [:], out: [Int32: Entry] = [:]
+            next.reserveCapacity(r.count)
+            for p in r where !p.restricted {
+                let k = Key(pid: p.pid, start: p.start)
+                let e = entries[k] ?? Entry(claude: isClaude(p), dev: devKind(p) != nil, app: p.path.flatMap(outermostApp),
+                                            system: p.path.map { $0.hasPrefix("/System/") || $0.hasPrefix("/usr/") || $0.hasPrefix("/sbin/") } ?? false)
+                next[k] = e
+                out[p.pid] = e
+            }
+            entries = next
+            return out
+        }
+    }
+
+    private static func kind(_ p: ProcessRecord, _ byPid: [Int32: ProcessRecord], _ marks: [Int32: ClassCache.Entry]) -> Kind {
         if p.restricted { return .system }
         let chain = [p] + ancestors(p, byPid)
-        let firstClaude = chain.firstIndex(where: isClaude)
+        let firstClaude = chain.firstIndex { marks[$0.pid]?.claude == true }
         let belowClaude = chain[..<(firstClaude ?? chain.count)]
-        if let dev = belowClaude.last(where: { devKind($0) != nil }) { return .dev(root: dev.pid) }
-        if firstClaude != nil, let top = chain.last(where: isClaude) { return .claude(root: top.pid) }
+        if let dev = belowClaude.last(where: { marks[$0.pid]?.dev == true }) { return .dev(root: dev.pid) }
+        if firstClaude != nil, let top = chain.last(where: { marks[$0.pid]?.claude == true }) { return .claude(root: top.pid) }
         if p.name == dockerVM { return .docker }
-        if let path = p.path, let app = outermostApp(path) { return .app(app) }
-        if let path = p.path, path.hasPrefix("/System/") || path.hasPrefix("/usr/") || path.hasPrefix("/sbin/") { return .system }
+        if let app = marks[p.pid]?.app { return .app(app) }
+        if marks[p.pid]?.system == true { return .system }
         return .other(p.name)
     }
 
@@ -85,7 +123,12 @@ public enum ProcessGrouper {
         return p.name == "claude" || p.args.first.map { ($0 as NSString).lastPathComponent == "claude" } == true
     }
 
-    /// "next dev" → Next.js dev, "next start"/next-server → Next.js, vite (vitest değil), bun dev, node --watch.
+    private static func rootPid(_ k: Kind) -> Int32 {
+        switch k { case .claude(let r), .dev(let r): r; default: .max }
+    }
+
+    /// "next dev" → Next.js dev, "next start"/next-server → Next.js, vite (vitest değil), bun dev, node --watch,
+    /// `tsx <betik>` (acmecorp servisleri böyle çalışır).
     static func devKind(_ p: ProcessRecord) -> String? {
         let t = p.args.flatMap { $0.split(separator: " ").map(String.init) }
         let last = t.map { ($0 as NSString).lastPathComponent }
@@ -97,7 +140,22 @@ public enum ProcessGrouper {
         if last.contains("vite") { return "Vite" }
         if let i = last.firstIndex(of: "bun"), t.dropFirst(i + 1).prefix(2).contains("dev") { return "Bun dev" }
         if last.first == "node", t.contains("--watch") { return "Node watch" }
+        if tsxScript(t) != nil { return "tsx" }
         return nil
+    }
+
+    /// `tsx [watch] services/panel/src/main.ts` → betik yolu.
+    private static func tsxScript(_ t: [String]) -> String? {
+        guard let i = t.firstIndex(where: { ($0 as NSString).lastPathComponent == "tsx" }) else { return nil }
+        return t.dropFirst(i + 1).first { !$0.hasPrefix("-") && $0 != "watch" }
+    }
+
+    /// Betiğin servis adı: `services/panel/src/main.ts` → "panel" (`src`'den önceki klasör).
+    static func service(_ p: ProcessRecord) -> String? {
+        guard let script = tsxScript(p.args.flatMap { $0.split(separator: " ").map(String.init) }) else { return nil }
+        let parts = script.split(separator: "/").map(String.init)
+        guard let s = parts.lastIndex(of: "src"), s > 0 else { return nil }
+        return parts[s - 1]
     }
 
     private static func devName(_ p: ProcessRecord) -> String { devKind(p) ?? "Sunucu" }

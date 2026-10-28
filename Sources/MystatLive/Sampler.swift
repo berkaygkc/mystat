@@ -26,6 +26,7 @@ public actor Sampler {
 
     private var cpuMeter = CPUMeter(), netMeter: NetMeter, ioMeter = DiskIOMeter(), procMeter = ProcessMeter()
     private var engine = IncidentEngine()
+    private let classes = ProcessGrouper.ClassCache()
     private var series = SeriesBuffer(), groupHistory = GroupHistory()
     private var lastCPU: CPUState?, lastNet = (down: 0.0, up: 0.0, todayDown: 0.0, todayUp: 0.0), lastIO: (read: Double, write: Double)?
     private var lastProc: Date?, lastSlow: Date?, lastDownloads: Date?, lastPrune: Date?
@@ -136,7 +137,7 @@ public actor Sampler {
         let records = probe.processes()
         let cores = procMeter.update(records, at: now, maxGap: detail ? SampleGap.maxInterval : GroupHistory.gap) ?? [:]
         if detail {
-            let candidates = ProcessGrouper.devServerCandidates(records)
+            let candidates = ProcessGrouper.devServerCandidates(records, cache: classes)
             ports = candidates.isEmpty ? [:] : probe.listeningPorts(pids: candidates)
         }
         let own = records.filter { !$0.restricted }
@@ -144,7 +145,7 @@ public actor Sampler {
         let ownCores = own.reduce(0) { $0 + (cores[$1.pid] ?? 0) }
         let ownMemGB = Double(own.reduce(UInt64(0)) { $0 &+ $1.footprint }) / 1_073_741_824
         let residual = (cores: max(0, cpu.percent / 100 * Double(coreCount) - ownCores), memoryGB: max(0, memory.usedGB - ownMemGB))
-        groups = ProcessGrouper.groups(records, cores: cores, ports: ports, system: residual, now: now, home: NSHomeDirectory())
+        groups = ProcessGrouper.groups(records, cores: cores, ports: ports, system: residual, now: now, home: NSHomeDirectory(), cache: classes)
 
         // Disk yazımı: süreç başına fark → grup toplamı.
         var nowWritten: [ProcKey: UInt64] = [:], delta: [Int32: UInt64] = [:]

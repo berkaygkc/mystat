@@ -27,8 +27,9 @@ import Testing
     }
 
     func groups(_ r: [ProcessRecord], cores: [Int32: Double] = [:], ports: [Int32: [Int]] = [111: [3011]],
-                system: (cores: Double, memoryGB: Double) = (0, 0)) -> [String: ProcessGroup] {
-        Dictionary(uniqueKeysWithValues: ProcessGrouper.groups(r, cores: cores, ports: ports, system: system, now: now, home: "/Users/u", owner: 501).map { ($0.id, $0) })
+                system: (cores: Double, memoryGB: Double) = (0, 0), cache: ProcessGrouper.ClassCache = .init()) -> [String: ProcessGroup] {
+        Dictionary(uniqueKeysWithValues: ProcessGrouper.groups(r, cores: cores, ports: ports, system: system, now: now, home: "/Users/u",
+                                                               owner: 501, cache: cache).map { ($0.id, $0) })
     }
 
     @Test func claudeSessionWithProject() {
@@ -112,5 +113,53 @@ import Testing
         #expect(g["claude:\(proj)"]?.foreign == false)
         #expect(g["sys:macos"]?.foreign == true)
         #expect(groups(tree, system: (0.4, 2))["sys:macos"]?.foreign == true)   // yalnızca kalan pay
+    }
+
+    /// acmecorp servisleri `tsx services/<ad>/src/main.ts` ile kökten çalışır; her biri ayrı sunucu grubudur.
+    var tsxServices: [ProcessRecord] {
+        let tsx = "\(proj)/node_modules/.bin/tsx", pre = "\(proj)/node_modules/tsx/dist/preflight.cjs"
+        return [p(200, 1, "node", path: "/opt/homebrew/bin/node", args: ["node", tsx, "services/panel/src/main.ts"], cwd: proj, root: proj),
+                p(201, 200, "node", path: "/opt/homebrew/bin/node", args: ["node", "--require", pre, "services/panel/src/main.ts"], cwd: proj, root: proj),
+                p(210, 1, "node", path: "/opt/homebrew/bin/node", args: ["node", tsx, "services/automation/src/main.ts"], cwd: proj, root: proj),
+                p(211, 210, "node", path: "/opt/homebrew/bin/node", args: ["node", "--require", pre, "services/automation/src/main.ts"], cwd: proj, root: proj)]
+    }
+
+    @Test func tsxServicesAreOwnDevGroups() {
+        let g = groups(tsxServices, ports: [201: [3118]])
+        let panel = g.values.first { $0.context == "acmecorp/panel · :3118" }
+        #expect(panel?.name == "tsx" && panel?.isOrphan == true && panel?.processCount == 2 && panel?.port == 3118)
+        let auto = g.values.first { $0.context == "acmecorp/automation" }
+        #expect(auto?.name == "tsx" && auto?.processCount == 2)
+        #expect(g["proc:node"] == nil)
+        #expect(Set(ProcessGrouper.devServerCandidates(tsxServices)) == [200, 201, 210, 211])
+    }
+
+    /// Aynı klasörde portsuz iki sunucu ya da iki Claude oturumu: kimlikler çakışmaz ve turdan tura aynı kalır
+    /// (liste ve geçmiş kimlikle tutulur). En küçük pid sade kimliği alır.
+    @Test func groupIDsAreUniqueAndStable() {
+        let r = [p(300, 1, "node", path: "/opt/homebrew/bin/node", args: ["node", "--watch", "a.js"], cwd: proj, root: proj),
+                 p(310, 1, "node", path: "/opt/homebrew/bin/node", args: ["node", "--watch", "b.js"], cwd: proj, root: proj),
+                 p(400, 50, "claude", path: "/Users/u/.local/bin/claude", args: ["claude"], cwd: proj, root: proj, tty: true),
+                 p(410, 51, "claude", path: "/Users/u/.local/bin/claude", args: ["claude"], cwd: proj, root: proj, tty: true)]
+        func ids(_ r: [ProcessRecord]) -> Set<String> {
+            Set(ProcessGrouper.groups(r, cores: [:], ports: [:], system: (0, 0), now: now, home: "/Users/u", owner: 501).map(\.id))
+        }
+        #expect(ids(r) == ["dev:\(proj):0", "dev:\(proj):0#310", "claude:\(proj)", "claude:\(proj)#410"])
+        #expect(ids(r.reversed()) == ids(r))
+    }
+
+    /// Süreç başına sınıflandırma turlar arasında saklanır (boşta maliyet); pid yeniden kullanılınca yeniden hesaplanır.
+    @Test func classCacheFollowsPidReuse() {
+        let cache = ProcessGrouper.ClassCache()
+        let first = groups(tsxServices, ports: [:], cache: cache)
+        #expect(first.values.filter { $0.name == "tsx" }.count == 2)
+        #expect(cache.count == 4)
+        #expect(Set(groups(tsxServices, ports: [:], cache: cache).keys) == Set(first.keys))
+        // Aynı pid'ler yeni süreçlere geçti: düz node betikleri
+        let reused = [200, 201, 210, 211].map { p($0, 1, "node", path: "/opt/homebrew/bin/node", args: ["node", "x.js"], cwd: proj, ageMin: 1) }
+        let after = groups(reused, ports: [:], cache: cache)
+        #expect(after.values.allSatisfy { $0.name != "tsx" } && after["proc:node"]?.processCount == 4)
+        #expect(cache.count == 4)                                   // eski kayıtlar atıldı
+        #expect(Set(after.keys) == Set(groups(reused, ports: [:]).keys))
     }
 }
