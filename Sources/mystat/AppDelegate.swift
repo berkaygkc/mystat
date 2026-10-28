@@ -35,6 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             openMonitor(sec, nil)
         }
         startTicker()
+        LoginItem.ensureRegistered()
     }
 
     func togglePanel() {
