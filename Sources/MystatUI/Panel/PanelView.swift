@@ -120,3 +120,12 @@ public struct PanelView<Source: MetricsSource>: View {
         switch t { case .group(let id): (.cpu, id); case .docker: (.docker, nil); case .disk: (.disk, nil) }
     }
 }
+
+/// Panelin dışına tıklama kuralı (spec §4). Uygulamanın kendi pencerelerine tıklamalar da sayılır;
+/// panelin içi ve durum öğesi hariç (durum öğesi zaten aç/kapa yapar).
+public enum PanelDismissal {
+    public static func closes(clickWindow: NSWindow?, panel: NSWindow?, statusWindow: NSWindow?) -> Bool {
+        guard let w = clickWindow else { return true }
+        return w !== panel && w !== statusWindow
+    }
+}

@@ -3,7 +3,21 @@ import MystatCore
 
 /// Menü çubuğundaki tek blok: iki katlı metrikler + ağ + saat (tarz B). Tıklamalar alttaki düğmeye geçer.
 final class StatusBlockView: NSView {
-    var model: StatusBlockModel { didSet { if model != oldValue { needsDisplay = true } } }
+    var model: StatusBlockModel { didSet { if model != oldValue { beginAlertTransition(from: oldValue.alert); needsDisplay = true } } }
+    /// Kaybolma geçişi bitip uyarı yeri boşalınca (uzunluk yeniden hesaplansın diye).
+    var onLayoutChange: (() -> Void)?
+    /// Kaybolurken hâlâ çizilen uyarı.
+    private var ghost: StatusMetric?
+    private var transition: (kind: StatusBlockLayout.AlertTransition, start: CFTimeInterval)?
+    private var ticker: Timer?
+
+    /// Çizilen ve uzunluğu belirleyen model: kaybolan uyarı geçiş süresince yerinde kalır.
+    var drawnModel: StatusBlockModel {
+        guard model.alert == nil, let g = ghost else { return model }
+        var m = model
+        m.alert = g
+        return m
+    }
     var highlighted = false { didSet { if highlighted != oldValue { needsDisplay = true } } }
     private var hovering = false { didSet { if hovering != oldValue { needsDisplay = true } } }
 
@@ -14,6 +28,31 @@ final class StatusBlockView: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     override var isFlipped: Bool { true }
+
+    // MARK: - Uyarı geçişi (spec §4; mockup `popin`). Zamanlayıcı yalnızca geçiş süresince çalışır.
+
+    private func beginAlertTransition(from old: StatusMetric?) {
+        let new = model.alert
+        guard old?.label != new?.label else { return }   // aynı uyarının değeri değişti: geçiş yok
+        if new != nil { ghost = nil; transition = (.appear, CACurrentMediaTime()) }
+        else { ghost = old; transition = (.disappear, CACurrentMediaTime()) }
+        guard ticker == nil else { return }
+        ticker = Timer.scheduledTimer(withTimeInterval: 1.0 / 60, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.stepTransition() }
+        }
+    }
+
+    private func stepTransition() {
+        needsDisplay = true
+        guard let tr = transition, !StatusBlockLayout.alertAnimationDone(tr.kind, elapsed: CACurrentMediaTime() - tr.start) else {
+            let ended = transition?.kind
+            transition = nil
+            ticker?.invalidate()
+            ticker = nil
+            if ended == .disappear { ghost = nil; onLayoutChange?() }
+            return
+        }
+    }
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
     override func viewDidChangeEffectiveAppearance() { needsDisplay = true }
 
@@ -67,11 +106,12 @@ final class StatusBlockView: NSView {
             NSBezierPath(roundedRect: r, xRadius: 7, yRadius: 7).fill()
         }
         var x = StatusBlockLayout.blockPadding
+        let model = drawnModel
         for (part, w) in StatusBlockLayout.parts(model, measure: Self.measure) {
             if part == .clock { x += StatusBlockLayout.clockGap }
             let box = NSRect(x: x, y: 0, width: w, height: bounds.height)
             switch part {
-            case .alert: if let a = model.alert { drawMetric(a, in: box) }
+            case .alert: if let a = model.alert { drawAlert(a, in: box) }
             case .metric(let i): drawMetric(model.metrics[i], in: box)
             case .net: drawTwoLines(top: arrowed(model.down), bottom: arrowed(model.up), topFont: Self.netFont, bottomFont: Self.netFont, in: box, topAlpha: 1)
             case .clock: drawTwoLines(top: NSAttributedString(string: model.date), bottom: NSAttributedString(string: model.time),
@@ -79,6 +119,21 @@ final class StatusBlockView: NSView {
             }
             x += w + StatusBlockLayout.gap
         }
+    }
+
+    /// Geçiş sürerken uyarı grup opaklığı, kayma ve ölçekle çizilir.
+    private func drawAlert(_ a: StatusMetric, in box: NSRect) {
+        guard let tr = transition, let ctx = NSGraphicsContext.current?.cgContext else { drawMetric(a, in: box); return }
+        let ap = StatusBlockLayout.alertAppearance(tr.kind, elapsed: CACurrentMediaTime() - tr.start)
+        ctx.saveGState()
+        ctx.setAlpha(ap.opacity)
+        ctx.beginTransparencyLayer(auxiliaryInfo: nil)
+        ctx.translateBy(x: box.midX + ap.dx, y: box.midY)
+        ctx.scaleBy(x: ap.scale, y: ap.scale)
+        ctx.translateBy(x: -box.midX, y: -box.midY)
+        drawMetric(a, in: box)
+        ctx.endTransparencyLayer()
+        ctx.restoreGState()
     }
 
     private func lineHeight(_ f: NSFont) -> CGFloat { ceil(f.ascender - f.descender) * 0.98 }

@@ -70,6 +70,46 @@ public enum StatusBlockLayout {
         return out
     }
 
+    public enum AlertTransition: Sendable { case appear, disappear }
+
+    /// Uyarı öğesinin belirme/kaybolma görünümü (mockup `popin`: 0,45 sn, cubic-bezier(.2,.9,.3,1.2),
+    /// 8 px sağdan, ölçek 0,9). Kaybolma tersidir: 0,3 sn, ease-in.
+    public static func alertAppearance(_ kind: AlertTransition, elapsed: Double) -> (opacity: Double, dx: Double, scale: Double) {
+        switch kind {
+        case .appear:
+            let k = cubicBezier(0.2, 0.9, 0.3, 1.2, elapsed / 0.45)
+            return (min(1, max(0, k)), 8 * (1 - k), 0.9 + 0.1 * k)
+        case .disappear:
+            let k = cubicBezier(0.42, 0, 1, 1, elapsed / 0.3)
+            return (1 - k, 8 * k, 1 - 0.1 * k)
+        }
+    }
+
+    public static func alertAnimationDone(_ kind: AlertTransition, elapsed: Double) -> Bool {
+        elapsed >= (kind == .appear ? 0.45 : 0.3)
+    }
+
+    /// CSS `cubic-bezier(x1, y1, x2, y2)` zamanlama eğrisi; `x` ilerleme (0…1).
+    static func cubicBezier(_ x1: Double, _ y1: Double, _ x2: Double, _ y2: Double, _ x: Double) -> Double {
+        if x <= 0 { return 0 }
+        if x >= 1 { return 1 }
+        func bx(_ t: Double) -> Double { 3 * (1 - t) * (1 - t) * t * x1 + 3 * (1 - t) * t * t * x2 + t * t * t }
+        func by(_ t: Double) -> Double { 3 * (1 - t) * (1 - t) * t * y1 + 3 * (1 - t) * t * t * y2 + t * t * t }
+        var lo = 0.0, hi = 1.0, t = x
+        for _ in 0..<40 {
+            if bx(t) < x { lo = t } else { hi = t }
+            t = (lo + hi) / 2
+        }
+        return by(t)
+    }
+
+    /// Durum öğesinin uzunluğu değişmeli mi: değişmesi gerekiyorsa yeni uzunluk, gerekmiyorsa `nil`.
+    /// Şablonlar sayesinde normalde `nil`; uyarı belirince/kalkınca ya da bir değer şablonunu aşınca değişir.
+    public static func newLength(_ m: StatusBlockModel, current: CGFloat, measure: (String, CGFloat, Bool) -> CGFloat) -> CGFloat? {
+        let w = ceil(width(m, measure: measure))
+        return w == current ? nil : w
+    }
+
     public static func width(_ m: StatusBlockModel, measure: (String, CGFloat, Bool) -> CGFloat) -> CGFloat {
         let p = parts(m, measure: measure)
         return blockPadding * 2 + p.reduce(0) { $0 + $1.1 } + gap * CGFloat(p.count - 1) + clockGap

@@ -35,4 +35,16 @@ import Testing
             #expect(abs(out[0].1[i].x - r.0) < 0.01 && abs(out[0].1[i].y - r.1) < 0.01 && abs(out[0].1[i].r - r.2) < 0.01, "torun \(i)")
         }
     }
+    /// Ön zincir döngüseldir; paketleme bitince kırılmazsa her yerleşim düğümlerini ve daireleri sızdırır
+    /// (pencere boyutlanırken her karede yerleşim yapılır).
+    @Test func packingReleasesItsFrontChain() {
+        weak var probe: CirclePack.Circ?
+        do {
+            let circles = (1...12).map { CirclePack.Circ(r: Double($0)) }
+            probe = circles[5]
+            var random = CirclePack.LCG()
+            _ = CirclePack.packSiblingsRandom(circles, &random)
+        }
+        #expect(probe == nil)
+    }
 }

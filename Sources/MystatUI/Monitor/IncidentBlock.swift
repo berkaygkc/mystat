@@ -49,7 +49,7 @@ struct IncidentBlock<Source: MetricsSource>: View {
                     .padding(.vertical, 7)
                     .overlay(alignment: .top) { Rectangle().fill(Theme.redEdge).frame(height: 1) }
                     .contentShape(Rectangle())
-                    .onTapGesture { state.select(.cpu, r.groupID) }
+                    .onTapGesture { state.show(MonitorSection(rawValue: MonitorPresentation.section(for: inc.kind)) ?? .cpu, group: r.groupID) }
                 }
             }
             .padding(.top, 12)
@@ -62,7 +62,7 @@ struct IncidentBlock<Source: MetricsSource>: View {
                 let sec = MonitorPresentation.section(for: inc.kind)
                 Btn(inOverview ? MonitorPresentation.inspectTitle(section: sec) : "Sorumluyu göster", trailing: "chevron.right") {
                     if inOverview { state.go(MonitorSection(rawValue: sec) ?? .cpu) }
-                    else if let first = rows.first { state.select(.cpu, first.groupID) }
+                    else if let first = rows.first { state.show(MonitorSection(rawValue: sec) ?? .cpu, group: first.groupID) }
                 }.fixedSize()
             }
             .padding(.top, 12)

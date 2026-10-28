@@ -83,6 +83,9 @@ public enum CirclePack {
 
         var a = FNode(first), b = FNode(second)
         let c0 = FNode(circles[2])
+        // Ön zincir döngüsel (next/previous); dönüşte kırılmazsa düğümler ve daireler sızar.
+        var nodes = [a, b, c0]
+        defer { for nd in nodes { nd.next = nil; nd.previous = nil } }
         a.next = b; c0.previous = b
         b.next = c0; a.previous = c0
         c0.next = a; b.previous = a
@@ -91,6 +94,7 @@ public enum CirclePack {
         pack: while i < n {
             place(a.c, b.c, circles[i])
             let c = FNode(circles[i])
+            nodes.append(c)
             var j: FNode = b.next, k: FNode = a.previous
             var sj = b.c.r, sk = a.c.r
             repeat {

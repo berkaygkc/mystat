@@ -13,6 +13,8 @@ public final class DiskUIState {
     public var hoverName: String?
     /// Silme sonrası harita yeniden yerleşsin diye artar.
     public private(set) var relayoutToken = 0
+    /// Harita geçiş yaparken gezinme yok sayılır (mockup `openDisk`); haritanın modeli yazar.
+    @ObservationIgnored public internal(set) var isMapAnimating = false
     @ObservationIgnored private var scanTask: Task<Void, Never>?
 
     public init() {}
@@ -39,7 +41,10 @@ public final class DiskUIState {
         if basket.toggle(p, in: tree) == .blockedByAncestor { ToastCenter.shared.show("Üst klasörü zaten seçili") }
     }
 
-    public func open(_ p: [String]) { path = p }
+    public func open(_ p: [String]) {
+        guard !isMapAnimating else { return }
+        path = p
+    }
 
     /// Sepetteki her şeyi örnek ağaçtan siler; bulunduğun klasör silindiyse var olan en yakın üst klasöre çıkar.
     public func performDelete(tree: DiskTree, source: some MetricsSource) {

@@ -46,27 +46,44 @@ import Testing
         #expect(f.mains.contains { $0.item.id.hasPrefix("Library/Caches/") })
     }
 
-    @Test func pathChangeDuringAnimationWaitsForIt() {
+    /// Mockup `openDisk`: harita geçiş yaparken gelen gezinme yok sayılır (kenar listesine çift tıklama iki seviye indirmez).
+    @Test func navigationIsIgnoredWhileTheMapAnimates() {
         let (_, st, m) = make()
         st.disk.open(["Library"])
         _ = m.frame(at: 0.1, size: size)
-        st.disk.open([])                                               // zoom sürerken yol satırı
-        _ = m.frame(at: 0.8, size: size)
-        _ = m.frame(at: 1.6, size: size)                               // içeri girdi, şimdi çıkış başlar
-        #expect(m.frame(at: 1.7, size: size)?.membrane != nil)
-        _ = m.frame(at: 3.2, size: size)
-        #expect(m.frame(at: 3.3, size: size)!.mains.contains { $0.item.name == "Library" })
-    }
-
-    @Test func siblingChosenDuringZoomDoesNotCutIt() {
-        let (_, st, m) = make()
-        st.disk.open(["Library"])
-        _ = m.frame(at: 0.1, size: size)
-        st.disk.open(["Documents"])                                    // kenar listesinden kardeş klasör
+        #expect(st.disk.isMapAnimating)
+        st.disk.open(["Library", "Containers"])                        // çift tıklamanın ikincisi
+        st.disk.open([])                                               // yol satırı / Esc
+        #expect(st.disk.path == ["Library"])
         #expect(m.frame(at: 0.2, size: size)?.membrane != nil)        // süren geçiş kesilmez
         _ = m.frame(at: 1.6, size: size)
-        let f = m.frame(at: 1.7, size: size)!                          // sonra doğrudan oraya
-        #expect(f.mains.contains { $0.item.id.hasPrefix("Documents/") })
+        _ = m.frame(at: 1.7, size: size)
+        #expect(st.disk.isMapAnimating == false)
+        st.disk.open([])
+        #expect(st.disk.path.isEmpty)
+    }
+
+    /// Geçiş sırasında onaylanan silme geçişi kesmez; yeniden yerleşim sona kalır (Review Focus #4).
+    @Test func deleteDuringZoomKeepsTheZoom() {
+        let (src, st, m) = make()
+        st.disk.open(["Library"])
+        _ = m.frame(at: 0.1, size: size)
+        st.disk.toggle(["Movies"], tree: src.diskTree)
+        st.disk.performDelete(tree: src.diskTree, source: src)
+        let f = m.frame(at: 0.5, size: size)!
+        #expect(f.membrane != nil)
+        #expect(f.mains.contains { $0.item.id.hasPrefix("Library/") } && f.mains.contains { $0.item.name == "Documents" })
+        _ = m.frame(at: 1.6, size: size)
+        #expect(st.disk.path == ["Library"])
+    }
+
+    /// Haritadan ayrılınca (bölüm değişti) kilit kalmamalı.
+    @Test func detachReleasesTheNavigationLock() {
+        let (_, st, m) = make()
+        st.disk.open(["Library"])
+        _ = m.frame(at: 0.1, size: size)
+        m.detach()
+        #expect(st.disk.isMapAnimating == false)
     }
 
     @Test func clickOpensFolderAndCommandClickSelects() {

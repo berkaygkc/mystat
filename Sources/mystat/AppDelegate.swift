@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel = PanelController(source: source) { [weak self] section, group in self?.openMonitor(section, group) }
         panel?.onVisibilityChange = { [weak self] open in self?.status?.isHighlighted = open }
         monitor = MonitorWindowController(source: source)
+        NSApp.mainMenu = AppMenu.make()   // ⌘Q ve ⌘W için (görünmez)
         installKeys()
         #if DEBUG
         if args.contains("--scan-ready") { monitor?.state.disk.scan = .ready(scannedAt: Date()) }   // haritayı taramasız denemek için
@@ -43,7 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
             guard let self else { return e }
             let mods = e.modifierFlags.intersection(.deviceIndependentFlagsMask)
-            if mods == .command, e.charactersIgnoringModifiers == "m" { self.openMonitor(nil, nil); return nil }
+            if mods == .command, e.charactersIgnoringModifiers == "m" { self.panel?.close(); self.openMonitor(nil, nil); return nil }   // tek ⌘M işleyicisi
             #if DEBUG
             if mods == [.command, .option], e.keyCode == 34 { self.source.incident.toggle(); self.status?.refresh(now: Date()); return nil }   // I
             if mods == [.command, .option], e.keyCode == 40 {                                                                                  // K

@@ -29,6 +29,17 @@ public final class MonitorState {
         if section != target { go(target) }
     }
 
+    /// Bir bölüme, varsa o bölümdeki grubu seçerek gider (panel, olay bloğu ve öneriler buradan geçer).
+    /// İşlemci/Bellek/Ağ'da grup seçilir; diğer bölümlerde grup listesi yok, yalnızca bölüm açılır.
+    public func show(_ target: MonitorSection, group: String?) {
+        switch (target, group) {
+        case (.cpu, let id?): select(.cpu, id)
+        case (.mem, let id?): select(.memory, id)
+        case (.net, let id?): select(.network, id)
+        default: if section != target { go(target) }
+        }
+    }
+
     public func toggleExpanded(_ id: String) {
         if expanded.contains(id) { expanded.remove(id) } else { expanded.insert(id) }
     }

@@ -13,8 +13,7 @@ final class MonitorWindowController: NSObject, NSWindowDelegate {
     init(source: SampleSource) { self.source = source }
 
     func show(section: MonitorSection?, groupID: String?) {
-        if let section { state.go(section) }
-        if let groupID { state.select(.cpu, groupID) }
+        if let section { state.show(section, group: groupID) } else if let groupID { state.select(.cpu, groupID) }
         let w = window ?? makeWindow()
         window = w
         NSApp.activate()

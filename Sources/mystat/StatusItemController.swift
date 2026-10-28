@@ -1,7 +1,7 @@
 import AppKit
 import MystatCore
 
-/// Tek `NSStatusItem`. Model değişmediyse çizmez; genişlik yalnızca uyarı öğesi değişince güncellenir.
+/// Tek `NSStatusItem`. Model değişmediyse çizmez; genişlik uyarı öğesi değişince ya da bir değer şablonunu aşınca güncellenir.
 @MainActor
 final class StatusItemController: NSObject {
     let item: NSStatusItem
@@ -26,6 +26,7 @@ final class StatusItemController: NSObject {
             button.addSubview(view)
         }
         last = model
+        view.onLayoutChange = { [weak self] in self?.updateLength() }
     }
 
     var isHighlighted: Bool {
@@ -38,11 +39,14 @@ final class StatusItemController: NSObject {
     func refresh(now: Date) {
         let m = StatusBlockLayout.model(source.snapshot, now: now, calendar: .current)
         guard m != last else { return }
-        if m.alert?.label != last?.alert?.label {
-            item.length = ceil(StatusBlockLayout.width(m, measure: StatusBlockView.measure))
-        }
         last = m
         view.model = m
+        updateLength()
+    }
+
+    /// Kaybolan uyarı geçiş bitene kadar yer kaplar (`drawnModel`); sonra blok daralır.
+    private func updateLength() {
+        if let w = StatusBlockLayout.newLength(view.drawnModel, current: item.length, measure: StatusBlockView.measure) { item.length = w }
     }
 
     @objc private func clicked() { onClick() }

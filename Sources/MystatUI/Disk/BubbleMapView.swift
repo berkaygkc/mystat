@@ -175,17 +175,20 @@ final class BubbleMapModel {
         let basket = disk.basket
         let f = e.frame(at: t, hover: hover ?? disk.hoverName, selection: { basket.state(of: $0) })
         lastFrame = f
+        if disk.isMapAnimating != e.isAnimating { disk.isMapAnimating = e.isAnimating }
         let o = BubbleOverlayContent.make(f, engine: e, width: size.width, quantum: 1 / pixelScale)
         labels = o.labels
         if o.buttons != buttons { buttons = o.buttons }
         return f
     }
 
-    /// Yol değişikliklerini (harita, yol satırı, kenar listesi, Esc) animasyonla uygular; animasyon sürerken bekletir.
+    /// Yol değişikliklerini (harita, yol satırı, kenar listesi, Esc) animasyonla uygular. Geçiş sürerken
+    /// `DiskUIState.open` yeni gezinmeyi zaten reddeder; yine de gelen bir yol geçiş bitince uygulanır.
     private func sync(_ e: BubbleEngine, at t: Double) {
         if disk.relayoutToken != token {
             token = disk.relayoutToken
-            if disk.path != e.path { e.setPath(disk.path) } else { e.relayout(at: t) }   // mockup: bulunduğun klasör silindiyse yeniden çiz
+            // Bulunduğun klasör silindiyse oraya atla; değilse yeniden yerleş (geçiş sürüyorsa motor sona erteler).
+            if source.diskTree.node(at: e.path) == nil { e.setPath(disk.path) } else { e.relayout(at: t) }
             hover = nil
         }
         guard !e.isAnimating, disk.path != e.path else { return }
@@ -209,6 +212,9 @@ final class BubbleMapModel {
     }
 
     func mouseExited() { hover = nil }
+
+    /// Harita ekrandan kalkınca gezinme kilidi kalmasın.
+    func detach() { disk.isMapAnimating = false }
 
     /// Klasöre tıklamak içine girer; dosyaya ya da ⌘-tık seçer (mockup `click`).
     func click(_ p: CGPoint, flags: NSEvent.ModifierFlags) {
@@ -344,6 +350,7 @@ final class BubbleMapContainer: NSView {
     func teardown() {
         metal.isPaused = true
         metal.teardown()
+        model.detach()
     }
 }
 
