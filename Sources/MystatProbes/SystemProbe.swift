@@ -12,4 +12,6 @@ public protocol SystemProbe: Sendable {
     func localIPv4(of iface: String) -> String?
     func dataVolume() -> VolumeCapacity
     func diskIO() -> DiskIOCounters
+    func processes() -> [ProcessRecord]
+    func listeningPorts(pids: [Int32]) -> [Int32: [Int]]
 }

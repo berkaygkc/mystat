@@ -58,3 +58,26 @@ public struct DiskIOCounters: Sendable, Equatable {
     public let bytesRead, bytesWritten: UInt64
     public init(bytesRead: UInt64, bytesWritten: UInt64) { self.bytesRead = bytesRead; self.bytesWritten = bytesWritten }
 }
+
+/// Bir sürecin okunabilen bilgileri. Başka kullanıcıların süreçlerinde (root, `_windowserver`…) libproc yalnızca
+/// yolu verir; o zaman `restricted` ve sayaçlar sıfırdır (root yardımcısı yok, spec §10).
+public struct ProcessRecord: Sendable, Equatable {
+    public let pid: Int32, ppid: Int32, uid: UInt32
+    public let name: String
+    public let path: String?
+    public let args: [String]
+    public let cwd: String?
+    public let start: Date
+    public let hasTTY: Bool
+    /// Kullanıcı + sistem CPU süresi, nanosaniye (Mach birimi probe'da çevrilir).
+    public let cpuTime: UInt64
+    public let footprint: UInt64, energy: UInt64, diskWritten: UInt64
+    public let restricted: Bool
+
+    public init(pid: Int32, ppid: Int32, uid: UInt32, name: String, path: String?, args: [String], cwd: String?, start: Date, hasTTY: Bool,
+                cpuTime: UInt64, footprint: UInt64, energy: UInt64, diskWritten: UInt64, restricted: Bool = false) {
+        self.pid = pid; self.ppid = ppid; self.uid = uid; self.name = name; self.path = path; self.args = args; self.cwd = cwd
+        self.start = start; self.hasTTY = hasTTY; self.cpuTime = cpuTime; self.footprint = footprint; self.energy = energy
+        self.diskWritten = diskWritten; self.restricted = restricted
+    }
+}
