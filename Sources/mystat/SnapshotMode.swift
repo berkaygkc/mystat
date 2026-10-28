@@ -60,7 +60,10 @@ enum SnapshotMode {
     /// Hedefler sonraki tasklarda eklenir.
     static func makeView(_ o: Options, _ source: SampleSource) -> AnyView {
         switch o.target {
-        default: AnyView(Text(o.target).font(.largeTitle).foregroundStyle(Theme.ink))
+        case "menubar":
+            let model = StatusBlockLayout.model(source.snapshot, now: Date(), calendar: .current)
+            return AnyView(MenubarStrip(model: model, highlighted: o.section == "open"))
+        default: return AnyView(Text(o.target).font(.largeTitle).foregroundStyle(Theme.ink))
         }
     }
 }
@@ -82,4 +85,34 @@ struct SnapshotBackdrop<Content: View>: View {
             content()
         }
     }
+}
+
+/// Anlık görüntü için menü çubuğu şeridi: blok sağda, sistem simgeleri için 140 pt boşluk.
+struct MenubarStrip: View {
+    let model: StatusBlockModel
+    let highlighted: Bool
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                Spacer()
+                BlockHost(model: model, highlighted: highlighted)
+                    .frame(width: ceil(StatusBlockLayout.width(model, measure: StatusBlockView.measure)), height: 33)
+                Spacer().frame(width: 140)
+            }
+            .frame(height: 33)
+            Spacer()
+        }
+    }
+}
+
+struct BlockHost: NSViewRepresentable {
+    let model: StatusBlockModel
+    let highlighted: Bool
+    func makeNSView(context: Context) -> StatusBlockView {
+        let v = StatusBlockView(model: model)
+        v.appearance = NSAppearance(named: .darkAqua)   // renkli duvar kâğıdı üzerinde açık metin
+        v.highlighted = highlighted
+        return v
+    }
+    func updateNSView(_ v: StatusBlockView, context: Context) { v.model = model; v.highlighted = highlighted }
 }
