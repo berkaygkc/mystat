@@ -44,6 +44,16 @@ public enum Fmt {
         return int(max(1, gb * 1_000_000)) + " KB"
     }
 
+    /// Açık kalma süresi: "14 dk", "2 sa 14 dk", "45 sa", "3 gün".
+    public static func uptime(_ seconds: TimeInterval) -> String {
+        guard seconds.isFinite, seconds >= 0 else { return missing }
+        let m = Int(seconds / 60), h = m / 60
+        if h < 1 { return "\(max(1, m)) dk" }
+        if h < 10 { return m % 60 == 0 ? "\(h) sa" : "\(h) sa \(m % 60) dk" }
+        if h < 72 { return "\(h) sa" }
+        return "\(h / 24) gün"
+    }
+
     /// Ağ hızı sayısı ("2,4"); birim ayrı yazılır.
     public static func rate(_ mbps: Double) -> String { dec1(mbps) }
 

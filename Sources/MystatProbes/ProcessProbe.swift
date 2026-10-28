@@ -7,8 +7,9 @@ import Synchronization
 /// Yol, argüman ve çalışma klasörü (pid, başlangıç) anahtarıyla önbellekte; her turda yalnızca sayaçlar okunur.
 public final class ProcessProbe: Sendable {
     private struct Key: Hashable { let pid: Int32; let start: Date }
-    private struct Static: Sendable { let path: String?; let args: [String]; let cwd: String? }
+    private struct Static: Sendable { let path: String?; let args: [String]; let cwd: String?; let root: String?; let terminal: String? }
     private let statics = Mutex<[Key: Static]>([:])
+    private let roots = Mutex<[String: String?]>([:])
     private let foreignPaths = Mutex<[Int32: String]>([:])
 
     /// Apple Silicon'da rusage süreleri Mach zaman birimidir (M serisinde 125/3); nanosaniyeye çevrilir.
@@ -38,7 +39,10 @@ public final class ProcessProbe: Sendable {
             let key = Key(pid: pid, start: start)
             seen.insert(key)
             let st = statics.withLock { $0[key] } ?? {
-                let s = Static(path: Self.path(pid), args: Self.args(pid, &argBuf), cwd: Self.cwd(pid))
+                let (args, env) = Self.argsAndEnv(pid, &argBuf)
+                let cwd = Self.cwd(pid)
+                let s = Static(path: Self.path(pid), args: args, cwd: cwd, root: cwd.flatMap(projectRoot),
+                               terminal: env["TERM_PROGRAM"].map(Self.terminalName))
                 statics.withLock { $0[key] = s }
                 return s
             }()
@@ -52,7 +56,7 @@ public final class ProcessProbe: Sendable {
                                      cwd: st.cwd, start: start, hasTTY: info.e_tdev != UInt32.max,
                                      cpuTime: ok ? (r.ri_user_time &+ r.ri_system_time) &* tb.numer / tb.denom : 0,
                                      footprint: ok ? r.ri_phys_footprint : 0, energy: ok ? r.ri_energy_nj : 0,
-                                     diskWritten: ok ? r.ri_diskio_byteswritten : 0))
+                                     diskWritten: ok ? r.ri_diskio_byteswritten : 0, projectRoot: st.root, terminal: st.terminal))
         }
         statics.withLock { d in d = d.filter { seen.contains($0.key) } }
         foreignPaths.withLock { d in d = d.filter { seenForeign.contains($0.key) } }
@@ -119,11 +123,36 @@ public final class ProcessProbe: Sendable {
         return string(v.pvi_cdir.vip_path).nonEmpty
     }
 
-    /// `KERN_PROCARGS2`: argc, çalıştırılabilir yol, boşluk, argv. Başka kullanıcının sürecinde EPERM → boş.
-    static func args(_ pid: Int32, _ buf: inout [UInt8]) -> [String] {
+    /// cwd'den yukarı en yakın `.git` (ev klasöründe durur); klasör başına bir kez bakılır.
+    private func projectRoot(_ cwd: String) -> String? {
+        if let hit = roots.withLock({ $0[cwd] }) { return hit }
+        var dir = cwd, found: String? = nil
+        let home = NSHomeDirectory()
+        while dir.count > 1, dir != home {
+            if FileManager.default.fileExists(atPath: dir + "/.git") { found = dir; break }
+            dir = (dir as NSString).deletingLastPathComponent
+        }
+        roots.withLock { $0[cwd] = found }
+        return found
+    }
+
+    /// `TERM_PROGRAM` → görünen ad.
+    static func terminalName(_ raw: String) -> String {
+        switch raw {
+        case "Apple_Terminal": "Terminal"
+        case "iTerm.app": "iTerm2"
+        case "ghostty": "Ghostty"
+        case "vscode": "VS Code"
+        case "WarpTerminal": "Warp"
+        default: raw
+        }
+    }
+
+    /// `KERN_PROCARGS2`: argc, çalıştırılabilir yol, boşluk, argv, ortam. Başka kullanıcının sürecinde EPERM → boş.
+    static func argsAndEnv(_ pid: Int32, _ buf: inout [UInt8]) -> ([String], [String: String]) {
         var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
         var size = buf.count
-        guard sysctl(&mib, 3, &buf, &size, nil, 0) == 0, size > 4 else { return [] }
+        guard sysctl(&mib, 3, &buf, &size, nil, 0) == 0, size > 4 else { return ([], [:]) }
         let argc = Int(buf.withUnsafeBytes { $0.loadUnaligned(as: Int32.self) })
         var i = 4
         while i < size, buf[i] != 0 { i += 1 }
@@ -135,7 +164,15 @@ public final class ProcessProbe: Sendable {
             out.append(String(decoding: buf[s..<i], as: UTF8.self))
             i += 1
         }
-        return out
+        var env: [String: String] = [:]
+        while i < size, buf[i] != 0 {
+            let s = i
+            while i < size, buf[i] != 0 { i += 1 }
+            let kv = String(decoding: buf[s..<i], as: UTF8.self)
+            if let eq = kv.firstIndex(of: "="), kv.hasPrefix("TERM_PROGRAM=") { env[String(kv[..<eq])] = String(kv[kv.index(after: eq)...]) }
+            i += 1
+        }
+        return (out, env)
     }
 
     static func string<T>(_ tuple: T) -> String {

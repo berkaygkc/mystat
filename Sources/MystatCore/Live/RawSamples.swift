@@ -73,11 +73,16 @@ public struct ProcessRecord: Sendable, Equatable {
     public let cpuTime: UInt64
     public let footprint: UInt64, energy: UInt64, diskWritten: UInt64
     public let restricted: Bool
+    /// cwd'den yukarı en yakın git kökü (probe hesaplar): "acmecorp/web" bağlamı için.
+    public let projectRoot: String?
+    /// Sürecin ortamındaki `TERM_PROGRAM` (Ghostty, Terminal, iTerm2 …); yalnızca kendi süreçlerinde okunur.
+    public let terminal: String?
 
     public init(pid: Int32, ppid: Int32, uid: UInt32, name: String, path: String?, args: [String], cwd: String?, start: Date, hasTTY: Bool,
-                cpuTime: UInt64, footprint: UInt64, energy: UInt64, diskWritten: UInt64, restricted: Bool = false) {
+                cpuTime: UInt64, footprint: UInt64, energy: UInt64, diskWritten: UInt64, restricted: Bool = false,
+                projectRoot: String? = nil, terminal: String? = nil) {
         self.pid = pid; self.ppid = ppid; self.uid = uid; self.name = name; self.path = path; self.args = args; self.cwd = cwd
         self.start = start; self.hasTTY = hasTTY; self.cpuTime = cpuTime; self.footprint = footprint; self.energy = energy
-        self.diskWritten = diskWritten; self.restricted = restricted
+        self.diskWritten = diskWritten; self.restricted = restricted; self.projectRoot = projectRoot; self.terminal = terminal
     }
 }

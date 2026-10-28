@@ -45,4 +45,13 @@ import Testing
         let port = Int(UInt16(bigEndian: bound.sin_port))
         #expect(ProcessProbe().listeningPorts(pids: [getpid()])[getpid()]?.contains(port) == true)
     }
+    /// Proje kökü cwd'den yukarı en yakın `.git`; terminal ortamdaki `TERM_PROGRAM`.
+    @Test func projectRootAndTerminal() throws {
+        let me = try #require(ProcessProbe().processes().first { $0.pid == getpid() })
+        let cwd = FileManager.default.currentDirectoryPath
+        if FileManager.default.fileExists(atPath: cwd + "/.git") { #expect(me.projectRoot == cwd) }
+        if let t = ProcessInfo.processInfo.environment["TERM_PROGRAM"] { #expect(me.terminal == ProcessProbe.terminalName(t)) }
+        #expect(ProcessProbe.terminalName("Apple_Terminal") == "Terminal" && ProcessProbe.terminalName("ghostty") == "Ghostty")
+        #expect(ProcessProbe.terminalName("iTerm.app") == "iTerm2" && ProcessProbe.terminalName("vscode") == "VS Code")
+    }
 }
