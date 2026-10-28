@@ -172,4 +172,14 @@ import Testing
         #expect(g["app:/Applications/Brave Browser.app"]?.foreign == false)
     }
 
+
+    /// Docker'ın sanal makinesi: çekirdek süreç adını 32 karakterde kırpar, tanıma yoldan yapılır (yoksa "macOS"a düşüyordu).
+    @Test func dockerVMRecognizedByPath() {
+        let vm = p(11477, 1, "com.apple.Virtualization.Virtua",
+                   path: "/System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Virtualization.VirtualMachine",
+                   mem: 10 << 30)
+        let g = groups([vm])
+        #expect(g["docker:vm"]?.name == "Docker" && g["docker:vm"]?.isDocker == true && g["docker:vm"]?.foreign == false)
+        #expect(g["sys:macos"] == nil)
+    }
 }

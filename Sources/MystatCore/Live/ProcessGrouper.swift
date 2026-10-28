@@ -117,10 +117,15 @@ public enum ProcessGrouper {
         let belowClaude = chain[..<(firstClaude ?? chain.count)]
         if let dev = belowClaude.last(where: { marks[$0.pid]?.dev == true }) { return .dev(root: dev.pid) }
         if firstClaude != nil, let top = chain.last(where: { marks[$0.pid]?.claude == true }) { return .claude(root: top.pid) }
-        if p.name == dockerVM { return .docker }
+        if isDockerVM(p) { return .docker }
         if let app = marks[p.pid]?.app { return app.hasPrefix("/System/") ? .systemApp(app) : .app(app) }
         if marks[p.pid]?.system == true { return .system }
         return .other(p.name)
+    }
+
+    /// Çekirdek süreç adını 32 karakterde kırptığı için ("com.apple.Virtualization.Virtua") tanıma yoldan.
+    static func isDockerVM(_ p: ProcessRecord) -> Bool {
+        p.name == dockerVM || p.path?.hasSuffix("/" + dockerVM) == true
     }
 
     static func isClaude(_ p: ProcessRecord) -> Bool {
