@@ -16,6 +16,13 @@ struct DockerSection<Source: MetricsSource>: View {
         let busy = d.containers.contains { $0.cpuPercent >= 30 }
         VStack(alignment: .leading, spacing: 0) {
             SectionHead("DOCKER", title: h.title, soft: h.soft, lede: h.lede, level: h.level, pulsing: h.level != .ok)
+            if s.capabilities.docker { content(s, d, cpu: cpu, mem: mem, busy: busy) }
+        }
+    }
+
+    @ViewBuilder
+    private func content(_ s: Snapshot, _ d: DockerState, cpu: Double, mem: Double, busy: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
             if s.incident?.kind == .docker { IncidentBlock(source: source, state: state, inOverview: false).padding(.top, 20) }
             HStack(alignment: .top, spacing: 18) {
                 Card {

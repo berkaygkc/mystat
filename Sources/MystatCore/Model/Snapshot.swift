@@ -144,4 +144,5 @@ public struct Snapshot: Sendable {
     public var incident: Incident?
     public var suggestions: [Suggestion]
     public var calmTop: (name: String, percent: Int)
+    public var capabilities: SourceCapabilities = .all
 }

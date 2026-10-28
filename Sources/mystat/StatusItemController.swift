@@ -6,11 +6,11 @@ import MystatCore
 final class StatusItemController: NSObject {
     let item: NSStatusItem
     private let view: StatusBlockView
-    private let source: SampleSource
+    private let source: any MetricsSource
     private let onClick: () -> Void
     private var last: StatusBlockModel?
 
-    init(source: SampleSource, onClick: @escaping () -> Void) {
+    init(source: any MetricsSource, onClick: @escaping () -> Void) {
         self.source = source
         self.onClick = onClick
         let model = StatusBlockLayout.model(source.snapshot, now: Date(), calendar: Fmt.calendar)

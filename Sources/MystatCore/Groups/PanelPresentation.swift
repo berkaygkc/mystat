@@ -32,6 +32,7 @@ public enum PanelPresentation {
         else if s.system.thermal != .ok { sysSub = "Fan \(Fmt.int(s.system.fanRPM)) dev/dk, ısınıyor" }
         else { sysSub = "Fan sessiz, pil %\(s.system.battery)" }
         let sysLevel: Level = s.system.batteryDrain30m != nil ? .warn : s.system.thermal
+        let caps = s.capabilities
         return [
             PanelCell(section: "cpu", label: "İşlemci", big: Fmt.pct(s.cpu.percent), unit: nil, sub: cpuSub, level: cpuLevel),
             PanelCell(section: "mem", label: "Bellek", big: Fmt.pct(s.memory.percent), unit: nil,
@@ -41,9 +42,13 @@ public enum PanelPresentation {
                       level: Thresholds.diskFree(s.disk.freeGB)),
             PanelCell(section: "net", label: "Ağ", big: Fmt.rate(s.net.downMBps), unit: "MB/s",
                       sub: "↑ \(Fmt.rate(s.net.upMBps)) MB/s · \(s.net.iface)", level: .ok),
-            PanelCell(section: "docker", label: "Docker", big: String(s.docker.containers.count), unit: nil,
-                      sub: "container · \(Fmt.cores(dockerCores)) çekirdek", level: inc?.kind == .docker ? inc!.level : .ok),
-            PanelCell(section: "sys", label: "Sistem", big: Fmt.int(s.system.chipTemp) + "°", unit: nil, sub: sysSub, level: sysLevel),
+            caps.docker
+                ? PanelCell(section: "docker", label: "Docker", big: String(s.docker.containers.count), unit: nil,
+                            sub: "container · \(Fmt.cores(dockerCores)) çekirdek", level: inc?.kind == .docker ? inc!.level : .ok)
+                : PanelCell(section: "docker", label: "Docker", big: "—", unit: nil, sub: "bağlanmadı", level: .ok),
+            caps.sensors
+                ? PanelCell(section: "sys", label: "Sistem", big: Fmt.int(s.system.chipTemp) + "°", unit: nil, sub: sysSub, level: sysLevel)
+                : PanelCell(section: "sys", label: "Sistem", big: s.system.thermal.thermalWord, unit: nil, sub: "pil %\(s.system.battery)", level: sysLevel),
         ]
     }
 

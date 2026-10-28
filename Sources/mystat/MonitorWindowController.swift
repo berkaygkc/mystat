@@ -8,9 +8,9 @@ import SwiftUI
 final class MonitorWindowController: NSObject, NSWindowDelegate {
     let state = MonitorState()
     private var window: NSWindow?
-    private let source: SampleSource
+    private let source: any MetricsSource
 
-    init(source: SampleSource) { self.source = source }
+    init(source: any MetricsSource) { self.source = source }
 
     func show(section: MonitorSection?, groupID: String?) {
         if let section { state.show(section, group: groupID) } else if let groupID { state.select(.cpu, groupID) }
@@ -34,7 +34,7 @@ final class MonitorWindowController: NSObject, NSWindowDelegate {
         blur.material = .underWindowBackground
         blur.blendingMode = .behindWindow
         blur.state = .active
-        let host = NSHostingView(rootView: MonitorView(source: source, state: state))
+        let host = NSHostingView(rootView: SourceViews.monitor(source: source, state: state))
         host.translatesAutoresizingMaskIntoConstraints = false
         blur.addSubview(host)
         NSLayoutConstraint.activate([

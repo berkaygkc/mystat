@@ -11,7 +11,7 @@ enum SnapshotMode {
         var target = "panel", out = "/tmp/mystat-snapshot.png"
         var dark = false, incident = false
         var kind: IncidentKind = .cpu
-        var section = "overview", scan = "ready", confirm = "", toast = ""
+        var section = "overview", scan = "ready", confirm = "", toast = "", caps = "all"
         var bmPath: [String] = [], bmSelect: [[String]] = [], bmZoom: String?, bmP = 0.0, bmHover: String?
         var size = CGSize(width: 1400, height: 900)
     }
@@ -30,6 +30,7 @@ enum SnapshotMode {
             case "--scan": o.scan = next()
             case "--confirm": o.confirm = next()
             case "--toast": o.toast = next()
+            case "--caps": o.caps = next()
             case "--bm-path": o.bmPath = next().split(separator: "/").map(String.init)
             case "--bm-select": o.bmSelect = next().split(separator: ",").map { $0.split(separator: "/").map(String.init) }
             case "--bm-zoom": o.bmZoom = next()
@@ -49,6 +50,7 @@ enum SnapshotMode {
         let o = parse(args)
         NSApplication.shared.setActivationPolicy(.prohibited)
         let source = SampleSource(seed: 1, incident: o.incident, kind: o.kind)
+        if o.caps == "none" { source.capabilities = SourceCapabilities(docker: false, sensors: false, diskScan: false, netDetails: false) }
         let content = makeView(o, source)
         let root = NSHostingView(rootView: SnapshotBackdrop(dark: o.dark) { content })
         let win = NSWindow(contentRect: NSRect(origin: .zero, size: o.size), styleMask: [.borderless], backing: .buffered, defer: false)

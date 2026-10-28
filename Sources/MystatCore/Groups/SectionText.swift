@@ -21,11 +21,17 @@ public enum SectionText {
     }
 
     public static func networkLede(_ s: Snapshot) -> String {
+        guard s.capabilities.netDetails else {   // Wi‑Fi adı ve uygulama bazında ağ 2e'de
+            return "\(s.net.iface) arayüzü. Bugün \(Fmt.dec1(s.net.todayDownGB)) GB indirildi, \(Fmt.dec1(s.net.todayUpGB)) GB gönderildi."
+        }
         let top = GroupPresentation.sorted(s.groups, by: .network).first?.name ?? ""
         return "\(s.net.iface) · \(s.net.ssid) ağı. Bugün \(Fmt.dec1(s.net.todayDownGB)) GB indirildi, \(Fmt.dec1(s.net.todayUpGB)) GB gönderildi. Şu an en çok \(top) indiriyor."
     }
 
     public static func docker(_ s: Snapshot) -> Head {
+        guard s.capabilities.docker else {
+            return Head(title: "Docker'a bağlanılmadı.", soft: "", lede: "Container'lar ve Docker'ın diski burada görünecek.", level: .ok)
+        }
         let d = s.docker
         let cpu = d.containers.reduce(0) { $0 + $1.cpuPercent }
         let mem = d.containers.reduce(0) { $0 + $1.memoryMB } / 1024
@@ -44,6 +50,12 @@ public enum SectionText {
     }
 
     public static func disk(_ s: Snapshot, homeGB: Double, freedGB: Double) -> Head {
+        guard s.capabilities.diskScan else {   // harita kalemleri tarama ister (2d)
+            let p = s.disk.purgeableGB
+            return Head(title: "\(Fmt.pct(s.disk.percent)) dolu.", soft: "\(Fmt.int(s.disk.freeGB)) GB boş.",
+                        lede: p >= 1 ? "Sistem gerektiğinde \(Fmt.int(p)) GB'ı kendiliğinden boşaltabilir." : "",
+                        level: Thresholds.diskFree(s.disk.freeGB))
+        }
         let lede = freedGB > 0
             ? "Bu oturumda \(Fmt.size(freedGB)) yer açtın. Ev klasörün şu an \(Fmt.size(homeGB))."
             : "Ev klasörün \(Fmt.size(homeGB)). En büyük kalem Library; içinde Docker'ın \(Fmt.int(s.docker.disk.rawGB)) GB'lık diski duruyor. Şu an diske en çok Docker yazıyor."
@@ -60,6 +72,14 @@ public enum SectionText {
         if let drain = sys.batteryDrain30m {
             return (emph("Pil hızlı eriyor: ", "30 dk'da \(Fmt.pct(drain))"),
                     "Prizde değilsin; pil %\(sys.battery). Bu hızla 1 sa 10 dk yeter.", .warn)
+        }
+        if !s.capabilities.sensors {   // sıcaklık ve fan 2c'de; termal durum ve pil
+            let power = sys.charging && sys.battery < 100 ? "Şarj oluyor, pil %\(sys.battery)." : "Prizdesin, pil %\(sys.battery)."
+            switch sys.thermal {
+            case .ok: return (AttributedString("Serin ve sessiz."), "Termal durum normal. " + power, .ok)
+            case .warn: return (AttributedString("Çip ısınıyor."), "Termal durum ılık; macOS henüz yavaşlatmıyor. " + power, .warn)
+            case .crit: return (AttributedString("Çip çok ısındı."), "macOS işlemciyi yavaşlatıyor. " + power, .crit)
+            }
         }
         if sys.thermal != .ok {
             return (emph("Çip ısınıyor: ", "\(Fmt.int(sys.chipTemp))°"),

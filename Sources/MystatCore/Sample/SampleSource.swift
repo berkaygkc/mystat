@@ -43,6 +43,16 @@ public final class SampleSource: MetricsSource {
         snapshot = build()
     }
 
+    /// İnceleme için: bağlı değil durumlarını örnek veriyle görmek (`--snapshot … --caps none`).
+    public var capabilities: SourceCapabilities = .all { didSet { snapshot = build() } }
+
+    public func setDetailInterest(_ visible: Bool) {}
+
+    /// Örnek veride durdurma benzetilir; hiçbir sürece dokunulmaz.
+    public func stop(groupID: String, force: Bool) -> StopOutcome {
+        snapshot.groups.first { $0.id == groupID }.map { .done(count: $0.processCount) } ?? .notFound
+    }
+
     /// 2 sn'de bir çağrılır; mockup'taki `tickLive`.
     public func tick() {
         let target = cpuTarget
@@ -116,7 +126,7 @@ public final class SampleSource: MetricsSource {
                 Suggestion(title: "Docker'da 12,6 GB geri kazanılabilir", detail: "177 kullanılmayan volume", target: .docker),
                 Suggestion(title: "İndirilenler'de 9,5 GB'lık Xcode arşivi", detail: "3 haftadır açılmamış", target: .disk(["Downloads"])),
             ],
-            calmTop: ("Brave Browser", 8))
+            calmTop: ("Brave Browser", 8), capabilities: capabilities)
     }
 
     private func makeIncident() -> Incident {

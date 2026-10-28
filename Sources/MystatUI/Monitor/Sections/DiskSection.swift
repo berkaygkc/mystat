@@ -16,7 +16,7 @@ struct DiskSection<Source: MetricsSource>: View {
             HStack(alignment: .top, spacing: 22) {
                 VStack(alignment: .leading, spacing: 0) {
                     crumbs.padding(.bottom, 10)
-                    DiskMapArea(disk: disk, tree: source.diskTree) { BubbleMapView(source: source, state: state) }
+                    DiskMapArea(disk: disk, tree: source.diskTree, scanAvailable: s.capabilities.diskScan) { BubbleMapView(source: source, state: state) }
                 }
                 DiskSidePanel(source: source, disk: disk, state: state)
             }
@@ -107,6 +107,8 @@ struct ScanStatus: View {
 struct DiskMapArea<Map: View>: View {
     @Bindable var disk: DiskUIState
     let tree: DiskTree
+    /// Gerçek tarama 2d'de bağlanır; o zamana kadar canlı kaynakta düğme yok.
+    var scanAvailable = true
     @ViewBuilder let map: () -> Map
 
     var body: some View {
@@ -142,8 +144,12 @@ struct DiskMapArea<Map: View>: View {
             Text("Ev klasörünü tarayıp neyin ne kadar yer tuttuğunu gösterir. Sonuç 1 saat geçerli kalır; ardından yeniden taraman gerekir.")
                 .font(.system(size: 13)).lineSpacing(3).multilineTextAlignment(.center).foregroundStyle(Theme.ink2)
                 .frame(maxWidth: 340).padding(.top, 6)
-            Btn("Taramayı başlat", icon: "magnifyingglass", style: .primary) { disk.startScan(tree: tree) }
-                .fixedSize().padding(.top, 18)
+            if scanAvailable {
+                Btn("Taramayı başlat", icon: "magnifyingglass", style: .primary) { disk.startScan(tree: tree) }
+                    .fixedSize().padding(.top, 18)
+            } else {
+                Text("Disk haritası taraması henüz bağlanmadı.").font(.system(size: 12.5)).foregroundStyle(Theme.ink3).padding(.top, 18)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

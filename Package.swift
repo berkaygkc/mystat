@@ -7,8 +7,10 @@ let package = Package(
     targets: [
         .target(name: "MystatCore"),
         .target(name: "MystatUI", dependencies: ["MystatCore"]),
-        .executableTarget(name: "mystat", dependencies: ["MystatCore", "MystatUI"]),
+        .target(name: "MystatLive", dependencies: ["MystatCore"]),
+        .executableTarget(name: "mystat", dependencies: ["MystatCore", "MystatUI", "MystatLive"]),
         .testTarget(name: "MystatCoreTests", dependencies: ["MystatCore"]),
         .testTarget(name: "MystatUITests", dependencies: ["MystatUI"]),
+        .testTarget(name: "MystatLiveTests", dependencies: ["MystatLive"]),
     ]
 )

@@ -20,18 +20,22 @@ struct NetworkSection<Source: MetricsSource>: View {
                     StatsRow(items: [("Bugün indirilen", Fmt.dec1(s.net.todayDownGB) + " GB", nil),
                                      ("Bugün gönderilen", Fmt.dec1(s.net.todayUpGB) + " GB", nil),
                                      ("Zirve (bu aralık)", Fmt.rate(down.max() ?? 0) + " MB/s", nil),
-                                     ("Gecikme", Fmt.int(s.net.latencyMs) + " ms", "yönlendirici")])
+                                     ("Gecikme", s.capabilities.netDetails ? Fmt.int(s.net.latencyMs) + " ms" : "—", "yönlendirici")])
                 }
             }
             .padding(.top, 26)
             HStack(alignment: .top, spacing: 26) {
                 VStack(alignment: .leading, spacing: 0) {
                     SecH("Kim kullanıyor", note: "uygulamaya göre")
-                    GroupList(groups: s.groups, metric: .network, state: state)
+                    if s.capabilities.netDetails {
+                        GroupList(groups: s.groups, metric: .network, state: state)
+                    } else {
+                        Text("Uygulama bazında ağ kullanımı henüz bağlanmadı.").font(.system(size: 12.5)).foregroundStyle(Theme.ink3).padding(.top, 10)
+                    }
                 }
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Bağlantı").font(.system(size: 18, weight: .semibold)).tracking(-0.27).foregroundStyle(Theme.ink)
-                    Text("\(s.net.iface) · \(s.net.ssid)").font(.system(size: 12.5)).foregroundStyle(Theme.ink2).padding(.top, 3)
+                    Text(s.net.ssid.isEmpty ? s.net.iface : "\(s.net.iface) · \(s.net.ssid)").font(.system(size: 12.5)).foregroundStyle(Theme.ink2).padding(.top, 3)
                     VStack(spacing: 0) { ForEach(s.net.details, id: \.label) { FactRow(k: $0.label, v: $0.value) } }.padding(.top, 12)
                     Text("Dış IP adresi, bir dış servise sormak gerektiği için varsayılan olarak gösterilmiyor.")
                         .font(.system(size: 12)).lineSpacing(3).foregroundStyle(Theme.ink3).padding(.top, 12).fixedSize(horizontal: false, vertical: true)

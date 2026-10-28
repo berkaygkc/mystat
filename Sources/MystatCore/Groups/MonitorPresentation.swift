@@ -9,8 +9,8 @@ public enum MonitorPresentation {
         case "mem": (Fmt.pct(s.memory.percent), s.memory.pressureLevel)
         case "disk": (Fmt.pct(s.disk.percent), Thresholds.diskFree(s.disk.freeGB))
         case "net": ("↓" + Fmt.rate(s.net.downMBps), .ok)
-        case "docker": (String(s.docker.containers.count), s.incident?.kind == .docker ? s.incident!.level : .ok)
-        case "sys": (Fmt.int(s.system.chipTemp) + "°", s.system.batteryDrain30m != nil ? .warn : s.system.thermal)
+        case "docker": s.capabilities.docker ? (String(s.docker.containers.count), s.incident?.kind == .docker ? s.incident!.level : .ok) : ("—", .ok)
+        case "sys": (s.capabilities.sensors ? Fmt.int(s.system.chipTemp) + "°" : "", s.system.batteryDrain30m != nil ? .warn : s.system.thermal)
         default: ("", .ok)
         }
     }

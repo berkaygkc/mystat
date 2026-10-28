@@ -1,10 +1,12 @@
 import AppKit
 import MystatCore
+import MystatLive
 import MystatUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private(set) var source: SampleSource!
+    /// Varsayılan canlı kaynak; `--sample` ile Faz 1'in örnek verisi (`SourceFactory`).
+    private(set) var source: (any MetricsSource)!
     private var status: StatusItemController?
     private var panel: PanelController?
     private var monitor: MonitorWindowController?
@@ -13,8 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let args = CommandLine.arguments
-        let kind = args.firstIndex(of: "--kind").flatMap { args.indices.contains($0 + 1) ? IncidentKind(rawValue: args[$0 + 1]) : nil } ?? .cpu
-        source = SampleSource(seed: 1, incident: args.contains("--incident"), kind: kind)
+        source = SourceFactory.make(arguments: args)
         status = StatusItemController(source: source) { [weak self] in self?.togglePanel() }
         panel = PanelController(source: source) { [weak self] section, group in self?.openMonitor(section, group) }
         panel?.onVisibilityChange = { [weak self] open in self?.status?.isHighlighted = open }
@@ -53,10 +54,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case nil: break
             }
             #if DEBUG
-            if mods == [.command, .option], e.keyCode == 34 { self.source.incident.toggle(); self.status?.refresh(now: Date()); return nil }   // I
-            if mods == [.command, .option], e.keyCode == 40 {                                                                                  // K
+            if mods == [.command, .option], e.keyCode == 34, let sample = self.source as? SampleSource {                       // I (yalnızca örnek veri)
+                sample.incident.toggle(); self.status?.refresh(now: Date()); return nil
+            }
+            if mods == [.command, .option], e.keyCode == 40, let sample = self.source as? SampleSource {                       // K
                 let all = IncidentKind.allCases
-                self.source.incidentKind = all[(all.firstIndex(of: self.source.incidentKind)! + 1) % all.count]
+                sample.incidentKind = all[(all.firstIndex(of: sample.incidentKind)! + 1) % all.count]
                 self.status?.refresh(now: Date()); return nil
             }
             #endif
@@ -73,7 +76,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 try? await Task.sleep(for: .seconds(1 - frac + 0.002))
                 guard let self else { return }
                 second += 1
-                if second % 2 == 0 { self.source.tick() }
+                if second % 2 == 0 { (self.source as? SampleSource)?.tick() }   // canlı kaynak kendi temposunda ölçer
                 self.status?.refresh(now: Date())
             }
         }

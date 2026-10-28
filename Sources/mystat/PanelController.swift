@@ -16,11 +16,11 @@ final class PanelController {
     private var outsideMonitor: Any?
     private var insideMonitor: Any?
     private var keyMonitor: Any?
-    private let source: SampleSource
+    private let source: any MetricsSource
     private let openMonitor: (MonitorSection?, String?) -> Void
     var onVisibilityChange: ((Bool) -> Void)?
 
-    init(source: SampleSource, openMonitor: @escaping (MonitorSection?, String?) -> Void) {
+    init(source: any MetricsSource, openMonitor: @escaping (MonitorSection?, String?) -> Void) {
         self.source = source
         self.openMonitor = openMonitor
     }
@@ -38,7 +38,7 @@ final class PanelController {
     func open(relativeTo button: NSStatusBarButton) {
         removeMonitors()
         let m = Self.margin
-        let view = PanelView(source: source) { [weak self] section, group in
+        let view = SourceViews.panel(source: source) { [weak self] section, group in
             self?.close(returnFocus: false)
             self?.openMonitor(section, group)
         }

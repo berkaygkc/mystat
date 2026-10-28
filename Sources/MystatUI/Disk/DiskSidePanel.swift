@@ -19,7 +19,9 @@ struct DiskSidePanel<Source: MetricsSource>: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(node.name).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.ink)
                 Spacer()
-                Text(Fmt.size(total)).font(.system(size: 12).monospacedDigit()).foregroundStyle(Theme.ink3)
+                if source.snapshot.capabilities.diskScan {
+                    Text(Fmt.size(total)).font(.system(size: 12).monospacedDigit()).foregroundStyle(Theme.ink3)
+                }
             }
             .padding(.top, 4).padding(.bottom, 10)
             if here != .none {
@@ -28,7 +30,9 @@ struct DiskSidePanel<Source: MetricsSource>: View {
                     .padding(.horizontal, 10).padding(.vertical, 8).frame(maxWidth: .infinity, alignment: .leading)
                     .background(Theme.accSoft, in: RoundedRectangle(cornerRadius: 10, style: .continuous)).padding(.bottom, 8)
             }
-            if case .none = disk.scan.effective(now: Date()) {
+            if !source.snapshot.capabilities.diskScan {
+                Text("Klasör listesi tarama bağlanınca gelecek.").font(.system(size: 12)).foregroundStyle(Theme.ink3)
+            } else if case .none = disk.scan.effective(now: Date()) {
                 Text("Harita için önce taramayı başlat.").font(.system(size: 12)).foregroundStyle(Theme.ink3)
             } else {
                 ForEach(kids.sorted { $0.size > $1.size }, id: \.name) { c in row(c, tree: tree) }

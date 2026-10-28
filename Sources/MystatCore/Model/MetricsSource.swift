@@ -15,4 +15,14 @@ public protocol MetricsSource: AnyObject, Observable {
     var diskTree: DiskTree { get }
     /// Disk haritasından silinen alanı doluluğa yansıtır (Faz 1'de örnek; Faz 2'de yeniden ölçüm).
     func applyDeletion(gb: Double)
+    /// Panel ya da monitör açık mı: süreç listesi açıkken 2 sn, kapalıyken 5 sn (spec §9.2).
+    func setDetailInterest(_ visible: Bool)
+    /// Grubun süreçlerine SIGTERM (`force` ise SIGKILL); yalnızca kendi süreçlerin (spec §7.4).
+    func stop(groupID: String, force: Bool) -> StopOutcome
+}
+
+public enum StopOutcome: Sendable, Equatable {
+    case done(count: Int)
+    case notPermitted(reason: String)
+    case notFound
 }

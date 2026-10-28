@@ -15,28 +15,42 @@ struct SystemSection<Source: MetricsSource>: View {
             SectionHead("SİSTEM", title: h.title, lede: h.lede, level: h.level, pulsing: h.level != .ok)
             if let k = s.incident?.kind, k == .heat || k == .battery { IncidentBlock(source: source, state: state, inOverview: false).padding(.top, 20) }
             HStack(alignment: .top, spacing: 16) {
-                card(title: "Isı ve fan", pill: Pill(text: warm ? "Ilık" : "Normal", level: sys.thermal),
-                     big: Fmt.int(sys.chipTemp), unit: "°C", bigLevel: sys.thermal,
-                     label: "Çip ortalaması · fan " + (sys.fanRPM > 0 ? Fmt.int(sys.fanRPM) + " dev/dk" : "duruyor"),
-                     series: ChartSeries(source.series(.temp, range: state.range), color: warm ? Theme.orange : Theme.chart, fill: true, name: "°C"),
-                     max: 105, format: { Fmt.int($0) + "°" },
-                     facts: [("İşlemci", Fmt.int(sys.chipTemp) + "°"), ("GPU", Fmt.int(sys.gpuTemp) + "°"), ("SSD", Fmt.int(sys.ssdTemp) + "°"),
-                             ("Yavaşlatma", warm ? "Henüz yok" : "Yok")])
+                if s.capabilities.sensors {
+                    card(title: "Isı ve fan", pill: Pill(text: warm ? "Ilık" : "Normal", level: sys.thermal),
+                         big: Fmt.int(sys.chipTemp), unit: "°C", bigLevel: sys.thermal,
+                         label: "Çip ortalaması · fan " + (sys.fanRPM > 0 ? Fmt.int(sys.fanRPM) + " dev/dk" : "duruyor"),
+                         series: ChartSeries(source.series(.temp, range: state.range), color: warm ? Theme.orange : Theme.chart, fill: true, name: "°C"),
+                         max: 105, format: { Fmt.int($0) + "°" },
+                         facts: [("İşlemci", Fmt.int(sys.chipTemp) + "°"), ("GPU", Fmt.int(sys.gpuTemp) + "°"), ("SSD", Fmt.int(sys.ssdTemp) + "°"),
+                                 ("Yavaşlatma", warm ? "Henüz yok" : "Yok")])
+                } else {
+                    // Sensörler 2c'de: sahte sıcaklık yerine termal durum.
+                    card(title: "Isı ve fan", pill: Pill(text: sys.thermal.thermalWord, level: sys.thermal),
+                         big: "—", unit: "", bigLevel: .ok, label: "sensörler bağlanmadı",
+                         series: ChartSeries([], color: Theme.chart, fill: true, name: "°C"), max: 105, format: { Fmt.int($0) + "°" },
+                         facts: [("Yavaşlatma", sys.thermal == .crit ? "Var" : "Yok")])
+                }
                 card(title: "Güç ve pil", pill: Pill(text: onBattery ? "Pilde" : "Prizde", level: onBattery ? .warn : .ok),
                      big: String(sys.battery), unit: "%", bigLevel: onBattery ? .warn : .ok,
-                     label: (sys.battery == 100 ? "Tam dolu" : "Pil") + " · şu an \(Fmt.int(sys.watts)) W harcanıyor",
-                     series: ChartSeries(source.series(.power, range: state.range), color: Theme.chart, fill: true, name: "W"),
+                     label: s.capabilities.sensors ? (sys.battery == 100 ? "Tam dolu" : "Pil") + " · şu an \(Fmt.int(sys.watts)) W harcanıyor"
+                                                   : sys.charging && sys.battery < 100 ? "Şarj oluyor" : sys.battery == 100 ? "Tam dolu" : "Pil",
+                     series: ChartSeries(s.capabilities.sensors ? source.series(.power, range: state.range) : [], color: Theme.chart, fill: true, name: "W"),
                      max: 100, format: { Fmt.int($0) + " W" },
                      facts: [("Adaptör", sys.adapter), ("Pil sağlığı", sys.health), ("Döngü", String(sys.cycles)), ("Kapasite", sys.capacity)])
-                card(title: "GPU", pill: Pill(text: "Sakin", level: .ok),
-                     big: Fmt.int(sys.gpuPercent), unit: "%", bigLevel: .ok,
-                     label: "\(sys.gpuCores) çekirdekli GPU · \(Fmt.int(sys.gpuTemp))°",
-                     series: ChartSeries(source.series(.gpu, range: state.range), color: Theme.chart, fill: true, name: "GPU"),
-                     max: 100, format: Fmt.pct,
-                     facts: [("En çok kullanan", "WindowServer"), ("İkinci", "Brave Browser"), ("Bellek", "Paylaşımlı"), ("Ekranlar", "2")])
+                if s.capabilities.sensors {
+                    card(title: "GPU", pill: Pill(text: "Sakin", level: .ok),
+                         big: Fmt.int(sys.gpuPercent), unit: "%", bigLevel: .ok,
+                         label: "\(sys.gpuCores) çekirdekli GPU · \(Fmt.int(sys.gpuTemp))°",
+                         series: ChartSeries(source.series(.gpu, range: state.range), color: Theme.chart, fill: true, name: "GPU"),
+                         max: 100, format: Fmt.pct,
+                         facts: [("En çok kullanan", "WindowServer"), ("İkinci", "Brave Browser"), ("Bellek", "Paylaşımlı"), ("Ekranlar", "2")])
+                } else {
+                    card(title: "GPU", pill: Pill(text: "—", level: .ok), big: "—", unit: "", bigLevel: .ok, label: "sensörler bağlanmadı",
+                         series: ChartSeries([], color: Theme.chart, fill: true, name: "GPU"), max: 100, format: Fmt.pct, facts: [])
+                }
             }
             .padding(.top, 22)
-            energy(s).padding(.top, 26)
+            if s.capabilities.sensors { energy(s).padding(.top, 26) }   // süreç enerjisi 2c'de
         }
     }
 
