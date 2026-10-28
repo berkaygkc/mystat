@@ -5,7 +5,7 @@ import MystatCore
 /// GPU: kullanım ve çekirdek sayısı `IOAccelerator`'dan (§9.1); uygulama başına GPU süresi istemci kayıtlarından
 /// (`IOUserClientCreator`, `AppUsage[].accumulatedGPUTime`). Root gerektirmez; tarama ≈ 1,6 ms (100 istemci).
 public enum GPUProbe {
-    public static func read() -> GPUReading? {
+    public static func read(clients wantClients: Bool = true) -> GPUReading? {
         var it: io_iterator_t = 0
         guard IOServiceGetMatchingServices(kIOMainPortDefault, IOServiceMatching("IOAccelerator"), &it) == kIOReturnSuccess else { return nil }
         defer { IOObjectRelease(it) }
@@ -17,7 +17,7 @@ public enum GPUProbe {
         let cores = (IORegistryEntryCreateCFProperty(acc, "gpu-core-count" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? NSNumber)?.intValue ?? 0
         var clients: [GPUClient] = []
         var kids: io_iterator_t = 0
-        if IORegistryEntryGetChildIterator(acc, kIOServicePlane, &kids) == kIOReturnSuccess {
+        if wantClients, IORegistryEntryGetChildIterator(acc, kIOServicePlane, &kids) == kIOReturnSuccess {
             defer { IOObjectRelease(kids) }
             while case let k = IOIteratorNext(kids), k != 0 {
                 defer { IOObjectRelease(k) }

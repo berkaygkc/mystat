@@ -52,6 +52,7 @@ public final class HistoryStore: Sendable {
         case .cpu: "cpu"; case .cpuSystem: "cpuSystem"; case .memUsed: "memUsed"; case .memPressure: "memPressure"
         case .netDown: "netDown"; case .netUp: "netUp"; case .diskRead: "diskRead"; case .diskWrite: "diskWrite"; case .battery: "battery"
         case .dockerCPU: "dockerCPU"; case .dockerMem: "dockerMem"; case .dockerDisk: "dockerDisk"
+        case .temp: "temp"; case .fan: "fan"; case .power: "power"; case .gpu: "gpu"
         default: nil
         }
     }

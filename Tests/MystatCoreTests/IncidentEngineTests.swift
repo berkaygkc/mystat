@@ -168,6 +168,19 @@ import Testing
         #expect(inc?.level == .crit && inc?.culpritValues == ["sağlıksız"] && inc?.facts.first { $0.label == "Sağlık" }?.value == "sağlıksız")
         #expect(StatusBlockLayout.alert(Snapshot.withIncident(inc!))?.value == "hata")
     }
+
+    /// §7.2.1: ısı olayında sorumlular enerji tüketen gruplar (W); grup watt'ı yoksa (sensörsüz) çekirdek.
+    @Test func heatCulpritsInWatts() {
+        var gs = base.groups
+        for i in gs.indices { gs[i].watts = gs[i].cpuCores * 6.2 }
+        var e = IncidentEngine()
+        let inc = run(&e, inputs(groups: gs, thermal: .warn), from: 0, seconds: 32)
+        #expect(inc?.kind == .heat && inc?.culpritUnit == "W" && inc?.culpritValues.first == "2,2")
+        var f = IncidentEngine()
+        var noWatts = base.groups
+        for i in noWatts.indices { noWatts[i].watts = 0 }
+        #expect(run(&f, inputs(groups: noWatts, thermal: .warn), from: 0, seconds: 32)?.culpritUnit == "çekirdek")
+    }
 }
 
 extension Snapshot {

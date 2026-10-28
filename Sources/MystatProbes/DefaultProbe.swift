@@ -7,6 +7,7 @@ public struct DefaultProbe: SystemProbe {
     let netDisk = NetDiskProbe()
     let procs = ProcessProbe()
     let power = PowerProbe()
+    let sensors = SensorProbes()
 
     public init() {}
 
@@ -23,6 +24,11 @@ public struct DefaultProbe: SystemProbe {
     public func thermal() -> Level { power.thermal() }
     public func battery() -> BatteryReading? { power.battery() }
     public func machine() -> MachineInfo { MachineProbe().machine() }
+    public func sensorMap() -> SensorMap? { sensors.sensorMap() }
+    public func smcValues(_ keys: [String]) -> [String: Double] { sensors.values(keys) }
+    public func ssdTemperature() -> Double? { sensors.hid?.ssd() }
+    public func energy() -> EnergyCounters? { sensors.report?.energy() }
+    public func gpu(clients: Bool) -> GPUReading? { GPUProbe.read(clients: clients) }
 
     public func largeOldDownloads(now: Date) -> [(name: String, gb: Double, idleDays: Int)] {
         let dir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")

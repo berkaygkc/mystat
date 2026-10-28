@@ -25,6 +25,13 @@ public actor Sampler {
     private var lastDockerDisk: Date?
     /// Docker'ın verisinin 30 günlük farkı; df yenilendikçe geçmişten hesaplanır.
     private var dockerTrend: Double?
+    // Sensörler (§9.2): 5 sn'de bir; boşta ≤ 10 SMC anahtarı, ilgi varken GPU sıcaklığı, IOReport ve GPU uygulamaları.
+    private var sensorMap: SensorMap?
+    private var sensors: SensorReading?
+    private var lastSensors: Date?, lastSlowSensors: Date?
+    private var slow: (ssd: Double?, battery: Double?, fanMin: Double) = (nil, nil, 0)
+    private var powerMeter = PowerMeter(), gpuShare = GPUShare(), energyMeter = EnergyMeter()
+    private var groupNameByPid: [Int32: String] = [:]
     /// "Bugün" ağ toplamı yeniden başlatmada kaybolmasın (testlerde kapalı).
     private let persistToday: Bool
     /// Panel ya da monitör açık mı; ana aktörden eşzamanlı yazılır.
@@ -101,6 +108,10 @@ public actor Sampler {
         if wantDetail || (lastProc.map { now.timeIntervalSince($0) >= 5 } ?? true) {
             sampleProcesses(at: now, detail: wantDetail, cpu: cpu, memory: memory, coreCount: ticks.count)
         }
+        if lastSensors.map({ now.timeIntervalSince($0) >= 4.9 }) ?? true {
+            readSensors(at: now, detail: wantDetail)
+            lastSensors = now
+        }
         if wantDetail, lastDownloads.map({ now.timeIntervalSince($0) >= 600 }) ?? true {
             downloads = probe.largeOldDownloads(now: now)
             lastDownloads = now
@@ -113,6 +124,10 @@ public actor Sampler {
                                                (.diskRead, disk.readMBps), (.diskWrite, disk.writeMBps)]
         if lastCPU != nil { samples += [(.cpu, cpu.percent), (.cpuSystem, cpu.systemPercent)] }
         if let b = battery { samples.append((.battery, b.percent)) }
+        if let r = sensors {
+            samples += [(.temp, r.chipTemp), (.fan, r.fanRPM), (.gpu, r.gpuPercent)]
+            if let w = r.systemWatts { samples.append((.power, w)) }
+        }
         let containers = dockerReading.running ? dockerReading.containers : []
         if dockerReading.running {
             samples += [(.dockerCPU, containers.reduce(0) { $0 + $1.cpuPercent }), (.dockerMem, containers.reduce(0) { $0 + $1.memoryMB } / 1024)]
@@ -146,8 +161,10 @@ public actor Sampler {
 
         let m = LiveMeasurements(cpu: cpu, memory: memory, disk: disk, net: lastNet, iface: iface ?? "—", ip: ip, groups: groups,
                                  thermal: probe.thermal(), battery: battery, batteryDrain30m: drain, machine: machine,
-                                 downloads: downloads, coreCount: max(1, ticks.count), docker: dockerState())
-        return Output(snapshot: SnapshotBuilder.build(m, incident: incident, capabilities: LiveSource.capabilities),
+                                 downloads: downloads, coreCount: max(1, ticks.count), docker: dockerState(), sensors: sensors)
+        var caps = LiveSource.capabilities
+        caps.sensors = sensors != nil
+        return Output(snapshot: SnapshotBuilder.build(m, incident: incident, capabilities: caps),
                       series: series, groups: groupHistory, starts: starts)
     }
 
@@ -164,8 +181,11 @@ public actor Sampler {
         let ownCores = own.reduce(0) { $0 + (cores[$1.pid] ?? 0) }
         let ownMemGB = Double(own.reduce(UInt64(0)) { $0 &+ $1.footprint }) / 1_073_741_824
         let residual = (cores: max(0, cpu.percent / 100 * Double(coreCount) - ownCores), memoryGB: max(0, memory.usedGB - ownMemGB))
-        groups = ProcessGrouper.groups(records, cores: cores, ports: ports, system: residual, now: now, home: NSHomeDirectory(), cache: classes)
+        let watts = energyMeter.update(records, at: now, maxGap: detail ? SampleGap.maxInterval : GroupHistory.gap) ?? [:]
+        groups = ProcessGrouper.groups(records, cores: cores, ports: ports, system: residual, now: now, home: NSHomeDirectory(), cache: classes,
+                                       watts: watts)
         groups = DockerGroups.split(groups, containers: dockerReading.running ? dockerReading.containers : [])
+        groupNameByPid = Dictionary(groups.flatMap { g in g.pids.map { ($0, g.name) } }, uniquingKeysWith: { a, _ in a })
 
         // Disk yazımı: süreç başına fark → grup toplamı.
         var nowWritten: [ProcKey: UInt64] = [:], delta: [Int32: UInt64] = [:]
@@ -186,5 +206,40 @@ public actor Sampler {
         guard r.running else { return .notRunning }
         return DockerState(running: true, containers: r.containers, vmMemoryGB: r.vmMemoryGB, vmCores: r.vmCores,
                            disk: r.disk ?? DockerState.notRunning.disk, trend30GB: dockerTrend)
+    }
+
+    /// Çip ortalaması her zaman aynı en fazla 7 anahtardan (boşta ve açıkken tutarlı); 2 fan ve sistem gücüyle ≤ 10 anahtar.
+    private func readSensors(at now: Date, detail: Bool) {
+        if sensorMap == nil { sensorMap = probe.sensorMap() }   // keşif sürüyorsa nil, beklenmez
+        guard let map = sensorMap, !map.cpu.isEmpty else { sensors = nil; return }
+        let cpuKeys = map.sample(map.cpu, max: 7), fanKeys = (0..<min(map.fans, 2)).map { "F\($0)Ac" }
+        let v = probe.smcValues(cpuKeys + fanKeys + ["PSTR"])
+        guard let chip = SensorMeter.average(cpuKeys.compactMap { v[$0] }) else { sensors = nil; return }
+        if lastSlowSensors.map({ now.timeIntervalSince($0) >= 60 }) ?? true {
+            let sv = probe.smcValues(["F0Mn"] + (map.battery.map { [$0] } ?? []))
+            slow = (probe.ssdTemperature(), map.battery.flatMap { sv[$0] }, sv["F0Mn"] ?? 0)
+            lastSlowSensors = now
+        }
+        var r = SensorReading(chipTemp: chip, gpuTemp: sensors?.gpuTemp, ssdTemp: slow.ssd, batteryTemp: slow.battery,
+                              fanRPM: fanKeys.compactMap { v[$0] }.max() ?? 0, fanCount: map.fans, fanMinRPM: slow.fanMin,
+                              systemWatts: v["PSTR"], cpuWatts: sensors?.cpuWatts, gpuWatts: sensors?.gpuWatts,
+                              gpuPercent: 0, gpuCores: 0, gpuApps: sensors?.gpuApps ?? [])
+        if let g = probe.gpu(clients: detail) {
+            r.gpuPercent = g.utilization
+            r.gpuCores = g.cores
+            if detail {   // istemci adı çekirdekte kırpılı ("Brave Browser He"): pid'in grubunun adıyla
+                let named = GPUReading(utilization: g.utilization, cores: g.cores, clients: g.clients.map {
+                    GPUClient(pid: $0.pid, name: groupNameByPid[$0.pid] ?? $0.name, gpuTimeNs: $0.gpuTimeNs)
+                })
+                if let apps = gpuShare.update(named, at: now) { r.gpuApps = Array(apps.prefix(2)) }
+            }
+        }
+        if detail {
+            let gk = map.sample(map.gpu, max: 8)
+            let gv = probe.smcValues(gk)
+            r.gpuTemp = SensorMeter.average(gk.compactMap { gv[$0] })
+            if let e = probe.energy(), let w = powerMeter.update(e, at: now) { r.cpuWatts = w.cpu; r.gpuWatts = w.gpu }
+        }
+        sensors = r
     }
 }

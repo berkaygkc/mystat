@@ -174,8 +174,10 @@ public struct IncidentEngine: Sendable {
             facts = [Fact("Proje", first.map { $0.project.isEmpty ? "—" : $0.project } ?? "—"),
                      Fact("Süre", "\(Int(now.timeIntervalSince(a.start) / 60)) dk"), Fact("Sağlık", health)]
         case .heat, .battery:
-            // Enerji (W) 2c'de; o zamana kadar sorumlu CPU'ya göre.
-            ids = byCPU.map(\.id); values = byCPU.map { Fmt.dec1($0.cpuCores) }; unit = "çekirdek"
+            // §7.2.1: enerji tüketen gruplar (W); süreç enerjisi okunamıyorsa CPU'ya göre.
+            let byWatts = i.groups.filter { $0.watts >= 0.1 }.sorted { $0.watts > $1.watts }.prefix(3)
+            if byWatts.isEmpty { ids = byCPU.map(\.id); values = byCPU.map { Fmt.dec1($0.cpuCores) }; unit = "çekirdek" }
+            else { ids = byWatts.map(\.id); values = byWatts.map { Fmt.dec1($0.watts) }; unit = "W" }
             facts = k == .battery ? [Fact("Erime", "30 dk'da " + Fmt.pct(a.peak)), Fact("Şarj", "prizde değil")]
                                   : [Fact("Durum", i.thermal.thermalWord.lowercased(with: Fmt.tr), level: i.thermal), Fact("Başladı", started)]
         }

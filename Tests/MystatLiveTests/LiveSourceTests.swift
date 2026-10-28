@@ -14,6 +14,15 @@ final class FakeProbe: SystemProbe {
     let start100 = Mutex(Date(timeIntervalSince1970: 1_793_000_000))
     /// Ek kendi süreçleri (başka gruplar).
     let extra = Mutex<[ProcessRecord]>([])
+    /// Senaryolu sensörler (varsayılan: sensör yok).
+    struct Sensors {
+        var map: SensorMap?
+        var smc: [String: Double] = [:]
+        var maxKeysPerCall = 0
+        var energyCalls = 0, gpuClientCalls = 0
+        var energyJ = 0.0, gpuNs: UInt64 = 0
+    }
+    let sensors = Mutex(Sensors())
 
     init(busyCores: Double = 0) { self.busyCores = busyCores }
 
@@ -52,6 +61,27 @@ final class FakeProbe: SystemProbe {
     }
     func machine() -> MachineInfo { MachineInfo(model: "MacBook Pro", chip: "M4 Pro", pCores: 1, eCores: 1, memoryGB: 48, boot: .now) }
     func largeOldDownloads(now: Date) -> [(name: String, gb: Double, idleDays: Int)] { count("downloads"); return [] }
+    func sensorMap() -> SensorMap? { sensors.withLock { $0.map } }
+    func smcValues(_ keys: [String]) -> [String: Double] {
+        sensors.withLock { s in
+            s.maxKeysPerCall = max(s.maxKeysPerCall, keys.count)
+            return s.smc.filter { keys.contains($0.key) }
+        }
+    }
+    func energy() -> EnergyCounters? {
+        sensors.withLock { s in
+            guard s.map != nil else { return nil }
+            s.energyCalls += 1; s.energyJ += 100          // her çağrıda +100 J işlemci, +10 J GPU
+            return EnergyCounters(cpuJ: s.energyJ, gpuJ: s.energyJ / 10, aneJ: 0, dramJ: 0)
+        }
+    }
+    func gpu(clients: Bool) -> GPUReading? {
+        sensors.withLock { s in
+            guard s.map != nil else { return nil }
+            if clients { s.gpuClientCalls += 1; s.gpuNs += 1_200_000_000 }
+            return GPUReading(utilization: 28, cores: 20, clients: clients ? [GPUClient(pid: 100, name: "claude", gpuTimeNs: s.gpuNs)] : [])
+        }
+    }
 }
 
 @MainActor @Suite struct LiveSourceTests {
@@ -210,5 +240,54 @@ final class FakeProbe: SystemProbe {
         }
         let s = LiveSource(probe: FakeProbe(), historyURL: url, persistToday: false, autostart: false, dockerAPI: FakeDockerAPI())
         #expect(s.series(.dockerTrend30, range: .m10) == [20, 23])
+    }
+
+    func withSensors(_ p: FakeProbe) {
+        p.sensors.withLock {
+            $0.map = SensorMap(cpu: ["Te04", "Tp1i"], gpu: ["Tg05"], battery: "TB0T", fans: 2)
+            $0.smc = ["Tp1i": 54, "Te04": 60, "F0Ac": 1356, "F1Ac": 1471, "F0Mn": 1350, "PSTR": 29, "Tg05": 61, "TB0T": 29.4]
+        }
+    }
+
+    @Test func sensorsFlowIntoSnapshot() async {
+        let p = FakeProbe(), s = source(p)
+        withSensors(p)
+        await tick(s, p, 0)
+        await tick(s, p, 2)
+        let sys = s.snapshot.system
+        #expect(s.snapshot.capabilities.sensors && sys.chipTemp == 57 && sys.fanRPM == 1471 && sys.fanCount == 2 && sys.fanMinRPM == 1350)
+        #expect(sys.watts == 29 && sys.gpuPercent == 28 && sys.gpuCores == 20)
+        #expect(s.series(.temp, range: .m10).last == 57 && s.series(.power, range: .m10).last == 29)
+    }
+
+    /// Boşta (panel ve monitör kapalı) tek okumada en fazla 10 SMC anahtarı; IOReport ve GPU istemcileri okunmaz.
+    @Test func idleReadsAtMostTenKeys() async {
+        let p = FakeProbe(), s = source(p)
+        withSensors(p)
+        p.sensors.withLock {                                          // çok anahtarlı makine: örnek 7 anahtarla sınırlı
+            $0.map?.cpu += (0..<20).map { String(format: "Tp%02d", $0) }
+            for k in 0..<20 { $0.smc[String(format: "Tp%02d", k)] = 57 }
+        }
+        for t in stride(from: 0.0, through: 12, by: 2) { await tick(s, p, t) }
+        let st = p.sensors.withLock { $0 }
+        #expect(s.snapshot.system.chipTemp > 50)                     // boşta da okunuyor (§9.2 "her zaman")
+        #expect(st.maxKeysPerCall <= 10 && st.energyCalls == 0 && st.gpuClientCalls == 0)
+    }
+
+    @Test func detailAddsGPUAndPower() async {
+        let p = FakeProbe(busyCores: 1), s = source(p)
+        withSensors(p)
+        s.setDetailInterest(true)
+        for t in stride(from: 0.0, through: 12, by: 2) { await tick(s, p, t) }
+        let sys = s.snapshot.system
+        #expect(sys.cpuWatts != nil && sys.gpuWatts != nil && sys.gpuTemp == 61)
+        #expect(sys.gpuApps.first?.name == "Claude Code")             // pid 100 grubunun adıyla
+    }
+
+    @Test func noSensorsKeepsCalmState() async {
+        let p = FakeProbe(), s = source(p)
+        await tick(s, p, 0)
+        await tick(s, p, 2)
+        #expect(!s.snapshot.capabilities.sensors && s.snapshot.system.chipTemp == 0)
     }
 }

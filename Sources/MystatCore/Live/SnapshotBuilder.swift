@@ -1,6 +1,24 @@
 import Foundation
 
 /// Bir örnekleme turunun ölçümleri (canlı kaynak doldurur, `SnapshotBuilder` anlam verir).
+/// Bir sensör turunun özeti (çip, fan ve sistem gücü her zaman; GPU sıcaklığı, IOReport ve GPU uygulamaları ilgi varken).
+public struct SensorReading: Sendable {
+    public var chipTemp: Double
+    public var gpuTemp: Double?, ssdTemp: Double?, batteryTemp: Double?
+    public var fanRPM: Double, fanCount: Int, fanMinRPM: Double
+    public var systemWatts: Double?
+    public var cpuWatts: Double?, gpuWatts: Double?
+    public var gpuPercent: Double, gpuCores: Int
+    public var gpuApps: [(name: String, percent: Double)]
+
+    public init(chipTemp: Double, gpuTemp: Double?, ssdTemp: Double?, batteryTemp: Double?, fanRPM: Double, fanCount: Int, fanMinRPM: Double,
+                systemWatts: Double?, cpuWatts: Double?, gpuWatts: Double?, gpuPercent: Double, gpuCores: Int, gpuApps: [(name: String, percent: Double)]) {
+        self.chipTemp = chipTemp; self.gpuTemp = gpuTemp; self.ssdTemp = ssdTemp; self.batteryTemp = batteryTemp
+        self.fanRPM = fanRPM; self.fanCount = fanCount; self.fanMinRPM = fanMinRPM; self.systemWatts = systemWatts
+        self.cpuWatts = cpuWatts; self.gpuWatts = gpuWatts; self.gpuPercent = gpuPercent; self.gpuCores = gpuCores; self.gpuApps = gpuApps
+    }
+}
+
 public struct LiveMeasurements: Sendable {
     public var cpu: CPUState
     public var memory: MemoryState
@@ -17,11 +35,15 @@ public struct LiveMeasurements: Sendable {
     public var downloads: [(name: String, gb: Double, idleDays: Int)]
     public var coreCount: Int
     public var docker: DockerState
+    /// Sensör yoksa nil: Sistem bölümü Faz 2a'nın sakin durumunu gösterir.
+    public var sensors: SensorReading?
 
     public init(cpu: CPUState, memory: MemoryState, disk: DiskState, net: (down: Double, up: Double, todayDown: Double, todayUp: Double),
                 iface: String, ip: String?, groups: [ProcessGroup], thermal: Level, battery: BatteryReading?, batteryDrain30m: Double?,
-                machine: MachineInfo, downloads: [(name: String, gb: Double, idleDays: Int)], coreCount: Int, docker: DockerState = .notRunning) {
+                machine: MachineInfo, downloads: [(name: String, gb: Double, idleDays: Int)], coreCount: Int, docker: DockerState = .notRunning,
+                sensors: SensorReading? = nil) {
         self.docker = docker
+        self.sensors = sensors
         self.cpu = cpu; self.memory = memory; self.disk = disk; self.net = net; self.iface = iface; self.ip = ip; self.groups = groups
         self.thermal = thermal; self.battery = battery; self.batteryDrain30m = batteryDrain30m; self.machine = machine
         self.downloads = downloads; self.coreCount = coreCount
@@ -48,6 +70,12 @@ public enum SnapshotBuilder {
                                cycles: b?.cycles ?? 0, gpuPercent: 0, gpuCores: 0, onAC: b?.onAC ?? true, machine: m.machine)
         s.groups = m.groups
         s.docker = m.docker
+        if let r = m.sensors {
+            s.system.chipTemp = r.chipTemp; s.system.gpuTemp = r.gpuTemp ?? 0; s.system.ssdTemp = r.ssdTemp ?? 0
+            s.system.fanRPM = r.fanRPM; s.system.fanCount = r.fanCount; s.system.fanMinRPM = r.fanMinRPM
+            s.system.watts = r.systemWatts ?? 0; s.system.cpuWatts = r.cpuWatts; s.system.gpuWatts = r.gpuWatts
+            s.system.gpuPercent = r.gpuPercent; s.system.gpuCores = r.gpuCores; s.system.gpuApps = Array(r.gpuApps.prefix(2))
+        }
         s.incident = incident
         if let top = m.groups.filter({ $0.id != "sys:macos" }).max(by: { $0.cpuCores < $1.cpuCores }) {   // toplu sistem satırı uygulama değil
             s.calmTop = (top.name, Int((top.cpuCores / Double(max(1, m.coreCount)) * 100).rounded()))
