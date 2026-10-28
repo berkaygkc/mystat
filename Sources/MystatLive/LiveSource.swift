@@ -71,6 +71,8 @@ public final class LiveSource: MetricsSource {
         docker.interest.withLock { $0 = visible }
     }
 
+    public func perform(_ action: DockerAction) async -> DockerActionOutcome { await docker.perform(action) }
+
     public func setVisibleSection(_ section: String?) {
         guard section == "docker" else { return }
         let docker = docker

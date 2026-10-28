@@ -32,6 +32,8 @@ public actor DockerPoller {
     private var rawGB: Double?
     private var lastRequest: Date?
     private var loop: Task<Void, Never>?
+    /// Süren eylemler: actor çağrıları sıraya girdiği için çift tıklama denetimi actor'a girmeden yapılır.
+    private nonisolated let inFlight = Mutex(Set<DockerAction>())
 
     public init(api: some DockerAPI = DockerClient(), rawFile: @escaping @Sendable () -> Double? = { DockerDiskFile.allocatedGB() }) {
         self.api = api
@@ -91,6 +93,47 @@ public actor DockerPoller {
         rawGB = rawFile()
         if latest.withLock({ $0.running }) { refreshDisk(at: now) }
     }
+
+    /// §7.4 eylemleri. Aynı eylem sürerken ikinci istek gönderilmez.
+    public nonisolated func perform(_ action: DockerAction) async -> DockerActionOutcome {
+        guard inFlight.withLock({ $0.insert(action).inserted }) else { return .failed("Bu işlem zaten sürüyor") }
+        defer { inFlight.withLock { _ = $0.remove(action) } }
+        return await run(action)
+    }
+
+    private func run(_ action: DockerAction) -> DockerActionOutcome {
+        func filters(_ json: String) -> String { "?filters=" + (json.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "") }
+        let (path, timeout): (String, TimeInterval) = switch action {
+        case .restart(let id, _): ("/containers/\(id)/restart?t=10", 30)
+        case .stop(let id, _): ("/containers/\(id)/stop?t=10", 30)
+        case .pruneAnonymousVolumes: ("/volumes/prune", 120)                         // API ≥ 1.42: yalnızca adsızlar
+        case .pruneAllVolumes: ("/volumes/prune" + filters(#"{"all":["true"]}"#), 120)
+        case .pruneImages: ("/images/prune" + filters(#"{"dangling":["false"]}"#), 120)
+        }
+        let outcome: DockerActionOutcome
+        do {
+            let r = try api.post(path, timeout: timeout)
+            switch r.status {
+            case 200..<300, 304:
+                let reclaimed = (try? JSONDecoder().decode(Reclaimed.self, from: r.body)).map { Double($0.SpaceReclaimed ?? 0) / 1e9 }
+                outcome = .done(reclaimedGB: action.isPrune ? reclaimed ?? 0 : nil)
+            case 404: outcome = .failed("Container bulunamadı")
+            default: outcome = .failed("Docker isteği reddetti (\(r.status))")
+            }
+        } catch DockerError.notRunning {
+            return .failed("Docker çalışmıyor")
+        } catch DockerError.timeout {
+            return .failed("Docker cevap vermedi")
+        } catch {
+            return .failed("Docker isteği başarısız")
+        }
+        let now = Date()
+        poll(at: now)
+        if action.isPrune { refreshDisk(at: now) }
+        return outcome
+    }
+
+    private struct Reclaimed: Decodable { let SpaceReclaimed: Int64? }
 
     private func refreshDisk(at now: Date) {
         guard let df = try? api.diskUsage() else { return }

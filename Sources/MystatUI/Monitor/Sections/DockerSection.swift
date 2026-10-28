@@ -66,8 +66,8 @@ struct DockerSection<Source: MetricsSource>: View {
                 diskRow(Theme.c4, "Sanal disk dosyası", nil, k.rawGB.map { Fmt.int($0) + " GB" } ?? "—")
                 Sparkline(source.series(.dockerTrend30, range: .m10), color: Theme.c1, height: 34, max: 30, fillOpacity: 0.2).padding(.top, 10)
                 VStack(spacing: 7) {
-                    cleanButton("Kullanılmayan volume'leri temizle", k.volumesReclaimGB) { state.confirm = DockerActions.prune(volumes: true, gb: k.volumesReclaimGB) }
-                    cleanButton("Kullanılmayan image'ları temizle", k.imagesReclaimGB) { state.confirm = DockerActions.prune(volumes: false, gb: k.imagesReclaimGB) }
+                    cleanButton("Adsız volume'leri temizle", k.volumesAnonReclaimGB) { state.confirm = DockerActions.request(.pruneAnonymousVolumes, disk: k, source: source) }
+                    cleanButton("Kullanılmayan image'ları temizle", k.imagesReclaimGB) { state.confirm = DockerActions.request(.pruneImages, disk: k, source: source) }
                 }
                 .padding(.top, 12)
             }
@@ -143,8 +143,8 @@ struct DockerSection<Source: MetricsSource>: View {
             Text(Fmt.int(c.memoryMB) + " MB").foregroundStyle(Theme.ink).frame(width: 76, alignment: .trailing)
             Text(c.uptime).foregroundStyle(Theme.ink).frame(width: 64, alignment: .trailing)
             HStack(spacing: 4) {
-                smallButton("arrow.clockwise", danger: false) { ToastCenter.shared.show("\(c.name) yeniden başlatılıyor… (örnek)") }
-                smallButton("stop.fill", danger: true) { ToastCenter.shared.show("\(c.name) durduruluyor… (örnek)") }
+                smallButton("arrow.clockwise", danger: false) { state.confirm = DockerActions.request(.restart(id: c.id, name: c.name), disk: source.snapshot.docker.disk, source: source) }
+                smallButton("stop.fill", danger: true) { state.confirm = DockerActions.request(.stop(id: c.id, name: c.name), disk: source.snapshot.docker.disk, source: source) }
             }
             .frame(width: 72, alignment: .trailing).opacity(hovered == c.id ? 1 : 0)
         }
@@ -165,14 +165,14 @@ struct DockerSection<Source: MetricsSource>: View {
     }
 }
 
+/// Docker eylemlerinin onay penceresi: onaylanınca ara bildirim, sonuç gelince gerçek sonucun bildirimi.
 @MainActor
 public enum DockerActions {
-    public static func prune(volumes: Bool, gb: Double) -> ConfirmRequest {
-        ConfirmRequest(
-            title: "Kullanılmayan " + (volumes ? "volume'ler" : "image'lar") + " temizlensin mi?",
-            message: (volumes ? "Hiçbir container'a bağlı olmayan 177 volume silinecek" : "Hiçbir container'ın kullanmadığı 4 image silinecek")
-                + "; \(Fmt.dec1(gb)) GB boşalacak. Çalışan container'lar etkilenmez.",
-            confirm: "Temizle", destructive: true,
-            onConfirm: { ToastCenter.shared.show("\(Fmt.dec1(gb)) GB temizlendi (örnek)") })
+    public static func request(_ action: DockerAction, disk: DockerDisk, source: any MetricsSource) -> ConfirmRequest {
+        let c = DockerPresentation.confirm(action, disk: disk)
+        return ConfirmRequest(title: c.title, message: c.message, confirm: c.confirm, destructive: c.destructive, onConfirm: {
+            ToastCenter.shared.show(DockerPresentation.progress(action))
+            Task { @MainActor in ToastCenter.shared.show(DockerPresentation.toast(action, await source.perform(action))) }
+        })
     }
 }

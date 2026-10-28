@@ -23,9 +23,10 @@ import Testing
         #expect(ToastCenter.shared.message == "Next.js dev durduruldu")
     }
     @Test func pruneTexts() {
-        let v = DockerActions.prune(volumes: true, gb: 12.6)
-        #expect(v.title == "Kullanılmayan volume'ler temizlensin mi?")
-        #expect(v.message == "Hiçbir container'a bağlı olmayan 177 volume silinecek; 12,6 GB boşalacak. Çalışan container'lar etkilenmez.")
+        let src = SampleSource(seed: 1)
+        let v = DockerActions.request(.pruneAnonymousVolumes, disk: src.snapshot.docker.disk, source: src)
+        #expect(v.title == "Kullanılmayan adsız volume'ler temizlensin mi?" && !v.destructive)   // kullanıcının kararı: iki ayrı volume düğmesi
+        #expect(DockerActions.request(.pruneAllVolumes, disk: src.snapshot.docker.disk, source: src).destructive)
     }
     @Test func copyDiagnosisShowsToast() {
         let state = MonitorState()

@@ -21,6 +21,8 @@ public protocol MetricsSource: AnyObject, Observable {
     func setDetailInterest(_ visible: Bool)
     /// Monitörde görünen bölüm ("docker", "net" …); monitör kapalıysa nil. Docker'ın diski bölüm açılınca yenilenir (§9.2).
     func setVisibleSection(_ section: String?)
+    /// Docker eylemi (§7.4); onaydan sonra çağrılır. Uzun sürebilir (temizlik); arayüz beklemez.
+    func perform(_ action: DockerAction) async -> DockerActionOutcome
     /// Grubun süreçlerine SIGTERM (`force` ise SIGKILL); yalnızca kendi süreçlerin (spec §7.4).
     /// `pids`: onay penceresi açıldığındaki üyeler; yalnızca hâlâ grupta olanlara sinyal gider.
     func stop(groupID: String, pids: [Int32], force: Bool) -> StopOutcome

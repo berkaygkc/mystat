@@ -127,4 +127,51 @@ final class FakeDockerAPI: DockerAPI {
         await p.poll(at: t0.addingTimeInterval(600))
         #expect(api.n("df") == 0 && p.latest.withLock { $0.running })
     }
+
+    // MARK: - Eylemler (§7.4)
+
+    @Test func restartPostsToContainer() async {
+        let api = FakeDockerAPI()
+        let p = DockerPoller(api: api, rawFile: { nil })
+        #expect(await p.perform(.restart(id: "abc", name: "web")) == .done(reclaimedGB: nil))
+        #expect(api.state.withLock { $0.posts } == ["/containers/abc/restart?t=10"])
+        #expect(api.n("containers") == 1)                            // eylemden sonra hemen okunur
+    }
+
+    @Test func pruneAnonymousHasNoFilter() async {
+        let api = FakeDockerAPI()
+        api.state.withLock { $0.reclaimed = 7_050_000_000 }
+        let p = DockerPoller(api: api, rawFile: { nil })
+        #expect(await p.perform(.pruneAnonymousVolumes) == .done(reclaimedGB: 7.05))
+        #expect(api.state.withLock { $0.posts } == ["/volumes/prune"])
+        #expect(api.n("df") == 1)                                    // temizlikten sonra disk yenilenir
+    }
+
+    @Test func pruneAllVolumesUsesAllFilter() async {
+        let api = FakeDockerAPI()
+        let p = DockerPoller(api: api, rawFile: { nil })
+        _ = await p.perform(.pruneAllVolumes)
+        _ = await p.perform(.pruneImages)
+        let posts = api.state.withLock { $0.posts }
+        #expect(posts[0] == "/volumes/prune?filters=%7B%22all%22%3A%5B%22true%22%5D%7D")
+        #expect(posts[1] == "/images/prune?filters=%7B%22dangling%22%3A%5B%22false%22%5D%7D")
+    }
+
+    @Test func notRunningActionFails() async {
+        let api = FakeDockerAPI()
+        api.state.withLock { $0.down = true }
+        #expect(await DockerPoller(api: api, rawFile: { nil }).perform(.stop(id: "abc", name: "web")) == .failed("Docker çalışmıyor"))
+    }
+
+    /// Temizlik sürerken çift tıklama ikinci isteği göndermez.
+    @Test func duplicatePruneIsIgnored() async {
+        let api = FakeDockerAPI()
+        api.state.withLock { $0.postDelay = 0.4 }
+        let p = DockerPoller(api: api, rawFile: { nil })
+        let first = Task { await p.perform(.pruneImages) }
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(await p.perform(.pruneImages) == .failed("Bu işlem zaten sürüyor"))
+        #expect(await first.value == .done(reclaimedGB: 0))
+        #expect(api.state.withLock { $0.posts.count } == 1)
+    }
 }

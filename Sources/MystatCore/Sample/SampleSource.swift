@@ -49,6 +49,17 @@ public final class SampleSource: MetricsSource {
     public func setDetailInterest(_ visible: Bool) {}
     public func setVisibleSection(_ section: String?) {}
 
+    /// Örnek veride eylem benzetilir; hiçbir şeye dokunulmaz.
+    public func perform(_ action: DockerAction) async -> DockerActionOutcome {
+        let d = snapshot.docker.disk
+        switch action {
+        case .restart, .stop: return .done(reclaimedGB: nil)
+        case .pruneAnonymousVolumes: return .done(reclaimedGB: d.volumesAnonReclaimGB)
+        case .pruneAllVolumes: return .done(reclaimedGB: d.volumesReclaimGB)
+        case .pruneImages: return .done(reclaimedGB: d.imagesReclaimGB)
+        }
+    }
+
     /// Örnek veride durdurma benzetilir; hiçbir sürece dokunulmaz.
     public func stop(groupID: String, pids: [Int32], force: Bool) -> StopOutcome {
         snapshot.groups.first { $0.id == groupID }.map { $0.foreign ? .notPermitted(reason: StopOutcome.foreignReason) : .done(count: $0.processCount) } ?? .notFound

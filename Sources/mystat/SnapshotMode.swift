@@ -83,7 +83,7 @@ enum SnapshotMode {
             state.go(MonitorSection(rawValue: o.section) ?? .overview)
             if !o.select.isEmpty { state.select(.cpu, o.select) }
             if o.confirm == "stop", let g = source.snapshot.groups.first(where: { $0.id == "next-web" }) { state.confirm = Actions.stop(g, force: true, source: source) }
-            if o.confirm == "prune" { state.confirm = DockerActions.prune(volumes: true, gb: 12.6) }
+            if o.confirm == "prune" { state.confirm = DockerActions.request(.pruneAnonymousVolumes, disk: source.snapshot.docker.disk, source: source) }
             if !o.toast.isEmpty { ToastCenter.shared.show(o.toast) }
             switch o.scan {
             case "none": state.disk.scan = .none
