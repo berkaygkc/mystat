@@ -4,16 +4,28 @@ import Foundation
 public enum Fmt {
     static let tr = Locale(identifier: "tr_TR")
 
+    /// Saat ve tarih her zaman Gregoryen (bölge ayarı Budist ya da İslami takvim olsa da).
+    public static var calendar: Calendar {
+        var c = Calendar(identifier: .gregorian)
+        c.locale = tr
+        c.timeZone = .current
+        return c
+    }
+
+    /// Gerçek veride NaN/inf gelebilir; çökmeden "—".
+    static let missing = "—"
+
     /// "%14" — yüzde işareti başta, tamsayıya yuvarlanır.
-    public static func pct(_ v: Double) -> String { "%" + String(Int(v.rounded())) }
+    public static func pct(_ v: Double) -> String { v.isFinite ? "%" + String(Int(v.rounded())) : missing }
 
     /// "4,2"
     public static func dec1(_ v: Double) -> String {
-        v.formatted(.number.precision(.fractionLength(1)).locale(tr))
+        guard v.isFinite else { return missing }
+        return v.formatted(.number.precision(.fractionLength(1)).locale(tr))
     }
 
     /// "4.800"
-    public static func int(_ v: Double) -> String { Int(v.rounded()).formatted(.number.locale(tr)) }
+    public static func int(_ v: Double) -> String { v.isFinite ? Int(v.rounded()).formatted(.number.locale(tr)) : missing }
 
     /// Çekirdek değeri; sıfırdan büyük ama 0,05'ten küçükse "<0,1".
     public static func cores(_ v: Double) -> String { v > 0 && v < 0.05 ? "<0,1" : dec1(v) }
@@ -23,6 +35,7 @@ public enum Fmt {
 
     /// Disk boyutu (ondalık birimler): GB → MB → KB.
     public static func size(_ gb: Double) -> String {
+        guard gb.isFinite else { return missing }
         if gb >= 10 { return int(gb) + " GB" }
         if gb >= 1 { return dec1(gb) + " GB" }
         let mb = gb * 1000
@@ -35,7 +48,7 @@ public enum Fmt {
     public static func rate(_ mbps: Double) -> String { dec1(mbps) }
 
     /// "28 Ekim 2026 Çarşamba"
-    public static func dateLine(_ d: Date, calendar: Calendar = .current) -> String {
+    public static func dateLine(_ d: Date, calendar: Calendar = Fmt.calendar) -> String {
         let style = Date.VerbatimFormatStyle(
             format: "\(day: .defaultDigits) \(month: .wide) \(year: .defaultDigits) \(weekday: .wide)",
             locale: tr, timeZone: calendar.timeZone, calendar: calendar)
@@ -43,7 +56,7 @@ public enum Fmt {
     }
 
     /// "08:45:18"
-    public static func timeLine(_ d: Date, calendar: Calendar = .current) -> String {
+    public static func timeLine(_ d: Date, calendar: Calendar = Fmt.calendar) -> String {
         let style = Date.VerbatimFormatStyle(
             format: "\(hour: .twoDigits(clock: .twentyFourHour, hourCycle: .zeroBased)):\(minute: .twoDigits):\(second: .twoDigits)",
             locale: tr, timeZone: calendar.timeZone, calendar: calendar)

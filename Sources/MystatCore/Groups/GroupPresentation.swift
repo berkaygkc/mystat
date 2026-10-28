@@ -47,8 +47,9 @@ public enum GroupPresentation {
             return (kicker, title(emph: lead?.name ?? "", rest: " işlemciyi zorluyor."),
                     "\(lead?.context ?? "") projesinde \(Fmt.dec1(lead?.cpuCores ?? 0)) çekirdek kullanıyor. Aynı projenin Next.js sunucusu da ona eşlik ediyor.")
         case .memory:
-            return (kicker, title(before: "Bellek baskısı yükseldi; en çok ", emph: name(inc.culpritIDs[0]), rest: " büyüdü."),
-                    "Son \(inc.minutes) dakikada \(name(inc.culpritIDs[0])) \(inc.culpritValues[0].dropFirst()) GB, \(name(inc.culpritIDs[1])) \(inc.culpritValues[1].dropFirst()) GB büyüdü. Swap \(Fmt.dec1(s.memory.swapGB)) GB'a çıktı.")
+            let grew = zip(inc.culpritIDs, inc.culpritValues).prefix(2).map { "\(name($0)) \($1.dropFirst()) GB" }
+            return (kicker, title(before: "Bellek baskısı yükseldi; en çok ", emph: name(inc.culpritIDs.first ?? ""), rest: " büyüdü."),
+                    "Son \(inc.minutes) dakikada \(grew.joined(separator: ", ")) büyüdü. Swap \(Fmt.dec1(s.memory.swapGB)) GB'a çıktı.")
         case .disk:
             return (kicker, title(before: "Diskte ", emph: "\(Fmt.int(s.disk.freeGB)) GB", rest: " kaldı."),
                     "Son 24 saatte 14 GB azaldı. En çok Docker yazıyor; Docker'da \(Fmt.dec1(s.docker.disk.volumesReclaimGB)) GB geri kazanılabilir.")
@@ -63,6 +64,12 @@ public enum GroupPresentation {
             return (kicker, title(before: "Pil hızlı eriyor: ", emph: "30 dk'da \(drain)", rest: "."),
                     "Prizde değilsin; bu hızla 1 sa 10 dk yeter. En çok \(name(inc.culpritIDs[0])) harcıyor.")
         }
+    }
+
+    /// Grup detayındaki alt süreç satırları: CPU'ya göre en yoğun 5; kalanlar "+ N küçük süreç daha".
+    public static func childRows(_ g: ProcessGroup) -> (rows: [ChildProcess], more: Int) {
+        let rows = Array(g.children.sorted { $0.cpuCores > $1.cpuCores }.prefix(5))
+        return (rows, max(0, g.processCount - rows.count))
     }
 
     /// İşlemci bölümü başlığı: ("%91", " · 14 çekirdeğin 12,7'si dolu") ya da ("İşlemci rahat.", "%14").

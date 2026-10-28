@@ -31,7 +31,7 @@ struct IncidentBlock<Source: MetricsSource>: View {
                     .font(.system(size: 12).monospacedDigit()).padding(.top, 10)
                 }
                 Sparkline(Array(source.series(MonitorPresentation.seriesKey(for: inc.kind), range: .m10).suffix(60)),
-                          color: Theme.levelColor(inc.level), height: 64, max: inc.kind == .cpu ? 100 : nil, fillOpacity: 0.25)
+                          color: Theme.levelColor(inc.level), height: 64, max: inc.kind == .cpu ? 100 : nil, fillOpacity: 0.25, capacity: 60)
                     .frame(width: 260)
             }
             VStack(spacing: 0) {

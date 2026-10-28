@@ -25,7 +25,7 @@ public struct DetailPane<Source: MetricsSource>: View {
             Text(g.context.isEmpty ? " " : g.context).font(.system(size: 12.5)).foregroundStyle(Theme.ink2).padding(.top, 3)
             if metric == .cpu {
                 Sparkline(Array(source.series(.group(g.id), range: state.range).suffix(60)),
-                          color: g.cpuCores >= 2 ? Theme.red : Theme.chart, height: 54, fillOpacity: 0.2)
+                          color: g.cpuCores >= 2 ? Theme.red : Theme.chart, height: 54, fillOpacity: 0.2, capacity: 60)
                     .padding(.top, 12)
             }
             VStack(spacing: 0) { ForEach(facts(g), id: \.0) { fact($0.0, $0.1) } }.padding(.top, 10)

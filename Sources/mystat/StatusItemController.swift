@@ -13,7 +13,7 @@ final class StatusItemController: NSObject {
     init(source: SampleSource, onClick: @escaping () -> Void) {
         self.source = source
         self.onClick = onClick
-        let model = StatusBlockLayout.model(source.snapshot, now: Date(), calendar: .current)
+        let model = StatusBlockLayout.model(source.snapshot, now: Date(), calendar: Fmt.calendar)
         item = NSStatusBar.system.statusItem(withLength: ceil(StatusBlockLayout.width(model, measure: StatusBlockView.measure)))
         view = StatusBlockView(model: model)
         super.init()
@@ -37,7 +37,7 @@ final class StatusItemController: NSObject {
     var button: NSStatusBarButton? { item.button }
 
     func refresh(now: Date) {
-        let m = StatusBlockLayout.model(source.snapshot, now: now, calendar: .current)
+        let m = StatusBlockLayout.model(source.snapshot, now: now, calendar: Fmt.calendar)
         guard m != last else { return }
         last = m
         view.model = m

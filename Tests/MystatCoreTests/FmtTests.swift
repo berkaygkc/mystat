@@ -24,4 +24,18 @@ import Testing
         #expect(TurkishSuffix.possessive3(after: "10") == "'u"); #expect(TurkishSuffix.possessive3(after: "4,0") == "'ı")
         #expect(TurkishSuffix.possessive3(after: "100") == "'ü"); #expect(TurkishSuffix.possessive3(after: "6") == "'sı")
     }
+    /// Gerçek veride NaN/inf gelebilir (sıfıra bölme, ilk örnek); çökmeden "—" yazılır.
+    @Test func nonFiniteValuesShowDash() {
+        #expect(Fmt.pct(.nan) == "—"); #expect(Fmt.dec1(.infinity) == "—"); #expect(Fmt.int(-.infinity) == "—")
+        #expect(Fmt.size(.nan) == "—"); #expect(Fmt.cores(.nan) == "—")
+    }
+
+    /// Bölge ayarı Budist/İslami takvim olsa da saat bloğu Gregoryen yazılır.
+    @Test func clockCalendarIsGregorian() {
+        #expect(Fmt.calendar.identifier == .gregorian)
+        var buddhist = Calendar(identifier: .buddhist); buddhist.timeZone = TimeZone(identifier: "Europe/Istanbul")!
+        let d = Date(timeIntervalSince1970: 1_793_166_318)   // 2026-10-28 08:45:18 +03
+        #expect(Fmt.dateLine(d, calendar: Fmt.calendar) == "28 Ekim 2026 Çarşamba")
+        #expect(Fmt.dateLine(d, calendar: buddhist) != "28 Ekim 2026 Çarşamba")   // neden gerektiğinin kanıtı
+    }
 }

@@ -18,7 +18,7 @@ public final class DiskNode {
     public var kind: NodeKind {
         if isDocker || name == "Docker" { return .docker }
         if name == "Diğer" { return .other }
-        if name.prefixMatch(of: Self.regen) != nil { return .regen }
+        if Self.isRegen(name) { return .regen }
         if isFile { return .file }
         return .folder
     }
@@ -26,7 +26,10 @@ public final class DiskNode {
     /// İçine girilebilir mi (örnek veride alt düğüm üretilebilir mi).
     public var canHaveChildren: Bool { !isFile && name != "Diğer" && size >= 0.03 }
 
-    nonisolated(unsafe) static let regen = /(node_modules|\.next|Caches|DerivedData|pnpm|Homebrew|\.npm|\.cache)/
+    /// Yeniden oluşturulabilir klasör adları. `Regex` Sendable değil; arka plan taramasında da güvenle
+    /// okunabilsin diye düz bir küme ve önek denetimi.
+    static let regenNames: Set<String> = ["node_modules", ".next", "Caches", "DerivedData", "pnpm", "Homebrew", ".npm", ".cache"]
+    static func isRegen(_ name: String) -> Bool { regenNames.contains { name.hasPrefix($0) } }
 }
 
 public final class DiskTree {

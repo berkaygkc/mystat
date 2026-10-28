@@ -62,8 +62,9 @@ public struct GroupList: View {
 
     @ViewBuilder
     private func kids(_ g: ProcessGroup) -> some View {
-        let kmax = g.children.map(\.cpuCores).max() ?? 1
-        ForEach(Array(g.children.prefix(5).enumerated()), id: \.offset) { _, k in
+        let child = GroupPresentation.childRows(g)
+        let kmax = child.rows.map(\.cpuCores).max() ?? 1
+        ForEach(Array(child.rows.enumerated()), id: \.offset) { _, k in
             HStack(spacing: 10) {
                 Color.clear.frame(width: 18)
                 Text(k.name).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
@@ -73,8 +74,8 @@ public struct GroupList: View {
             .font(.system(size: 12.5)).foregroundStyle(Theme.ink2)
             .padding(.leading, 38).padding(.trailing, 10).frame(height: 30)
         }
-        if g.processCount > g.children.count {
-            Text("+ \(g.processCount - g.children.count) küçük süreç daha").font(.system(size: 12)).foregroundStyle(Theme.ink3)
+        if child.more > 0 {
+            Text("+ \(child.more) küçük süreç daha").font(.system(size: 12)).foregroundStyle(Theme.ink3)
                 .frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 66).padding(.top, 4).padding(.bottom, 8)
         }
     }

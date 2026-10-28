@@ -44,7 +44,7 @@ struct OverviewSection<Source: MetricsSource>: View {
                 .tracking(-1)
             Text(c.label).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.ink).padding(.top, 8)
             Text(c.sub).font(.system(size: 12)).foregroundStyle(Theme.ink2).lineLimit(1).padding(.top, 2)
-            Sparkline(series, color: c.level == .ok ? Theme.chart : Theme.levelColor(c.level), height: 30, max: max).padding(.top, 10)
+            Sparkline(series, color: c.level == .ok ? Theme.chart : Theme.levelColor(c.level), height: 30, max: max, capacity: 60).padding(.top, 10)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, 16).padding(.bottom, 14).padding(.leading, col == 0 ? 0 : 18).padding(.trailing, 18)

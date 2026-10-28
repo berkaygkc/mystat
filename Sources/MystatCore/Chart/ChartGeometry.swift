@@ -1,15 +1,20 @@
 import CoreGraphics
 
 /// Alan grafiğinin ölçek ve konum hesabı (mockup'taki `drawChart`).
+/// Seri `capacity`'den kısaysa (canlı geçmiş yeni başladıysa) sağa yaslanır: son nokta hep sağ kenarda.
 public struct ChartGeometry: Sendable {
     public let count: Int
+    public let capacity: Int
     public let width: CGFloat
     public let plotHeight: CGFloat
     public let max: Double
 
-    public init(count: Int, width: CGFloat, plotHeight: CGFloat, max: Double) {
-        self.count = count; self.width = width; self.plotHeight = plotHeight; self.max = max
+    public init(count: Int, capacity: Int? = nil, width: CGFloat, plotHeight: CGFloat, max: Double) {
+        self.count = count; self.capacity = Swift.max(count, capacity ?? count)
+        self.width = width; self.plotHeight = plotHeight; self.max = max
     }
+
+    private var offset: Int { capacity - count }
 
     /// Verilmezse en büyük değer × 1,15; hepsi sıfırsa 1.
     public static func autoMax(_ series: [[Double]]) -> Double {
@@ -17,15 +22,18 @@ public struct ChartGeometry: Sendable {
         return m > 0 ? m * 1.15 : 1
     }
 
-    public func x(_ i: Int) -> CGFloat { count > 1 ? CGFloat(i) / CGFloat(count - 1) * width : 0 }
+    public func x(_ i: Int) -> CGFloat { capacity > 1 ? CGFloat(i + offset) / CGFloat(capacity - 1) * width : 0 }
 
     /// Üstte 4 pt pay bırakır; tavanı aşan değer kırpılır.
     public func y(_ v: Double) -> CGFloat { plotHeight - CGFloat(Swift.min(v, max) / max) * (plotHeight - 4) }
 
-    public func index(atX px: CGFloat) -> Int {
-        guard count > 1, width > 0 else { return 0 }
+    /// Boş seride `nil`; verinin solunda kalan noktalar ilk değere düşer.
+    public func index(atX px: CGFloat) -> Int? {
+        guard count > 0 else { return nil }
+        guard capacity > 1, width > 0 else { return 0 }
         let clamped = Swift.max(0, Swift.min(width, px))
-        return Int((clamped / width * CGFloat(count - 1)).rounded())
+        let slot = Int((clamped / width * CGFloat(capacity - 1)).rounded())
+        return Swift.min(count - 1, Swift.max(0, slot - offset))
     }
 
     /// Sağdaki ızgara etiketinin dikey merkezi.

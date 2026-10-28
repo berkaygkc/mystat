@@ -20,4 +20,13 @@ import Testing
         let g = ChartGeometry(count: 2, width: 100, plotHeight: 160, max: 100)
         #expect(g.labelY(fraction: 0.5) == 82); #expect(g.labelY(fraction: 1) == 10)
     }
+    /// Canlı geçmiş başlangıçta kısadır: seri sağa yaslanır, "şimdi" hep sağ kenardadır.
+    @Test func shortSeriesIsRightAligned() {
+        let g = ChartGeometry(count: 30, capacity: 120, width: 1190, plotHeight: 100, max: 100)
+        #expect(abs(g.x(29) - 1190) < 0.01)
+        #expect(abs(g.x(0) - 1190 * 90.0 / 119.0) < 0.01)
+        #expect(g.index(atX: 10) == 0)                 // verinin solunda: ilk nokta
+        #expect(g.index(atX: 1190) == 29)
+        #expect(ChartGeometry(count: 0, capacity: 120, width: 100, plotHeight: 10, max: 1).index(atX: 50) == nil)
+    }
 }
