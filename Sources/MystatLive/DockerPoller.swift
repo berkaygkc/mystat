@@ -69,11 +69,16 @@ public actor DockerPoller {
                 connected = true
             }
             let list = try api.containers()
-            var stats: [DockerStatsRaw] = [], gone = Set<String>()
+            var stats: [DockerStatsRaw] = [], gone = Set<String>(), late = Set<String>()
             for c in list {
-                do { stats.append(try api.stats(c.id)) } catch DockerError.http { gone.insert(c.id) }   // liste ile istatistik arasında silindi
+                do { stats.append(try api.stats(c.id)) }
+                catch DockerError.http { gone.insert(c.id) }   // liste ile istatistik arasında silindi
+                catch { late.insert(c.id) }                    // tek container gecikti: Docker "çalışmıyor" sayılmaz
             }
-            let containers = meter.containers(list.filter { !gone.contains($0.id) }, stats: stats)
+            let previous = Dictionary(latest.withLock { $0.containers }.map { ($0.dockerID, $0) }, uniquingKeysWith: { a, _ in a })
+            let containers = meter.containers(list.filter { !gone.contains($0.id) }, stats: stats, at: now).map { c in
+                late.contains(c.dockerID) ? previous[c.dockerID] ?? c : c                     // gecikende önceki değer
+            }
             timeouts = 0
             latest.withLock { $0.running = true; $0.containers = containers }
             let diskAt = latest.withLock { $0.diskAt }
@@ -102,12 +107,15 @@ public actor DockerPoller {
     }
 
     private func run(_ action: DockerAction) -> DockerActionOutcome {
-        func filters(_ json: String) -> String { "?filters=" + (json.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "") }
+        func filters(_ json: String) -> String {   // RFC 3986 ayrılmamış karakterler dışında her şey kodlanır
+            "?filters=" + (json.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-._~"))) ?? "")
+        }
         let (path, timeout): (String, TimeInterval) = switch action {
         case .restart(let id, _): ("/containers/\(id)/restart?t=10", 30)
         case .stop(let id, _): ("/containers/\(id)/stop?t=10", 30)
-        case .pruneAnonymousVolumes: ("/volumes/prune", 120)                         // API ≥ 1.42: yalnızca adsızlar
-        case .pruneAllVolumes: ("/volumes/prune" + filters(#"{"all":["true"]}"#), 120)
+        // Etiketle: filtresiz prune eski motorlarda (< 23.0) ve Podman'da adlı veri volume'lerini de siler.
+        case .pruneAnonymousVolumes: ("/volumes/prune" + filters(#"{"label":["com.docker.volume.anonymous"]}"#), 120)
+        case .pruneNamedVolumes: ("/volumes/prune" + filters(#"{"all":["true"],"label!":["com.docker.volume.anonymous"]}"#), 120)
         case .pruneImages: ("/images/prune" + filters(#"{"dangling":["false"]}"#), 120)
         }
         let outcome: DockerActionOutcome

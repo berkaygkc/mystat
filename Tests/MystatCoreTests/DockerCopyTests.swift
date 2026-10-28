@@ -42,4 +42,12 @@ import Testing
         s.docker.disk.rawGB = nil
         #expect(SectionText.docker(s).lede.hasSuffix("Docker'ın verisi 27,0 GB; 12,6 GB'ı geri kazanılabilir."))
     }
+
+    /// Disk dolu olayı Docker kapalıyken "Docker'da 0,0 GB geri kazanılabilir" demez.
+    @Test func diskIncidentSkipsDockerWhenDown() {
+        var s = SampleSource(seed: 1, incident: true, kind: .disk).snapshot
+        #expect(GroupPresentation.panelHeadline(s).lede.contains("Docker'da 12,6 GB geri kazanılabilir"))
+        s.docker = .notRunning
+        #expect(!GroupPresentation.panelHeadline(s).lede.contains("Docker'da"))
+    }
 }

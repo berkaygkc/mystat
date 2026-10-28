@@ -143,4 +143,33 @@ import Testing
         #expect(run(&e, ok, from: 32, seconds: 28)?.kind == .docker)
         #expect(e.update(ok, at: t0.addingTimeInterval(62)) == nil)
     }
+
+    /// Olay biterken (30 sn sakinlik) sorumlular ve neden korunur; "Bir container … yoğun" / "DOCKER hata" boşluğu olmaz.
+    @Test func dockerCalmDownKeepsCulprits() {
+        var e = IncidentEngine()
+        var busy = inputs()
+        busy.containers = [container("acmecorp-verifier", cpu: 62)]
+        _ = run(&e, busy, from: 0, seconds: 120)
+        var calm = inputs()
+        calm.containers = [container("acmecorp-verifier", cpu: 10)]
+        let inc = e.update(calm, at: t0.addingTimeInterval(122))
+        #expect(inc?.kind == .docker && inc?.culpritIDs == ["acmecorp-verifier"] && inc?.culpritValues == ["%62"])
+        #expect(inc?.facts.first { $0.label == "Sağlık" }?.value == "sağlıklı")
+    }
+
+    @Test func unhealthyRecoveryKeepsCause() {
+        var e = IncidentEngine()
+        var bad = inputs()
+        bad.containers = [container("api", cpu: 0, healthy: false)]
+        _ = run(&e, bad, from: 0, seconds: 30)
+        var ok = inputs()
+        ok.containers = [container("api", cpu: 1)]
+        let inc = e.update(ok, at: t0.addingTimeInterval(32))
+        #expect(inc?.level == .crit && inc?.culpritValues == ["sağlıksız"] && inc?.facts.first { $0.label == "Sağlık" }?.value == "sağlıksız")
+        #expect(StatusBlockLayout.alert(Snapshot.withIncident(inc!))?.value == "hata")
+    }
+}
+
+extension Snapshot {
+    @MainActor static func withIncident(_ i: Incident) -> Snapshot { var s = SampleSource(seed: 1).snapshot; s.incident = i; return s }
 }

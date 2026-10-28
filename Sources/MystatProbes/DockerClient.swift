@@ -51,7 +51,7 @@ public struct DockerClient: DockerAPI {
             layersSize: d.LayersSize ?? 0,
             images: (d.Images ?? []).map { .init(size: max(0, $0.Size ?? 0), shared: max(0, $0.SharedSize ?? 0), containers: max(0, $0.Containers ?? 0)) },
             volumes: (d.Volumes ?? []).map { .init(size: max(0, $0.UsageData?.Size ?? 0), refCount: $0.UsageData?.RefCount ?? 0,
-                                                   anonymous: Self.isAnonymous($0.Name ?? "")) },
+                                                   anonymous: $0.Labels?["com.docker.volume.anonymous"] != nil) },
             buildCache: (d.BuildCache ?? []).map { .init(size: $0.Size ?? 0, inUse: $0.InUse ?? false, shared: $0.Shared ?? false) },
             containersRw: (d.Containers ?? []).reduce(0) { $0 + max(0, $1.SizeRw ?? 0) })
     }
@@ -64,9 +64,6 @@ public struct DockerClient: DockerAPI {
     public func post(_ pathAndQuery: String, timeout: TimeInterval) throws -> (status: Int, body: Data) {
         try HTTPWire.parse(exchange(HTTPWire.request(method: "POST", path: pathAndQuery), timeout: timeout))
     }
-
-    /// Adsız volume: adı 64 onaltılık karakter.
-    static func isAnonymous(_ name: String) -> Bool { name.utf8.count == 64 && name.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) } }
 
     // MARK: - Taşıma
 
@@ -182,7 +179,7 @@ private struct DFJSON: Decodable {
     struct Image: Decodable { let Size: Int64?; let SharedSize: Int64?; let Containers: Int? }
     struct Volume: Decodable {
         struct Usage: Decodable { let Size: Int64?; let RefCount: Int? }
-        let Name: String?
+        let Labels: [String: String]?
         let UsageData: Usage?
     }
     struct Cache: Decodable { let Size: Int64?; let InUse: Bool?; let Shared: Bool? }

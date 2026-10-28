@@ -74,7 +74,7 @@ struct DockerSection<Source: MetricsSource>: View {
                 VStack(spacing: 7) {
                     cleanButton("Adsız volume'leri temizle", k.volumesAnonReclaimGB) { state.confirm = DockerActions.request(.pruneAnonymousVolumes, disk: k, source: source) }
                     // Kullanıcının kararı: durmuş projelerin adlı veri volume'leri ayrı ve uyarılı düğmede.
-                    cleanButton("Adlı volume'leri de temizle", named, danger: true) { state.confirm = DockerActions.request(.pruneAllVolumes, disk: k, source: source) }
+                    cleanButton("Adlı volume'leri de temizle", named, danger: true) { state.confirm = DockerActions.request(.pruneNamedVolumes, disk: k, source: source) }
                     cleanButton("Kullanılmayan image'ları temizle", k.imagesReclaimGB) { state.confirm = DockerActions.request(.pruneImages, disk: k, source: source) }
                 }
                 .padding(.top, 12)

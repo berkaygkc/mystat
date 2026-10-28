@@ -59,7 +59,7 @@ public enum StatusBlockLayout {
         if inc.kind == .battery, let drain = s.system.batteryDrain30m { return StatusMetric(label: "PİL", value: "−" + Fmt.pct(drain), level: .warn) }
         if inc.kind == .docker {   // yüzde değilse (yeniden başlama, sağlıksız) kısa durum
             let v = inc.culpritValues.first ?? ""
-            return StatusMetric(label: "DOCKER", value: v.hasPrefix("%") ? v : "hata", level: inc.level)
+            return StatusMetric(label: "DOCKER", value: v.hasPrefix("%") || inc.level != .crit ? v : "hata", level: inc.level)
         }
         return nil
     }

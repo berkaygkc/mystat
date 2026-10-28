@@ -10,7 +10,7 @@ import Testing
         let anon = DockerPresentation.confirm(.pruneAnonymousVolumes, disk: disk)
         #expect(anon.title == "Kullanılmayan adsız volume'ler temizlensin mi?" && anon.confirm == "Temizle" && !anon.destructive)
         #expect(anon.message == "Hiçbir container'a bağlı olmayan 116 adsız volume silinecek; 7,1 GB boşalacak. Adlı volume'lere ve çalışan container'lara dokunulmaz.")
-        let all = DockerPresentation.confirm(.pruneAllVolumes, disk: disk)
+        let all = DockerPresentation.confirm(.pruneNamedVolumes, disk: disk)
         #expect(all.title == "Adlı volume'ler de silinsin mi?" && all.confirm == "Adlıları da sil" && all.destructive)
         #expect(all.message == "Hiçbir container'a bağlı olmayan 61 adlı volume silinecek; 5,5 GB boşalacak. Durdurulmuş compose projelerinin veritabanı verileri bunların içinde olabilir; geri alınamaz.")
         let img = DockerPresentation.confirm(.pruneImages, disk: disk)

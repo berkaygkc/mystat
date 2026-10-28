@@ -57,7 +57,7 @@ public final class SampleSource: MetricsSource {
         switch action {
         case .restart, .stop: return .done(reclaimedGB: nil)
         case .pruneAnonymousVolumes: return .done(reclaimedGB: d.volumesAnonReclaimGB)
-        case .pruneAllVolumes: return .done(reclaimedGB: d.volumesReclaimGB)
+        case .pruneNamedVolumes: return .done(reclaimedGB: d.volumesReclaimGB)
         case .pruneImages: return .done(reclaimedGB: d.imagesReclaimGB)
         }
     }

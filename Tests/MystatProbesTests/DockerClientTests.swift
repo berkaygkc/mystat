@@ -87,4 +87,15 @@ final class FakeSocketServer: Sendable {
         #expect(gb > 0.0009 && gb < 0.01)
         #expect(DockerDiskFile.allocatedGB(path: "/yok/\(UUID().uuidString)") == nil)
     }
+
+    /// Adsız volume Docker'ın etiketiyle tanınır (prune süzgeciyle aynı küme); 64 onaltılık ad tek başına yetmez.
+    @Test func anonymousVolumesByLabel() throws {
+        let hex = String(repeating: "ab", count: 32)
+        let body = #"{"LayersSize":0,"Images":[],"BuildCache":[],"Containers":[],"Volumes":["#
+            + #"{"Name":"\#(hex)","Labels":{"com.docker.volume.anonymous":""},"UsageData":{"Size":100,"RefCount":0}},"#
+            + #"{"Name":"\#(hex.uppercased().lowercased().replacingOccurrences(of: "a", with: "c"))","Labels":null,"UsageData":{"Size":200,"RefCount":0}},"#
+            + #"{"Name":"deploy_pg-data","Labels":{"com.docker.compose.project":"deploy"},"UsageData":{"Size":300,"RefCount":0}}]}"#
+        let server = try FakeSocketServer(reply: Data("HTTP/1.0 200 OK\r\n\r\n\(body)".utf8))
+        #expect(try DockerClient(socketPaths: [server.path]).diskUsage().volumes.map(\.anonymous) == [true, false, false])
+    }
 }

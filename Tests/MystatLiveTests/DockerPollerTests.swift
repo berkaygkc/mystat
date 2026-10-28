@@ -12,6 +12,7 @@ final class FakeDockerAPI: DockerAPI {
         var list: [DockerContainerRaw] = []
         var cpu: [String: Double] = [:]          // id → yüzde
         var missing: Set<String> = []            // stats'ta 404
+        var slow: Set<String> = []               // stats'ta zaman aşımı
         var calls: [String: Int] = [:]
         var posts: [String] = []
         var statsCount: [String: UInt64] = [:]
@@ -34,6 +35,7 @@ final class FakeDockerAPI: DockerAPI {
         try count("stats")
         return try state.withLock { s in
             if s.missing.contains(id) { throw DockerError.http(404) }
+            if s.slow.contains(id) { throw DockerError.timeout }
             let k = s.statsCount[id, default: 0] + 1
             s.statsCount[id] = k
             return DockerStatsRaw(id: id, cpuTotal: UInt64((s.cpu[id] ?? 0) * 1e7) * k, systemTotal: 14_000_000_000 * k,
@@ -138,22 +140,24 @@ final class FakeDockerAPI: DockerAPI {
         #expect(api.n("containers") == 1)                            // eylemden sonra hemen okunur
     }
 
-    @Test func pruneAnonymousHasNoFilter() async {
+    /// Adsız temizlik etiketle süzülür: eski motorlarda ya da Podman'da filtresiz prune adlı veri volume'lerini de siler.
+    @Test func pruneAnonymousUsesLabelFilter() async {
         let api = FakeDockerAPI()
         api.state.withLock { $0.reclaimed = 7_050_000_000 }
         let p = DockerPoller(api: api, rawFile: { nil })
         #expect(await p.perform(.pruneAnonymousVolumes) == .done(reclaimedGB: 7.05))
-        #expect(api.state.withLock { $0.posts } == ["/volumes/prune"])
+        #expect(api.state.withLock { $0.posts } == ["/volumes/prune?filters=%7B%22label%22%3A%5B%22com.docker.volume.anonymous%22%5D%7D"])
         #expect(api.n("df") == 1)                                    // temizlikten sonra disk yenilenir
     }
 
-    @Test func pruneAllVolumesUsesAllFilter() async {
+    @Test func pruneNamedVolumesOnly() async {
         let api = FakeDockerAPI()
         let p = DockerPoller(api: api, rawFile: { nil })
-        _ = await p.perform(.pruneAllVolumes)
+        _ = await p.perform(.pruneNamedVolumes)
         _ = await p.perform(.pruneImages)
         let posts = api.state.withLock { $0.posts }
-        #expect(posts[0] == "/volumes/prune?filters=%7B%22all%22%3A%5B%22true%22%5D%7D")
+        // Yalnızca adlılar: onay penceresinin söylediği sayı ve boyutla aynı küme.
+        #expect(posts[0] == "/volumes/prune?filters=%7B%22all%22%3A%5B%22true%22%5D%2C%22label%21%22%3A%5B%22com.docker.volume.anonymous%22%5D%7D")
         #expect(posts[1] == "/images/prune?filters=%7B%22dangling%22%3A%5B%22false%22%5D%7D")
     }
 
@@ -173,5 +177,20 @@ final class FakeDockerAPI: DockerAPI {
         #expect(await p.perform(.pruneImages) == .failed("Bu işlem zaten sürüyor"))
         #expect(await first.value == .done(reclaimedGB: 0))
         #expect(api.state.withLock { $0.posts.count } == 1)
+    }
+
+    /// Yoğun sanal makinede tek container'ın istatistiği gecikirse Docker "çalışmıyor" sayılmaz; o container önceki değeriyle kalır.
+    @Test func slowContainerStatsDoNotMarkDockerDown() async {
+        let api = FakeDockerAPI()
+        api.state.withLock { $0.list = [FakeDockerAPI.raw("a"), FakeDockerAPI.raw("busy")]; $0.cpu = ["a": 5, "busy": 80] }
+        let p = DockerPoller(api: api, rawFile: { nil })
+        await p.poll(at: t0)
+        await p.poll(at: t0.addingTimeInterval(15))
+        api.state.withLock { $0.slow = ["busy"] }
+        await p.poll(at: t0.addingTimeInterval(30))
+        await p.poll(at: t0.addingTimeInterval(45))
+        let r = p.latest.withLock { $0 }
+        #expect(r.running && r.containers.map(\.dockerID).sorted() == ["a", "busy"])
+        #expect(r.containers.first { $0.dockerID == "busy" }.map { abs($0.cpuPercent - 80) < 1e-6 } == true)
     }
 }

@@ -3,15 +3,29 @@ import Foundation
 /// Container CPU'su ve belleği `docker stats`'ın tanımıyla, disk `docker system df`'in formülleriyle (ondalık GB).
 /// CPU: `Δcpu / Δsystem × onlineCPUs × 100` (%100 = 1 çekirdek). Önceki sayaçlar container id'siyle tutulur:
 /// aynı adla yeniden yaratılan container eskisinin değerini devralmaz, ilk ölçümde 0 gösterilir (sıçrama yok).
+/// Sürekli yeniden başlama: çalışma süresi turlar arasında geriye giderse yeniden başlama sayılır; 5 dk'da 2 kez ya da
+/// "restarting" durumu. Docker'ın geri çekilmesi 10 sn'lik çalışmada sıfırlandığı için yalnızca duruma bakmak yetmez.
 public struct DockerMeter: Sendable {
     private var last: [String: (cpu: UInt64, system: UInt64)] = [:]
+    private var uptimes: [String: Double] = [:]
+    private var restarts: [String: [Date]] = [:]
+    static let restartWindow: TimeInterval = 300
 
     public init() {}
 
-    public mutating func containers(_ list: [DockerContainerRaw], stats: [DockerStatsRaw]) -> [Container] {
+    public mutating func containers(_ list: [DockerContainerRaw], stats: [DockerStatsRaw], at now: Date = Date()) -> [Container] {
         let byID = Dictionary(stats.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         var next: [String: (cpu: UInt64, system: UInt64)] = [:]
+        var nextUptimes: [String: Double] = [:], nextRestarts: [String: [Date]] = [:]
         let out = list.map { r -> Container in
+            var times = (restarts[r.id] ?? []).filter { now.timeIntervalSince($0) < Self.restartWindow }
+            if let up = Self.uptimeSeconds(status: r.status) {
+                if let before = uptimes[r.id], up < before { times.append(now) }
+                nextUptimes[r.id] = up
+            } else if let before = uptimes[r.id] {
+                nextUptimes[r.id] = before
+            }
+            nextRestarts[r.id] = times
             var cpu = 0.0, mem = 0.0
             if let s = byID[r.id] {
                 if let p = last[r.id], s.cpuTotal >= p.cpu, s.systemTotal > p.system {
@@ -23,9 +37,11 @@ public struct DockerMeter: Sendable {
             let plain = r.name.hasPrefix("/") ? String(r.name.dropFirst()) : r.name
             return Container(name: r.project != nil ? (r.service ?? plain) : plain, image: r.image, cpuPercent: cpu, memoryMB: mem,
                              healthy: Self.healthy(status: r.status), uptime: Self.uptime(status: r.status),
-                             project: r.project ?? "", dockerID: r.id, restarting: r.state == "restarting")
+                             project: r.project ?? "", dockerID: r.id, restarting: r.state == "restarting" || times.count >= 2)
         }
         last = next
+        uptimes = nextUptimes
+        restarts = nextRestarts
         return out
     }
 
@@ -45,17 +61,21 @@ public struct DockerMeter: Sendable {
     }
 
     /// Docker'ın insan dilindeki süresi ("Up 2 days (healthy)", "Up About an hour") → `Fmt.uptime`. Çalışmıyorsa "—".
-    static func uptime(status: String) -> String {
-        guard status.hasPrefix("Up ") else { return Fmt.uptime(.nan) }
+    static func uptime(status: String) -> String { Fmt.uptime(uptimeSeconds(status: status) ?? .nan) }
+
+    /// Docker'ın süre metni tekdüze artar ("59 seconds" → "About a minute" → "2 minutes" …); çalışmıyorsa nil.
+    static func uptimeSeconds(status: String) -> Double? {
+        guard status.hasPrefix("Up ") else { return nil }
         var text = status.dropFirst(3)
         if let paren = text.range(of: " (") { text = text[..<paren.lowerBound] }
-        if text == "Less than a second" { return Fmt.uptime(0) }
+        if text == "Less than a second" { return 0 }
         let words = text.split(separator: " ").filter { $0 != "About" }
-        guard words.count == 2 else { return Fmt.uptime(.nan) }
-        let n = words[0] == "a" || words[0] == "an" ? 1 : Double(words[0]) ?? .nan
+        guard words.count == 2 else { return nil }
+        let n = words[0] == "a" || words[0] == "an" ? 1 : Double(words[0])
         let units: [String: Double] = ["second": 1, "minute": 60, "hour": 3600, "day": 86_400, "week": 604_800, "month": 2_592_000, "year": 31_536_000]
         let unit = words[1].hasSuffix("s") ? String(words[1].dropLast()) : String(words[1])
-        return Fmt.uptime(n * (units[unit] ?? .nan))
+        guard let n, let u = units[unit] else { return nil }
+        return n * u
     }
 
     static func healthy(status: String) -> Bool { !status.contains("(unhealthy)") }

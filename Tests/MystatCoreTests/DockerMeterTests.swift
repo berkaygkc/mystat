@@ -69,4 +69,21 @@ import Testing
         #expect(near(d.volumesAnonReclaimGB, 7.05) && d.volumesAnonUnusedCount == 1)
         #expect(near(d.buildCacheGB, 9e-7) && near(d.buildCacheReclaimGB, 3e-7) && near(d.containersGB, 0.001716) && d.rawGB == 29.9)
     }
+
+    /// 15–30 sn açılıp çöken container "restarting" durumunda neredeyse hiç yakalanmaz (Docker'ın geri çekilmesi
+    /// 10 sn'lik çalışmada sıfırlanır): çalışma süresi geriye gidince yeniden başlama sayılır, 5 dk'da 2 kez → sürekli.
+    @Test func crashLoopFromUptimeResets() {
+        var m = DockerMeter()
+        let t = Date(timeIntervalSince1970: 1_793_163_600)
+        func poll(_ status: String, _ dt: Double) -> Container {
+            m.containers([raw("kc", name: "/authgate", status: status)], stats: [], at: t.addingTimeInterval(dt))[0]
+        }
+        #expect(!poll("Up 20 seconds", 0).restarting)
+        #expect(!poll("Up 5 seconds", 15).restarting)                 // tek yeniden başlama (elle de olabilir)
+        #expect(!poll("Up 20 seconds", 30).restarting)
+        #expect(poll("Up 4 seconds", 45).restarting)                  // 5 dk'da ikinci
+        #expect(poll("Restarting (1) 2 seconds ago", 50).restarting)
+        #expect(poll("Up 19 seconds", 60).restarting)                 // pencere içinde sürer
+        #expect(!poll("Up 6 minutes", 400).restarting)                // 5 dk sakin
+    }
 }

@@ -1,14 +1,14 @@
 import Foundation
 
 /// Docker eylemleri (§7.4); hepsi onaylı. Volume temizliği kullanıcının kararıyla iki ayrı eylem: adsızlar (güvenli)
-/// ve adlılar da (durmuş projelerin veri volume'leri; uyarılı).
+/// ve adlılar (durmuş projelerin veri volume'leri; uyarılı). İkisi de etiketle süzülür, birbirinin kümesine dokunmaz.
 public enum DockerAction: Sendable, Hashable {
     case restart(id: String, name: String)
     case stop(id: String, name: String)
-    case pruneAnonymousVolumes, pruneAllVolumes, pruneImages
+    case pruneAnonymousVolumes, pruneNamedVolumes, pruneImages
 
     public var isPrune: Bool {
-        switch self { case .restart, .stop: false; case .pruneAnonymousVolumes, .pruneAllVolumes, .pruneImages: true }
+        switch self { case .restart, .stop: false; case .pruneAnonymousVolumes, .pruneNamedVolumes, .pruneImages: true }
     }
 }
 

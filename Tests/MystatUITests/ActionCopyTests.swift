@@ -26,7 +26,7 @@ import Testing
         let src = SampleSource(seed: 1)
         let v = DockerActions.request(.pruneAnonymousVolumes, disk: src.snapshot.docker.disk, source: src)
         #expect(v.title == "Kullanılmayan adsız volume'ler temizlensin mi?" && !v.destructive)   // kullanıcının kararı: iki ayrı volume düğmesi
-        #expect(DockerActions.request(.pruneAllVolumes, disk: src.snapshot.docker.disk, source: src).destructive)
+        #expect(DockerActions.request(.pruneNamedVolumes, disk: src.snapshot.docker.disk, source: src).destructive)
     }
     @Test func copyDiagnosisShowsToast() {
         let state = MonitorState()

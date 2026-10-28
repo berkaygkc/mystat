@@ -55,7 +55,7 @@ public enum GroupPresentation {
             var parts: [String] = []
             if let lost = fact(inc, "Son 24 sa") { parts.append("Son 24 saatte \(lost.trimmingCharacters(in: ["−", "-"])) azaldı.") }
             var writer = inc.culpritIDs.first.map { "En çok \(name($0)) yazıyor" } ?? ""
-            if s.capabilities.docker { writer += (writer.isEmpty ? "Docker'da " : "; Docker'da ") + "\(Fmt.dec1(s.docker.disk.volumesReclaimGB)) GB geri kazanılabilir" }
+            if s.capabilities.docker, s.docker.running, s.docker.disk.volumesReclaimGB >= 0.05 { writer += (writer.isEmpty ? "Docker'da " : "; Docker'da ") + "\(Fmt.dec1(s.docker.disk.volumesReclaimGB)) GB geri kazanılabilir" }
             if !writer.isEmpty { parts.append(writer + ".") }
             return (kicker, title(before: "Diskte ", emph: "\(Fmt.int(s.disk.freeGB)) GB", rest: " kaldı."), parts.joined(separator: " "))
         case .docker:

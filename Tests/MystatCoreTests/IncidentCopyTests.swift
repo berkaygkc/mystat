@@ -122,4 +122,12 @@ import Testing
         #expect(GroupPresentation.panelHeadline(sick).lede == "deploy projesinde; sağlık denetimi başarısız.")
         #expect(MonitorPresentation.incidentSentence(sick) == "api 3 dakikadır sağlıksız.")
     }
+
+    /// "hata" yalnızca kritik Docker olayında; dikkat seviyesinde yüzde olmayan değer olduğu gibi gösterilir.
+    @Test func dockerAlertHataOnlyWhenCritical() {
+        var s = SampleSource(seed: 1).snapshot
+        s.incident = Incident(kind: .docker, level: .warn, startedAt: "10:00", minutes: 1, peakPercent: 0, culpritIDs: ["web"],
+                              culpritValues: ["—"], culpritUnit: "CPU", facts: [])
+        #expect(StatusBlockLayout.alert(s)?.value == "—")
+    }
 }

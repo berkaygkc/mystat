@@ -34,7 +34,7 @@ public struct DockerDFRaw: Sendable, Equatable {
         public init(size: Int64, shared: Int64, containers: Int) { self.size = size; self.shared = shared; self.containers = containers }
     }
     public struct Volume: Sendable, Equatable {
-        /// `anonymous`: adı 64 onaltılık karakter (compose'un ve `-v /yol`'un adsız volume'leri).
+        /// `anonymous`: Docker'ın `com.docker.volume.anonymous` etiketi var (prune süzgeciyle aynı küme).
         public let size: Int64, refCount: Int, anonymous: Bool
         public init(size: Int64, refCount: Int, anonymous: Bool) { self.size = size; self.refCount = refCount; self.anonymous = anonymous }
     }

@@ -8,7 +8,7 @@ public enum DockerPresentation {
             return ("Kullanılmayan adsız volume'ler temizlensin mi?",
                     "Hiçbir container'a bağlı olmayan \(d.volumesAnonUnusedCount) adsız volume silinecek; \(Fmt.dec1(d.volumesAnonReclaimGB)) GB boşalacak. "
                         + "Adlı volume'lere ve çalışan container'lara dokunulmaz.", "Temizle", false)
-        case .pruneAllVolumes:
+        case .pruneNamedVolumes:
             let n = max(0, d.volumesUnusedCount - d.volumesAnonUnusedCount), gb = max(0, d.volumesReclaimGB - d.volumesAnonReclaimGB)
             return ("Adlı volume'ler de silinsin mi?",
                     "Hiçbir container'a bağlı olmayan \(n) adlı volume silinecek; \(Fmt.dec1(gb)) GB boşalacak. "
