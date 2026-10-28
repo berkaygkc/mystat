@@ -12,5 +12,11 @@
     <key>LSUIElement</key><true/>
     <key>LSMinimumSystemVersion</key><string>26.0</string>
     <key>NSHighResolutionCapable</key><true/>
+    <!-- libmalloc serbest bırakılan büyük blokları önbellekte tutar ve ayak izinde sayar (disk taraması bittiğinde
+         ~120 MB geri verilmiyordu). Kapalıyken bırakılan bellek hemen sisteme döner (plan 2d, Task 8). -->
+    <key>LSEnvironment</key>
+    <dict>
+        <key>MallocLargeCache</key><string>0</string>
+    </dict>
 </dict>
 </plist>

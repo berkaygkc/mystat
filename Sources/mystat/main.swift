@@ -1,5 +1,11 @@
 import AppKit
 
+#if DEBUG
+if CommandLine.arguments.contains("--scan-home") {
+    MainActor.assumeIsolated { DiskCheck.run() }
+}
+#endif
+
 if CommandLine.arguments.contains("--snapshot") {
     MainActor.assumeIsolated { SnapshotMode.run(CommandLine.arguments) }
 }
