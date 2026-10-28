@@ -54,6 +54,7 @@ public final class LiveSource: MetricsSource {
 
     public func series(_ key: SeriesKey, range: TimeRange) -> [Double] {
         if case .group(let id) = key { return groupHistory.cores(id) }
+        if key == .dockerTrend30 { return history?.daily(.dockerDisk, days: 30, now: Date(), calendar: Fmt.calendar) ?? [] }
         switch range {
         case .m10, .h1: return buffer.series(key, range)
         case .h24, .d7: return history?.series(key, range, now: Date()) ?? []

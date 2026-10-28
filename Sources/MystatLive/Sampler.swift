@@ -23,6 +23,8 @@ public actor Sampler {
     private let docker: DockerPoller?
     private var dockerReading = DockerPoller.Reading()
     private var lastDockerDisk: Date?
+    /// Docker'ın verisinin 30 günlük farkı; df yenilendikçe geçmişten hesaplanır.
+    private var dockerTrend: Double?
     /// "Bugün" ağ toplamı yeniden başlatmada kaybolmasın (testlerde kapalı).
     private let persistToday: Bool
     /// Panel ya da monitör açık mı; ana aktörden eşzamanlı yazılır.
@@ -121,6 +123,9 @@ public actor Sampler {
         }
         for (k, v) in samples { series.add(k, v, at: now) }
         history?.append(samples, at: now)
+        if samples.contains(where: { $0.0 == .dockerDisk }) {
+            dockerTrend = HistoryStore.trend(history?.daily(.dockerDisk, days: 30, now: now, calendar: Fmt.calendar) ?? [])
+        }
         if lastPrune.map({ now.timeIntervalSince($0) >= 3600 }) ?? true { history?.prune(now: now); lastPrune = now }
 
         // Pil erimesi: pildeyken son 30 dk (1 sa serisinin 30 sn'lik son 61 noktası).
@@ -180,6 +185,6 @@ public actor Sampler {
         let r = dockerReading
         guard r.running else { return .notRunning }
         return DockerState(running: true, containers: r.containers, vmMemoryGB: r.vmMemoryGB, vmCores: r.vmCores,
-                           disk: r.disk ?? DockerState.notRunning.disk)
+                           disk: r.disk ?? DockerState.notRunning.disk, trend30GB: dockerTrend)
     }
 }

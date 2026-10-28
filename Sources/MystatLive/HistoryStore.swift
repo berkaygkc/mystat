@@ -51,6 +51,7 @@ public final class HistoryStore: Sendable {
         switch k {
         case .cpu: "cpu"; case .cpuSystem: "cpuSystem"; case .memUsed: "memUsed"; case .memPressure: "memPressure"
         case .netDown: "netDown"; case .netUp: "netUp"; case .diskRead: "diskRead"; case .diskWrite: "diskWrite"; case .battery: "battery"
+        case .dockerCPU: "dockerCPU"; case .dockerMem: "dockerMem"; case .dockerDisk: "dockerDisk"
         default: nil
         }
     }
@@ -119,6 +120,50 @@ public final class HistoryStore: Sendable {
             guard let start = byBucket.keys.min() else { return [] }
             return (start...nowBucket).map { byBucket[$0] ?? .nan }
         }
+    }
+
+    /// Günlük gidişat (Docker'ın verisi, §9.4): 1 sa kovalarından yerel gün ortalaması. Aralıktaki ilk veri gününden
+    /// bugüne en fazla `days` nokta; veri olmayan gün NaN (grafikte boşluk).
+    public func daily(_ key: SeriesKey, days: Int, now: Date, calendar: Calendar) -> [Double] {
+        guard let k = Self.name(key) else { return [] }
+        let today = calendar.startOfDay(for: now)
+        guard let first = calendar.date(byAdding: .day, value: -(days - 1), to: today) else { return [] }
+        let from = Int64(first.timeIntervalSince1970)
+        let pts = state.withLock { s -> [(Int64, Double)] in
+            var pts: [(Int64, Double)] = []
+            if let db = s.db {
+                var st: OpaquePointer?
+                if sqlite3_prepare_v2(db, "SELECT t, v FROM samples WHERE tier = 3600 AND key = ? AND t >= ? ORDER BY t", -1, &st, nil) == SQLITE_OK {
+                    sqlite3_bind_text(st, 1, k, -1, sqliteTransient)
+                    sqlite3_bind_int64(st, 2, from)
+                    while sqlite3_step(st) == SQLITE_ROW { pts.append((sqlite3_column_int64(st, 0), sqlite3_column_double(st, 1))) }
+                }
+                sqlite3_finalize(st)
+            }
+            if let p = s.partial[3600]?[k], p.bucket * 3600 > (pts.last?.0 ?? .min) { pts.append((p.bucket * 3600, p.sum / Double(p.n))) }
+            return pts
+        }
+        var sums: [Date: (Double, Int)] = [:]
+        for (t, v) in pts where v.isFinite {
+            let day = calendar.startOfDay(for: Date(timeIntervalSince1970: TimeInterval(t)))
+            sums[day, default: (0, 0)].0 += v
+            sums[day, default: (0, 0)].1 += 1
+        }
+        guard var day = sums.keys.min() else { return [] }
+        var out: [Double] = []
+        while day <= today {
+            out.append(sums[day].map { $0.0 / Double($0.1) } ?? .nan)
+            guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+            day = next
+        }
+        return out
+    }
+
+    /// Gidişatın farkı: son sonlu gün eksi ilk sonlu gün; 2'den az sonlu gün varsa nil.
+    public static func trend(_ daily: [Double]) -> Double? {
+        let f = daily.filter(\.isFinite)
+        guard f.count >= 2, let a = f.first, let b = f.last else { return nil }
+        return b - a
     }
 
     public func recordIncident(_ i: Incident, at: Date) {

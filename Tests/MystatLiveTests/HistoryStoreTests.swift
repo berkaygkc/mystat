@@ -92,4 +92,30 @@ import Testing
         let again = try HistoryStore(url: url)
         #expect(again.series(.cpu, .h24, now: t0.addingTimeInterval(4 * 60)) == [40])
     }
+
+    /// Docker'ın verisi günlük gidişat için: 1 sa kovalarından yerel gün ortalaması; veri olmayan gün NaN.
+    @Test func dailyAveragesPerLocalDay() throws {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Europe/Istanbul")!
+        let day0 = cal.startOfDay(for: t0)
+        func fill(_ s: HistoryStore, days: [Int]) -> Date {
+            var last = day0
+            for d in days { for h in 0..<24 {
+                last = day0.addingTimeInterval(Double(d) * 86_400 + Double(h) * 3600 + 60)
+                s.append([(.dockerDisk, 20 + Double(d))], at: last)
+            } }
+            return last
+        }
+        let a = try HistoryStore(url: tempURL())
+        #expect(a.daily(.dockerDisk, days: 30, now: fill(a, days: [0, 1, 2]), calendar: cal) == [20, 21, 22])
+        let b = try HistoryStore(url: tempURL())
+        let gap = b.daily(.dockerDisk, days: 30, now: fill(b, days: [0, 2]), calendar: cal)
+        #expect(gap.count == 3 && gap[0] == 20 && gap[1].isNaN && gap[2] == 22)
+    }
+
+    @Test func trendNeedsTwoDays() {
+        #expect(HistoryStore.trend([26]) == nil)
+        #expect(HistoryStore.trend([.nan, 26]) == nil)
+        #expect(HistoryStore.trend([20, .nan, 29]) == 9)
+    }
 }

@@ -191,4 +191,19 @@ final class FakeProbe: SystemProbe {
         #expect(s.series(.dockerCPU, range: .m10).last.map { abs($0 - 70) < 1e-6 } == true)
         #expect(s.docker.interest.withLock { $0 })
     }
+
+    /// Docker diskinin 30 günlük gidişatı geçmişten gelir (günlük ortalama).
+    @Test func dockerTrendComesFromHistory() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("mystat-trend-\(UUID().uuidString).sqlite")
+        let today = Fmt.calendar.startOfDay(for: Date())
+        do {
+            let h = try HistoryStore(url: url)
+            for hour in 0..<3 { h.append([(.dockerDisk, 20)], at: today.addingTimeInterval(-86_400 + Double(hour) * 3600 + 60)) }
+            h.append([(.dockerDisk, 23)], at: today.addingTimeInterval(60))
+            h.flush()
+            h.close()
+        }
+        let s = LiveSource(probe: FakeProbe(), historyURL: url, persistToday: false, autostart: false, dockerAPI: FakeDockerAPI())
+        #expect(s.series(.dockerTrend30, range: .m10) == [20, 23])
+    }
 }
