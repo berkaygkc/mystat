@@ -5,7 +5,8 @@ import SwiftUI
 struct DockerSection<Source: MetricsSource>: View {
     let source: Source
     @Bindable var state: MonitorState
-    @State private var projectOpen = true
+    /// Kullanıcı bir projeyi açıp kapatana kadar varsayılan: ilk satır ve sorunlu olanlar açık.
+    @State private var openProjects: Set<String>?
     @State private var hovered: String?
 
     var body: some View {
@@ -16,7 +17,7 @@ struct DockerSection<Source: MetricsSource>: View {
         let busy = d.containers.contains { $0.cpuPercent >= 30 }
         VStack(alignment: .leading, spacing: 0) {
             SectionHead("DOCKER", title: h.title, soft: h.soft, lede: h.lede, level: h.level, pulsing: h.level != .ok)
-            if s.capabilities.docker { content(s, d, cpu: cpu, mem: mem, busy: busy) }
+            if s.capabilities.docker && d.running { content(s, d, cpu: cpu, mem: mem, busy: busy) }
         }
     }
 
@@ -45,12 +46,16 @@ struct DockerSection<Source: MetricsSource>: View {
     private func diskCard(_ d: DockerState) -> some View {
         let k = d.disk
         let segs: [(Double, Color, Bool)] = [(k.imagesGB - k.imagesReclaimGB, Theme.c1, false), (k.imagesReclaimGB, Theme.c1, true),
-                                            (k.volumesGB - k.volumesReclaimGB, Theme.c2, false), (k.volumesReclaimGB, Theme.c2, true), (1.3, Theme.c4, false)]
+                                            (k.volumesGB - k.volumesReclaimGB, Theme.c2, false), (k.volumesReclaimGB, Theme.c2, true),
+                                            (k.buildCacheGB + k.containersGB, Theme.c4, false)].map { (max(0, $0.0), $0.1, $0.2) }
+        let named = max(0, k.volumesReclaimGB - k.volumesAnonReclaimGB)
+        let trend = source.series(.dockerTrend30, range: .m10)
+        let top = trend.filter(\.isFinite).max() ?? 0
         return Card {
             VStack(alignment: .leading, spacing: 0) {
-                SecH("Docker'ın diski", note: "\(Fmt.int(k.rawGB ?? k.dataGB)) GB · son 30 gün +9 GB")
+                SecH("Docker'ın diski", note: DockerPresentation.diskNote(d))
                 GeometryReader { g in
-                    let total = segs.reduce(0) { $0 + $1.0 }, gaps = CGFloat(segs.count - 1) * 2
+                    let total = max(0.001, segs.reduce(0) { $0 + $1.0 }), gaps = CGFloat(segs.count - 1) * 2
                     HStack(spacing: 2) {
                         ForEach(segs.indices, id: \.self) { i in
                             Group { if segs[i].2 { Hatch(base: segs[i].1) } else { Rectangle().fill(segs[i].1) } }
@@ -62,11 +67,14 @@ struct DockerSection<Source: MetricsSource>: View {
                 .frame(height: 12).padding(.vertical, 10)
                 diskRow(Theme.c1, "Image'lar · \(k.imagesCount)", Fmt.dec1(k.imagesReclaimGB) + " GB kullanılmıyor", Fmt.dec1(k.imagesGB) + " GB")
                 diskRow(Theme.c2, "Volume'ler · \(k.volumesCount)", Fmt.dec1(k.volumesReclaimGB) + " GB kullanılmıyor", Fmt.dec1(k.volumesGB) + " GB")
-                diskRow(Theme.c4, "Build cache", nil, Fmt.int(k.buildCacheGB) + " GB")
+                diskRow(Theme.c4, "Build cache", k.buildCacheReclaimGB >= 0.05 ? Fmt.dec1(k.buildCacheReclaimGB) + " GB kullanılmıyor" : nil,
+                        Fmt.int(k.buildCacheGB) + " GB")
                 diskRow(Theme.c4, "Sanal disk dosyası", nil, k.rawGB.map { Fmt.int($0) + " GB" } ?? "—")
-                Sparkline(source.series(.dockerTrend30, range: .m10), color: Theme.c1, height: 34, max: 30, fillOpacity: 0.2).padding(.top, 10)
+                Sparkline(trend, color: Theme.c1, height: 34, max: top <= 30 ? 30 : top * 1.15, fillOpacity: 0.2).padding(.top, 10)
                 VStack(spacing: 7) {
                     cleanButton("Adsız volume'leri temizle", k.volumesAnonReclaimGB) { state.confirm = DockerActions.request(.pruneAnonymousVolumes, disk: k, source: source) }
+                    // Kullanıcının kararı: durmuş projelerin adlı veri volume'leri ayrı ve uyarılı düğmede.
+                    cleanButton("Adlı volume'leri de temizle", named, danger: true) { state.confirm = DockerActions.request(.pruneAllVolumes, disk: k, source: source) }
                     cleanButton("Kullanılmayan image'ları temizle", k.imagesReclaimGB) { state.confirm = DockerActions.request(.pruneImages, disk: k, source: source) }
                 }
                 .padding(.top, 12)
@@ -85,10 +93,10 @@ struct DockerSection<Source: MetricsSource>: View {
         .font(.system(size: 12.5)).padding(.vertical, 6).hairlineTop(Theme.line2)
     }
 
-    private func cleanButton(_ title: String, _ gb: Double, action: @escaping () -> Void) -> some View {
+    private func cleanButton(_ title: String, _ gb: Double, danger: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack {
-                Text(title).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(Theme.ink)
+                Text(title).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(danger ? Theme.red : Theme.ink)
                 Spacer()
                 Text(Fmt.dec1(gb) + " GB").font(.system(size: 12.5, weight: .medium).monospacedDigit()).foregroundStyle(Theme.ink3)
             }
@@ -97,25 +105,35 @@ struct DockerSection<Source: MetricsSource>: View {
             .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Theme.btnEdge, lineWidth: 0.5))
         }
         .buttonStyle(.plain)
+        .disabled(gb < 0.05)
+        .opacity(gb < 0.05 ? 0.45 : 1)
     }
 
     private func containers(_ d: DockerState, cpu: Double, mem: Double) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+        let rows = DockerPresentation.projects(d)
+        let open = openProjects ?? Set(rows.enumerated().filter { $0.offset == 0 || $0.element.troubled }.map(\.element.name))
+        return VStack(alignment: .leading, spacing: 0) {
             SecH("Container'lar", note: "compose projesine göre")
-            HStack(spacing: 10) {
-                Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.ink3)
-                    .rotationEffect(.degrees(projectOpen ? 90 : 0)).frame(width: 18)
-                Text("\(Text(d.containers.first?.project ?? "").fontWeight(.semibold).foregroundColor(Theme.ink))  \(Text("\(d.containers.count) container · hepsi çalışıyor").font(.system(size: 12.5)).foregroundColor(Theme.ink2))")
-                    .font(.system(size: 13.5))
-                Spacer()
-                Text("\(Fmt.pct(cpu)) CPU · \(Fmt.dec1(mem)) GB").font(.system(size: 12.5).monospacedDigit()).foregroundStyle(Theme.ink2)
-            }
-            .padding(.horizontal, 10).frame(minHeight: 42)
-            .contentShape(Rectangle())
-            .onTapGesture { withAnimation(.easeOut(duration: 0.2)) { projectOpen.toggle() } }
-            if projectOpen {
-                row(cells: ["", "Servis", "Image", "CPU · %100 = 1 çek.", "Bellek", "Süre"], header: true)
-                ForEach(d.containers.sorted { $0.cpuPercent > $1.cpuPercent }) { c in containerRow(c) }
+            ForEach(rows) { r in
+                HStack(spacing: 10) {
+                    Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.ink3)
+                        .rotationEffect(.degrees(open.contains(r.name) ? 90 : 0)).frame(width: 18)
+                    Text("\(Text(r.name).fontWeight(.semibold).foregroundColor(Theme.ink))  \(Text(r.summary).font(.system(size: 12.5)).foregroundColor(r.troubled ? Theme.red : Theme.ink2))")
+                        .font(.system(size: 13.5))
+                    Spacer()
+                    Text("\(Fmt.pct(r.cpuPercent)) CPU · \(Fmt.dec1(r.memoryGB)) GB").font(.system(size: 12.5).monospacedDigit()).foregroundStyle(Theme.ink2)
+                }
+                .padding(.horizontal, 10).frame(minHeight: 42)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    var next = open
+                    if next.contains(r.name) { next.remove(r.name) } else { next.insert(r.name) }
+                    withAnimation(.easeOut(duration: 0.2)) { openProjects = next }
+                }
+                if open.contains(r.name) {
+                    row(cells: ["", "Servis", "Image", "CPU · %100 = 1 çek.", "Bellek", "Süre"], header: true)
+                    ForEach(r.containers) { c in containerRow(c) }
+                }
             }
         }
     }
@@ -136,7 +154,7 @@ struct DockerSection<Source: MetricsSource>: View {
     private func containerRow(_ c: Container) -> some View {
         let hot = c.cpuPercent > 30
         return HStack(spacing: 10) {
-            Circle().fill(Theme.green).frame(width: 7, height: 7).frame(width: 18)
+            Circle().fill(c.restarting || !c.healthy ? Theme.red : Theme.green).frame(width: 7, height: 7).frame(width: 18)
             Text(c.name).fontWeight(.semibold).foregroundStyle(Theme.ink).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
             Text(c.image).foregroundStyle(Theme.ink2).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
             Text(Fmt.pct(c.cpuPercent)).fontWeight(hot ? .semibold : .regular).foregroundStyle(hot ? Theme.red : Theme.ink).frame(width: 110, alignment: .trailing)

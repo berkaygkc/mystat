@@ -38,3 +38,37 @@ public enum DockerPresentation {
         }
     }
 }
+
+/// Container tablosunda bir compose projesi (projesizler "diğer container'lar").
+public struct DockerProjectRow: Sendable, Identifiable {
+    public var id: String { name }
+    public let name: String
+    /// CPU'ya göre azalan.
+    public let containers: [Container]
+    public let cpuPercent: Double, memoryGB: Double
+    /// "15 container · hepsi çalışıyor" | "3 container · 1 sorunlu".
+    public let summary: String
+    /// Yeniden başlayan ya da sağlıksız container var.
+    public let troubled: Bool
+}
+
+extension DockerPresentation {
+    /// Sorunlu projeler önce, sonra CPU'ya göre.
+    public static func projects(_ d: DockerState) -> [DockerProjectRow] {
+        Dictionary(grouping: d.containers, by: \.project).map { project, cs in
+            let bad = cs.filter { $0.restarting || !$0.healthy }.count
+            return DockerProjectRow(name: project.isEmpty ? "diğer container'lar" : project,
+                                    containers: cs.sorted { $0.cpuPercent > $1.cpuPercent },
+                                    cpuPercent: cs.reduce(0) { $0 + $1.cpuPercent }, memoryGB: cs.reduce(0) { $0 + $1.memoryMB } / 1024,
+                                    summary: "\(cs.count) container · " + (bad == 0 ? "hepsi çalışıyor" : "\(bad) sorunlu"), troubled: bad > 0)
+        }
+        .sorted { $0.troubled != $1.troubled ? $0.troubled : $0.cpuPercent != $1.cpuPercent ? $0.cpuPercent > $1.cpuPercent : $0.name < $1.name }
+    }
+
+    /// "27 GB · son 30 gün +9 GB": sanal disk dosyası (okunamazsa Docker'ın verisi) ve varsa gidişat.
+    public static func diskNote(_ d: DockerState) -> String {
+        let size = "\(Fmt.int(d.disk.rawGB ?? d.disk.dataGB)) GB"
+        guard let t = d.trend30GB else { return size }
+        return size + " · son 30 gün " + (t < 0 ? "−" : "+") + Fmt.int(abs(t)) + " GB"
+    }
+}

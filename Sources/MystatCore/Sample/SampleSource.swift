@@ -45,6 +45,8 @@ public final class SampleSource: MetricsSource {
 
     /// İnceleme için: bağlı değil durumlarını örnek veriyle görmek (`--snapshot … --caps none`).
     public var capabilities: SourceCapabilities = .all { didSet { snapshot = build() } }
+    /// İnceleme için: "Docker çalışmıyor" durumunu örnek veriyle görmek (`--snapshot … --docker down`).
+    public var dockerRunning = true { didSet { snapshot = build() } }
 
     public func setDetailInterest(_ visible: Bool) {}
     public func setVisibleSection(_ section: String?) {}
@@ -123,7 +125,7 @@ public final class SampleSource: MetricsSource {
                             purgeableGB: 12, readMBps: read, writeMBps: write),
             net: NetState(downMBps: liveDown, upMBps: liveDown * 0.13, todayDownGB: 12.4, todayUpGB: 1.8, latencyMs: 18,
                           iface: "Wi‑Fi", ssid: "Ev", details: SampleData.netDetails),
-            docker: DockerState(containers: containers, vmMemoryGB: 10.2, vmCores: 8,
+            docker: DockerState(running: dockerRunning, containers: dockerRunning ? containers : [], vmMemoryGB: 10.2, vmCores: 8,
                                 disk: DockerDisk(imagesGB: 8.8, imagesReclaimGB: 2.8, imagesCount: 21,
                                                  volumesGB: 16.9, volumesReclaimGB: 12.6, volumesCount: 192,
                                                  buildCacheGB: 0, rawGB: 27, imagesUnusedCount: 4, volumesUnusedCount: 177,

@@ -31,4 +31,36 @@ import Testing
         #expect(DockerPresentation.toast(.pruneImages, .failed("Docker çalışmıyor")) == "Docker çalışmıyor")
         #expect(DockerPresentation.progress(.pruneImages) == "Temizleniyor…" && DockerPresentation.progress(.restart(id: "a", name: "x")) == "Yeniden başlatılıyor…")
     }
+
+    func c(_ name: String, _ project: String, cpu: Double, restarting: Bool = false, healthy: Bool = true) -> Container {
+        Container(name: name, image: "i", cpuPercent: cpu, memoryMB: 512, healthy: healthy, uptime: "2 gün", project: project,
+                  dockerID: name, restarting: restarting)
+    }
+
+    @Test func sampleProjectsMatchMockup() {
+        let rows = DockerPresentation.projects(SampleSource(seed: 1).snapshot.docker)
+        #expect(rows.map(\.name) == ["deploy"] && rows[0].summary == "15 container · hepsi çalışıyor" && !rows[0].troubled)
+    }
+
+    /// Sorunlu proje önce, sonra CPU'ya göre; projesizler "diğer container'lar"; container'lar CPU'ya göre azalan.
+    @Test func projectsGroupAndOrder() {
+        var d = SampleSource(seed: 1).snapshot.docker
+        d.containers = [c("pg", "deploy", cpu: 4), c("web", "deploy", cpu: 30), c("authgate", "initech", cpu: 0, restarting: true),
+                        c("lane-pg", "", cpu: 50)]
+        let rows = DockerPresentation.projects(d)
+        #expect(rows.map(\.name) == ["initech", "diğer container'lar", "deploy"])
+        #expect(rows[0].summary == "1 container · 1 sorunlu" && rows[0].troubled)
+        #expect(rows[2].containers.map(\.name) == ["web", "pg"] && rows[2].cpuPercent == 34 && rows[2].memoryGB == 1)
+        #expect(rows[2].summary == "2 container · hepsi çalışıyor")
+    }
+
+    @Test func diskNoteFormats() {
+        var d = SampleSource(seed: 1).snapshot.docker
+        #expect(DockerPresentation.diskNote(d) == "27 GB · son 30 gün +9 GB")
+        d.trend30GB = nil
+        #expect(DockerPresentation.diskNote(d) == "27 GB")
+        d.disk.rawGB = nil
+        d.trend30GB = -3
+        #expect(DockerPresentation.diskNote(d) == "27 GB · son 30 gün −3 GB")          // veri toplamı 27,0 GB
+    }
 }
