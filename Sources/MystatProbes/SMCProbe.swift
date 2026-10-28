@@ -7,6 +7,8 @@ import Synchronization
 /// Çağrı yapısı 80 bayt: anahtar 0, `keyInfo.dataSize` 28, `dataType` 32, sonuç 40, komut 42, indeks 44, veri 48.
 public final class SMCProbe: Sendable {
     private let conn: Mutex<io_connect_t>
+    /// Anahtarın tipi ve boyutu değişmez: bilgi çağrısı bir kez, sonraki okumalar tek çağrı (maliyet yarıya iner).
+    private let info = Mutex<[String: (type: String, size: UInt32)]>([:])
     private enum Command: UInt8 { case read = 5, keyAtIndex = 8, info = 9 }
 
     public init?() {
@@ -22,12 +24,19 @@ public final class SMCProbe: Sendable {
 
     public func value(_ key: String) -> Double? {
         conn.withLock { c in
-            guard let info = call(c, key: key, command: .info) else { return nil }
-            let size = info[28...31].withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
-            let type = String(decoding: info[32...35].reversed(), as: UTF8.self)
-            guard size > 0, size <= 32, let out = call(c, key: key, command: .read, size: size) else { return nil }
+            let known = info.withLock { $0[key] }
+            guard let (type, size) = known ?? keyInfo(c, key) else { return nil }
+            if known == nil { info.withLock { $0[key] = (type, size) } }
+            guard let out = call(c, key: key, command: .read, size: size) else { return nil }
             return SMCValue.decode(type: type, bytes: Array(out[48..<(48 + Int(size))]))
         }
+    }
+
+    private func keyInfo(_ c: io_connect_t, _ key: String) -> (type: String, size: UInt32)? {
+        guard let out = call(c, key: key, command: .info) else { return nil }
+        let size = out[28...31].withUnsafeBytes { $0.loadUnaligned(as: UInt32.self) }
+        guard size > 0, size <= 32 else { return nil }
+        return (String(decoding: out[32...35].reversed(), as: UTF8.self), size)
     }
 
     /// Tüm anahtarlar (≈ 3.300, 1–2 sn): yalnızca bir kez, ölçüm döngüsü dışında çağrılır; sonuç önbelleğe alınır.

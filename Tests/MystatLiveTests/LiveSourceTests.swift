@@ -182,7 +182,8 @@ final class FakeProbe: SystemProbe {
         d.docker.containers = Array(d.docker.containers.prefix(2))
         let dl = LiveSource.logLine(d)                                   // tools/docker-check.sh bunları docker CLI ile karşılaştırır
         #expect(dl.contains(" containers=2 ") && dl.contains(" dockerCPU=") && dl.contains(" dockerMem="))
-        #expect(dl.hasSuffix(" imgReclaim=2.80 volReclaim=12.60 volAnon=7.10"))
+        #expect(dl.contains(" imgReclaim=2.80 volReclaim=12.60 volAnon=7.10"))
+        #expect(dl.hasSuffix(" chip=48.0 gpuT=41.0 fan=0 pstr=14.0 cpuW=6.0 gpuW=1.0 gpu=6"))   // tools/sensor-check.sh
     }
 
     /// Onay penceresi açıkken grubun kimliği başka oturuma geçebilir (aynı klasörde iki oturum, biri bitti):

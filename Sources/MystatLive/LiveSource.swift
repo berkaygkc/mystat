@@ -87,6 +87,8 @@ public final class LiveSource: MetricsSource {
             + " containers=\(s.docker.containers.count) dockerCPU=\(f(s.docker.containers.reduce(0) { $0 + $1.cpuPercent }, 1))"
             + " dockerMem=\(f(s.docker.containers.reduce(0) { $0 + $1.memoryMB } / 1024, 2))"
             + " imgReclaim=\(f(s.docker.disk.imagesReclaimGB, 2)) volReclaim=\(f(s.docker.disk.volumesReclaimGB, 2)) volAnon=\(f(s.docker.disk.volumesAnonReclaimGB, 2))"
+            + " chip=\(f(s.system.chipTemp, 1)) gpuT=\(f(s.system.gpuTemp, 1)) fan=\(f(s.system.fanRPM, 0)) pstr=\(f(s.system.watts, 1))"
+            + " cpuW=\(f(s.system.cpuWatts ?? 0, 1)) gpuW=\(f(s.system.gpuWatts ?? 0, 1)) gpu=\(f(s.system.gpuPercent, 0))"
     }
 
     /// Grubun pid'leri o anki listeden yeniden çözülür: o arada biten ya da başka sürece geçmiş pid'e sinyal gitmez.
