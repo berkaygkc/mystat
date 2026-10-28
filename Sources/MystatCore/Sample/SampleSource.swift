@@ -117,7 +117,7 @@ public final class SampleSource: MetricsSource {
         case .cpu:
             return Incident(kind: .cpu, level: .crit, startedAt: "08:41", minutes: 4, peakPercent: 97,
                             culpritIDs: ["claude-acmecorp", "next-web", "docker"], culpritValues: ["4,2", "3,1", "0,9"], culpritUnit: "çekirdek",
-                            facts: [Fact("Başladı", "08:41"), Fact("Zirve", "%97"), Fact("Şu an", Fmt.pct(liveCPU)), Fact("Isı", "91°")])
+                            facts: [Fact("Başladı", "08:41"), Fact("Zirve", "%97"), Fact("Şu an", Fmt.pct(liveCPU)), Fact("Isı", "91°", level: .warn)])
         case .memory:
             return Incident(kind: .memory, level: .crit, startedAt: "09:12", minutes: 6, peakPercent: 86,
                             culpritIDs: ["docker", "next-web"], culpritValues: ["+2,1", "+1,4"], culpritUnit: "GB",

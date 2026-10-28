@@ -7,6 +7,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) var source: SampleSource!
     private var status: StatusItemController?
     private var panel: PanelController?
+    private var monitor: MonitorWindowController?
+    private var keyMonitor: Any?
     private var ticker: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -16,6 +18,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         status = StatusItemController(source: source) { [weak self] in self?.togglePanel() }
         panel = PanelController(source: source) { [weak self] section, group in self?.openMonitor(section, group) }
         panel?.onVisibilityChange = { [weak self] open in self?.status?.isHighlighted = open }
+        monitor = MonitorWindowController(source: source)
+        installKeys()
+        if let i = args.firstIndex(of: "--section"), args.indices.contains(i + 1), let sec = MonitorSection(rawValue: args[i + 1]) {
+            openMonitor(sec, nil)
+        }
         startTicker()
     }
 
@@ -24,8 +31,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel?.toggle(relativeTo: button)
     }
 
-    /// Task 11'de monitör penceresine bağlanır.
-    func openMonitor(_ section: MonitorSection?, _ groupID: String?) {}
+    func openMonitor(_ section: MonitorSection?, _ groupID: String?) {
+        monitor?.show(section: section, groupID: groupID)
+    }
+
+    /// ⌘M yalnızca uygulama içinde (sistem geneli değil). DEBUG'da inceleme tuşları: ⌥⌘I olay aç/kapa, ⌥⌘K olay türü.
+    private func installKeys() {
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
+            guard let self else { return e }
+            let mods = e.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            if mods == .command, e.charactersIgnoringModifiers == "m" { self.openMonitor(nil, nil); return nil }
+            #if DEBUG
+            if mods == [.command, .option], e.keyCode == 34 { self.source.incident.toggle(); self.status?.refresh(now: Date()); return nil }   // I
+            if mods == [.command, .option], e.keyCode == 40 {                                                                                  // K
+                let all = IncidentKind.allCases
+                self.source.incidentKind = all[(all.firstIndex(of: self.source.incidentKind)! + 1) % all.count]
+                self.status?.refresh(now: Date()); return nil
+            }
+            #endif
+            return e
+        }
+    }
 
     /// Saat tam saniye sınırında yenilenir; örnek veri 2 sn'de bir ilerler.
     private func startTicker() {

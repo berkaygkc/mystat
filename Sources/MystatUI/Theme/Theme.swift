@@ -40,6 +40,8 @@ public enum Theme {
     public static let acc = dyn(rgba(0, 113, 227), rgba(10, 132, 255))
     public static let accSoft = dyn(rgba(0, 113, 227, 0.12), rgba(10, 132, 255, 0.18))
     public static let inv = dyn(rgba(255, 255, 255), rgba(28, 28, 30))
+    /// Pencere zemini (mockup `--win`); arkasında bulanık masaüstü.
+    public static let win = dyn(rgba(249, 249, 251, 0.80), rgba(28, 28, 31, 0.80))
 
     /// Seviyeye göre vurgu rengi; `.ok` için birincil metin.
     public static func levelColor(_ l: Level) -> Color { l == .crit ? red : l == .warn ? orange : ink }

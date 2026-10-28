@@ -67,6 +67,14 @@ enum SnapshotMode {
             return AnyView(MenubarStrip(model: model, highlighted: o.section == "open"))
         case "panel":
             return AnyView(VStack { HStack { Spacer(); PanelView(source: source) { _, _ in }.padding(.trailing, 140) }.padding(.top, 39); Spacer() })
+        case "monitor":
+            let state = MonitorState()
+            state.go(MonitorSection(rawValue: o.section) ?? .overview)
+            return AnyView(MonitorView(source: source, state: state)
+                .frame(width: o.size.width - 92, height: o.size.height - 96)
+                .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+                .shadow(color: .black.opacity(0.35), radius: 40, y: 30)
+                .padding(.top, 56))
         case "charts":
             let cpu = source.series(.cpu, range: .m10), sys = source.series(.cpuSystem, range: .m10)
             let red = source.snapshot.incident != nil

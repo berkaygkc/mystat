@@ -3,11 +3,11 @@ import SwiftUI
 /// Mockup'taki `.btn` ailesi.
 public struct Btn: View {
     public enum Style { case normal, primary, danger, dangerFill }
-    let title: String, icon: String?, style: Style, action: () -> Void
+    let title: String, icon: String?, trailing: String?, style: Style, action: () -> Void
     @State private var hovering = false
 
-    public init(_ title: String, icon: String? = nil, style: Style = .normal, action: @escaping () -> Void) {
-        self.title = title; self.icon = icon; self.style = style; self.action = action
+    public init(_ title: String, icon: String? = nil, trailing: String? = nil, style: Style = .normal, action: @escaping () -> Void) {
+        self.title = title; self.icon = icon; self.trailing = trailing; self.style = style; self.action = action
     }
 
     public var body: some View {
@@ -15,6 +15,7 @@ public struct Btn: View {
             HStack(spacing: 6) {
                 if let icon { Image(systemName: icon).font(.system(size: 11.5, weight: .semibold)) }
                 Text(title).font(.system(size: 12.5, weight: .semibold))
+                if let trailing { Image(systemName: trailing).font(.system(size: 10.5, weight: .semibold)) }
             }
             .padding(.horizontal, 13).frame(minHeight: 30)
             .frame(maxWidth: .infinity)

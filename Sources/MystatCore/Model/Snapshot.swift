@@ -3,7 +3,9 @@ import Foundation
 public struct Fact: Sendable, Equatable {
     public let label: String
     public let value: String
-    public init(_ label: String, _ value: String) { self.label = label; self.value = value }
+    /// Değer renklenecekse seviyesi (ör. olay kartında "Isı 91°" turuncu).
+    public let level: Level
+    public init(_ label: String, _ value: String, level: Level = .ok) { self.label = label; self.value = value; self.level = level }
 }
 
 public struct ChildProcess: Sendable, Equatable {
