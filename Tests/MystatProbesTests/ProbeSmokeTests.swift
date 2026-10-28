@@ -32,4 +32,36 @@ import Testing
         #expect(s.percent >= 0 && s.percent <= 100)
         #expect(s.cores.count == ProcessInfo.processInfo.activeProcessorCount)
     }
+    @Test func netDiskProbeIsPlausible() {
+        let p = NetDiskProbe()
+        let ifs = p.interfaces()
+        #expect(ifs.contains { $0.name == "lo0" && $0.rx > 0 })
+        #expect(p.localIPv4(of: "lo0") == "127.0.0.1")
+        if let primary = p.primaryInterface() { #expect(ifs.contains { $0.name == primary }) }
+        let v = p.dataVolume()
+        #expect(v.total > 100_000_000_000 && v.available > 0 && v.available <= v.total)
+        let io = p.diskIO()
+        #expect(io.bytesRead > 0 && io.bytesWritten > 0)
+    }
+
+    @Test func defaultProbeConforms() {
+        let p: any SystemProbe = DefaultProbe()
+        #expect(!p.coreTicks().isEmpty && !p.interfaces().isEmpty)
+    }
+    /// `NET_RT_IFLIST2` alınan baytı 32 bitte sarıyor (macOS 26); sayaçlar `netstat -ib` ile aynı olmalı.
+    @Test func interfaceBytesMatchNetstat() throws {
+        let p = NetDiskProbe()
+        let iface = p.primaryInterface() ?? "en0"
+        let ours = try #require(p.interfaces().first { $0.name == iface })
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/sbin/netstat")
+        proc.arguments = ["-ib", "-I", iface]
+        let pipe = Pipe(); proc.standardOutput = pipe
+        try proc.run(); proc.waitUntilExit()
+        let line = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self).split(separator: "\n")[1]
+        let cols = line.split(separator: " ", omittingEmptySubsequences: true)
+        let ibytes = try #require(UInt64(cols[6])), obytes = try #require(UInt64(cols[9]))
+        #expect(ibytes >= ours.rx && ibytes - ours.rx < 1_000_000)
+        #expect(obytes >= ours.tx && obytes - ours.tx < 1_000_000)
+    }
 }

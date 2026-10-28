@@ -51,4 +51,3 @@ public struct MachProbe: Sendable {
     }
 }
 
-extension MachProbe: SystemProbe {}

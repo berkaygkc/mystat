@@ -36,3 +36,25 @@ public struct VMCounters: Sendable, Equatable {
 public enum SampleGap {
     public static let maxInterval: TimeInterval = 6
 }
+
+/// Bir ağ arayüzünün 64 bit bayt sayaçları (`NET_RT_IFLIST2`).
+public struct InterfaceCounters: Sendable, Equatable {
+    public let name: String
+    public let rx, tx: UInt64
+    public let up: Bool
+    public init(name: String, rx: UInt64, tx: UInt64, up: Bool) { self.name = name; self.rx = rx; self.tx = tx; self.up = up }
+}
+
+/// Data biriminin kapasitesi (bayt).
+public struct VolumeCapacity: Sendable, Equatable {
+    public let total, available, availableImportant: UInt64
+    public init(total: UInt64, available: UInt64, availableImportant: UInt64) {
+        self.total = total; self.available = available; self.availableImportant = availableImportant
+    }
+}
+
+/// Tüm blok sürücülerinin birikimli okuma/yazma baytları (`IOBlockStorageDriver` → `Statistics`).
+public struct DiskIOCounters: Sendable, Equatable {
+    public let bytesRead, bytesWritten: UInt64
+    public init(bytesRead: UInt64, bytesWritten: UInt64) { self.bytesRead = bytesRead; self.bytesWritten = bytesWritten }
+}

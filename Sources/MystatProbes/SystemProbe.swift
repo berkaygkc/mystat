@@ -7,4 +7,9 @@ public protocol SystemProbe: Sendable {
     func coreTicks() -> [CoreTicks]
     func vm() -> VMCounters
     func loadAverage() -> [Double]
+    func interfaces() -> [InterfaceCounters]
+    func primaryInterface() -> String?
+    func localIPv4(of iface: String) -> String?
+    func dataVolume() -> VolumeCapacity
+    func diskIO() -> DiskIOCounters
 }
