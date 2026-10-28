@@ -85,12 +85,13 @@ public enum SectionText {
             case .crit: return (AttributedString("Çip çok ısındı."), "macOS işlemciyi yavaşlatıyor. " + power, .crit)
             }
         }
+        let fan = SystemPresentation.fanText(sys)
         if sys.thermal != .ok {
-            return (emph("Çip ısınıyor: ", "\(Fmt.int(sys.chipTemp))°"),
-                    "Fanlar \(Fmt.int(sys.fanRPM)) dev/dk ile dönüyor. macOS henüz yavaşlatmaya başlamadı; yük sürerse başlayabilir. Prizdesin, pil tam dolu.",
-                    sys.thermal)
+            let fans = sys.fanCount > 0 && sys.fanRPM > 0 ? "Fanlar \(Fmt.int(sys.fanRPM)) dev/dk ile dönüyor. " : ""
+            let slowing = sys.thermal == .crit ? "macOS işlemciyi yavaşlatıyor. " : "macOS henüz yavaşlatmaya başlamadı; yük sürerse başlayabilir. "
+            return (emph("Çip ısınıyor: ", "\(Fmt.int(sys.chipTemp))°"), fans + slowing + SystemPresentation.power(sys), sys.thermal)
         }
-        return (AttributedString("Serin ve sessiz."),
-                "Çip \(Fmt.int(sys.chipTemp))°, fanlar duruyor. Prizdesin, pil tam dolu ve sağlığı iyi.", .ok)
+        let fans = sys.fanCount > 0 ? ", fanlar \(fan)" : ""
+        return (AttributedString("Serin ve sessiz."), "Çip \(Fmt.int(sys.chipTemp))°\(fans). " + SystemPresentation.power(sys, health: true), .ok)
     }
 }

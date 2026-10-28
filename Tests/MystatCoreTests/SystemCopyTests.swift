@@ -1,0 +1,56 @@
+import Foundation
+import Testing
+@testable import MystatCore
+
+/// Sistem metinleri veriden (§6.3): örnek verinin cümleleri aynı kalır; canlıda fan, güç ve GPU gerçek değerden.
+@MainActor @Suite struct SystemCopyTests {
+    var calm: Snapshot { SampleSource(seed: 1).snapshot }
+    var heat: Snapshot { SampleSource(seed: 1, incident: true, kind: .heat).snapshot }
+
+    @Test func sampleSystemCopyUnchanged() {
+        let c = SectionText.system(calm), h = SectionText.system(heat)
+        #expect(String(c.title.characters) == "Serin ve sessiz." && c.lede == "Çip 48°, fanlar duruyor. Prizdesin, pil tam dolu ve sağlığı iyi.")
+        #expect(String(h.title.characters) == "Çip ısınıyor: 91°")
+        #expect(h.lede == "Fanlar 4.800 dev/dk ile dönüyor. macOS henüz yavaşlatmaya başlamadı; yük sürerse başlayabilir. Prizdesin, pil tam dolu.")
+        #expect(PanelPresentation.cells(calm).first { $0.section == "sys" }?.sub == "Fan sessiz, pil %100")
+        #expect(PanelPresentation.cells(heat).first { $0.section == "sys" }?.sub == "Fan 4.800 dev/dk, ısınıyor")
+        let energy = SystemPresentation.energyTop(calm.groups, n: 5).map { "\($0.name)=\(Fmt.dec1($0.watts)) W" }
+        #expect(energy == ["Brave Browser=2,2 W", "Claude Code=1,7 W", "WindowServer=1,1 W", "Claude Code=0,7 W", "Next.js dev=0,6 W"])
+        #expect(SystemPresentation.gpuFacts(calm.system).map { "\($0.0)=\($0.1)" }
+                == ["En çok kullanan=WindowServer", "İkinci=Brave Browser", "Bellek=Paylaşımlı", "Ekranlar=2"])
+    }
+
+    @Test func fanTextCases() {
+        var s = calm.system
+        s.fanCount = 0
+        #expect(SystemPresentation.fanText(s) == "fan yok")
+        s.fanCount = 2; s.fanRPM = 0
+        #expect(SystemPresentation.fanText(s) == "duruyor")
+        s.fanRPM = 1356; s.fanMinRPM = 1350
+        #expect(SystemPresentation.fanText(s) == "sessiz")
+        s.fanRPM = 4800
+        #expect(SystemPresentation.fanText(s) == "4.800 dev/dk")
+    }
+
+    @Test func energyTopSkipsSystemRow() {
+        var gs = calm.groups
+        gs.append(ProcessGroup(id: "sys:macos", name: "macOS", context: "sistem süreçleri", cpuCores: 3, memoryGB: 9, netMBps: 0, uptime: "",
+                               processCount: 700, folder: nil, terminal: nil, port: nil, isOrphan: false, relatedID: nil, isDocker: false,
+                               children: [], watts: 40))
+        for i in gs.indices where gs[i].name == "Spark" { gs[i].watts = 0 }
+        let top = SystemPresentation.energyTop(gs, n: 20)
+        #expect(!top.contains { $0.id == "sys:macos" } && !top.contains { $0.watts == 0 })
+        #expect(top.map(\.watts) == top.map(\.watts).sorted(by: >))
+    }
+
+    /// Isınırken güç ifadesi gerçek durumdan: pildeyken "Prizdesin" denmez.
+    @Test func heatLedeUsesRealPower() {
+        var s = heat
+        s.system.onAC = false
+        s.system.charging = false
+        s.system.battery = 62
+        #expect(SectionText.system(s).lede.hasSuffix("Pildesin, pil %62."))
+        s.system.fanCount = 0
+        #expect(!SectionText.system(s).lede.contains("Fanlar"))
+    }
+}

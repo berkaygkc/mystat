@@ -34,6 +34,8 @@ public struct ProcessGroup: Identifiable, Sendable {
     public var pids: [Int32] = []
     /// Grupta kullanıcının olmayan süreç var; Durdur / Zorla kapat pasif (spec §7.4).
     public var foreign = false
+    /// Süreç enerjisi farkından (W); sensörsüz kaynakta 0.
+    public var watts = 0.0
 }
 
 public struct Container: Identifiable, Sendable {
@@ -167,6 +169,15 @@ public struct SystemState: Sendable {
     public var onAC: Bool = true
     /// Kenar menüsünün alt satırı ("MacBook Pro · M4 Pro / 14 çekirdek · 48 GB · açık 3 gün").
     public var machine: MachineInfo? = nil
+    /// 0: fansız Mac ya da okunamadı.
+    public var fanCount = 0
+    /// "Fan sessiz" eşiği (en düşük devir).
+    public var fanMinRPM = 0.0
+    /// IOReport; okunamadıysa nil.
+    public var cpuWatts: Double? = nil, gpuWatts: Double? = nil
+    /// GPU'yu en çok kullanan uygulamalar (azalan).
+    public var gpuApps: [(name: String, percent: Double)] = []
+    public var displays = 0
 }
 
 public struct MachineInfo: Sendable, Equatable {

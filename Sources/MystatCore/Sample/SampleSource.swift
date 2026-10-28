@@ -101,7 +101,8 @@ public final class SampleSource: MetricsSource {
                 cpuCores: load ? g.cpu.1 : g.cpu.0, memoryGB: mem, netMBps: cpuInc ? g.net.1 : g.net.0,
                 uptime: g.up, processCount: g.n, folder: g.dir, terminal: g.term, port: g.port,
                 isOrphan: g.orphan, relatedID: g.related, isDocker: g.docker,
-                children: g.kids.map { ChildProcess(name: $0.0, cpuCores: load ? $0.2 : $0.1) }, foreign: g.id == "windowserver")
+                children: g.kids.map { ChildProcess(name: $0.0, cpuCores: load ? $0.2 : $0.1) }, foreign: g.id == "windowserver",
+                watts: (load ? g.cpu.1 : g.cpu.0) * 6.2)
         }
         let containers = SampleData.containers.map { c in
             let cpu = cpuInc ? c.2.1 : (inc && kind == .docker && c.0 == "acmecorp-verifier") ? 62 : c.2.0
@@ -136,7 +137,9 @@ public final class SampleSource: MetricsSource {
                                 watts: bat ? 38 : load ? 78 : 14, adapter: "140 W USB‑C", health: "%91 · iyi",
                                 capacity: "7.819 / 8.579 mAh", cycles: 75, gpuPercent: load ? 18 : 6, gpuCores: 20, onAC: !bat,
                                 machine: MachineInfo(model: "MacBook Pro", chip: "M4 Pro", pCores: 10, eCores: 4, memoryGB: 48,
-                                                     boot: Date().addingTimeInterval(-3 * 86_400 - 600))),
+                                                     boot: Date().addingTimeInterval(-3 * 86_400 - 600)),
+                                fanCount: 2, fanMinRPM: 1200, cpuWatts: load ? 52 : 6, gpuWatts: load ? 9 : 1,
+                                gpuApps: [("WindowServer", 4), ("Brave Browser", 2)], displays: 2),
             groups: groups,
             incident: inc ? makeIncident() : nil,
             suggestions: [
