@@ -79,11 +79,14 @@ public final class LiveSource: MetricsSource {
         Task { await docker.requestDisk(at: Date()) }
     }
 
-    /// `--log-values` (DEBUG) satırı; tools/consistency.sh bunu top, vm_stat ve netstat ile yan yana yazar.
+    /// `--log-values` (DEBUG) satırı; tools/consistency.sh top, vm_stat ve netstat ile, tools/docker-check.sh docker CLI ile karşılaştırır.
     public nonisolated static func logLine(_ s: Snapshot) -> String {
         func f(_ v: Double, _ d: Int) -> String { String(format: "%.\(d)f", v) }
         return "mystat cpu=\(f(s.cpu.percent, 1)) user=\(f(s.cpu.percent - s.cpu.systemPercent, 1)) sys=\(f(s.cpu.systemPercent, 1))"
             + " mem=\(f(s.memory.percent, 1)) memGB=\(f(s.memory.usedGB, 2)) down=\(f(s.net.downMBps, 2)) up=\(f(s.net.upMBps, 2))"
+            + " containers=\(s.docker.containers.count) dockerCPU=\(f(s.docker.containers.reduce(0) { $0 + $1.cpuPercent }, 1))"
+            + " dockerMem=\(f(s.docker.containers.reduce(0) { $0 + $1.memoryMB } / 1024, 2))"
+            + " imgReclaim=\(f(s.docker.disk.imagesReclaimGB, 2)) volReclaim=\(f(s.docker.disk.volumesReclaimGB, 2)) volAnon=\(f(s.docker.disk.volumesAnonReclaimGB, 2))"
     }
 
     /// Grubun pid'leri o anki listeden yeniden çözülür: o arada biten ya da başka sürece geçmiş pid'e sinyal gitmez.
