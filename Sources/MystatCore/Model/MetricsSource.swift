@@ -13,4 +13,6 @@ public protocol MetricsSource: AnyObject, Observable {
     var snapshot: Snapshot { get }
     func series(_ key: SeriesKey, range: TimeRange) -> [Double]
     var diskTree: DiskTree { get }
+    /// Disk haritasından silinen alanı doluluğa yansıtır (Faz 1'de örnek; Faz 2'de yeniden ölçüm).
+    func applyDeletion(gb: Double)
 }

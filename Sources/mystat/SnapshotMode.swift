@@ -75,6 +75,17 @@ enum SnapshotMode {
             if o.confirm == "stop", let g = source.snapshot.groups.first(where: { $0.id == "next-web" }) { state.confirm = Actions.stop(g, force: true) }
             if o.confirm == "prune" { state.confirm = DockerActions.prune(volumes: true, gb: 12.6) }
             if !o.toast.isEmpty { ToastCenter.shared.show(o.toast) }
+            switch o.scan {
+            case "none": state.disk.scan = .none
+            case "scanning": state.disk.scan = .scanning(progress: 0.55, scannedGB: 128, currentPath: "~/Library/Caches")
+            default: state.disk.scan = .ready(scannedAt: Date().addingTimeInterval(-18 * 60))
+            }
+            if o.section == "disk", o.confirm == "basket" {
+                state.disk.path = ["Library"]
+                state.disk.toggle(["Library", "Caches"], tree: source.diskTree)
+                state.disk.toggle(["Library", "Developer"], tree: source.diskTree)
+                state.disk.toggle(["Downloads", "Xcode_26.2.xip"], tree: source.diskTree)
+            }
             return AnyView(MonitorView(source: source, state: state)
                 .frame(width: o.size.width - 92, height: o.size.height - 96)
                 .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))

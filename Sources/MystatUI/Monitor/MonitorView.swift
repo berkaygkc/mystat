@@ -34,7 +34,7 @@ public struct MonitorView<Source: MetricsSource>: View {
     }
 }
 
-/// Bölüm içerikleri; sonraki tasklarda dolar.
+/// Seçili bölümün içeriği.
 struct SectionContent<Source: MetricsSource>: View {
     let source: Source
     let state: MonitorState
@@ -46,11 +46,7 @@ struct SectionContent<Source: MetricsSource>: View {
         case .net: NetworkSection(source: source, state: state)
         case .docker: DockerSection(source: source, state: state)
         case .sys: SystemSection(source: source, state: state)
-        default:
-            VStack(alignment: .leading) {
-                IncidentBlock(source: source, state: state, inOverview: state.section == .overview)
-                Text(MonitorPresentation.sectionTitles[state.section.rawValue] ?? "").foregroundStyle(Theme.ink3).padding(.top, 20)
-            }
+        case .disk: DiskSection(source: source, state: state)
         }
     }
 }

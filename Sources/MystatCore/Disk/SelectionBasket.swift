@@ -50,6 +50,16 @@ public struct SelectionBasket: Sendable, Equatable {
         return mode == .permanent ? "Kalıcı olarak sil" : "Çöpe taşı"
     }
 
+    public func confirmMessage(mode: DeleteMode) -> String {
+        let list = items
+        var prefix = ""
+        if list.count > 1 {
+            prefix = list.prefix(3).map(\.name).joined(separator: ", ") + (list.count > 3 ? " ve \(list.count - 3) öğe daha" : "") + ". "
+        }
+        let tail = mode == .permanent ? " yer hemen boşalacak. Bu işlem geri alınamaz." : " çöpe gidecek; çöpü boşaltana kadar geri alabilirsin."
+        return prefix + Fmt.size(totalGB) + tail
+    }
+
     public func confirmTitle(mode: DeleteMode) -> String {
         let subject = map.count > 1 ? "\(map.count) öğe" : (items.first?.name ?? "")
         return subject + (mode == .permanent ? " kalıcı olarak silinsin mi?" : " çöpe taşınsın mı?")

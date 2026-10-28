@@ -12,6 +12,7 @@ public final class SampleSource: MetricsSource {
     @ObservationIgnored private var kind: IncidentKind
     @ObservationIgnored private var liveCPU: Double = 14
     @ObservationIgnored private var liveDown: Double = 14.6
+    @ObservationIgnored private var freedGB: Double = 0
     @ObservationIgnored private var rng: Mulberry32
     @ObservationIgnored private var cache: [CacheKey: [Double]] = [:]
 
@@ -34,6 +35,12 @@ public final class SampleSource: MetricsSource {
     public var incidentKind: IncidentKind {
         get { kind }
         set { kind = newValue; resetLive() }
+    }
+
+    /// Disk haritasından örnek silme sonrası açılan alanı doluluğa yansıtır.
+    public func applyDeletion(gb: Double) {
+        freedGB += gb
+        snapshot = build()
     }
 
     /// 2 sn'de bir çağrılır; mockup'taki `tickLive`.
@@ -90,7 +97,7 @@ public final class SampleSource: MetricsSource {
                                 apps: 18.8, wired: 5.6, compressed: memInc ? 18.9 : 14.4, free: memInc ? 4.7 : 9.2,
                                 pressurePercent: memInc ? 78 : cpuInc ? 44 : 41, pressureLevel: memInc ? .crit : .ok,
                                 swapGB: memInc ? 3.2 : 0),
-            disk: DiskState(percent: diskInc ? 98 : 62, freeGB: diskInc ? 8 : 175, usedGB: diskInc ? 452 : 285,
+            disk: DiskState(percent: diskInc ? 98 : (285 - freedGB) / 460 * 100, freeGB: diskInc ? 8 : 175 + freedGB, usedGB: diskInc ? 452 : 285 - freedGB,
                             purgeableGB: 12, readMBps: read, writeMBps: write),
             net: NetState(downMBps: liveDown, upMBps: liveDown * 0.13, todayDownGB: 12.4, todayUpGB: 1.8, latencyMs: 18,
                           iface: "Wi‑Fi", ssid: "Ev", details: SampleData.netDetails),

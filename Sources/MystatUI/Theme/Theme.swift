@@ -51,6 +51,17 @@ public enum Theme {
     /// Pencere zemini (mockup `--win`); arkasında bulanık masaüstü.
     public static let win = dyn(rgba(249, 249, 251, 0.80), rgba(28, 28, 31, 0.80))
 
+    /// Disk düğümü türü = renk (mockup KIND_CSS).
+    public static func kindColor(_ k: NodeKind) -> Color {
+        switch k {
+        case .folder: Color(red: 103 / 255, green: 100 / 255, blue: 245 / 255)
+        case .regen: Color(red: 1, green: 163 / 255, blue: 56 / 255)
+        case .docker: Color(red: 41 / 255, green: 138 / 255, blue: 1)
+        case .file: Color(red: 184 / 255, green: 189 / 255, blue: 214 / 255)
+        case .other: Color(red: 158 / 255, green: 158 / 255, blue: 173 / 255)
+        }
+    }
+
     /// Seviyeye göre vurgu rengi; `.ok` için birincil metin.
     public static func levelColor(_ l: Level) -> Color { l == .crit ? red : l == .warn ? orange : ink }
 

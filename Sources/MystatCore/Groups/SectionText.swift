@@ -43,6 +43,14 @@ public enum SectionText {
                     level: level)
     }
 
+    public static func disk(_ s: Snapshot, homeGB: Double, freedGB: Double) -> Head {
+        let lede = freedGB > 0
+            ? "Bu oturumda \(Fmt.size(freedGB)) yer açtın. Ev klasörün şu an \(Fmt.size(homeGB))."
+            : "Ev klasörün \(Fmt.size(homeGB)). En büyük kalem Library; içinde Docker'ın \(Fmt.int(s.docker.disk.rawGB)) GB'lık diski duruyor. Şu an diske en çok Docker yazıyor."
+        return Head(title: "\(Fmt.pct(s.disk.percent)) dolu.", soft: "\(Fmt.int(s.disk.freeGB)) GB boş.", lede: lede,
+                    level: Thresholds.diskFree(s.disk.freeGB))
+    }
+
     public static func system(_ s: Snapshot) -> (title: AttributedString, lede: String, level: Level) {
         let sys = s.system
         func emph(_ before: String, _ e: String) -> AttributedString {

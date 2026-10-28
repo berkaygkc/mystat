@@ -1,0 +1,28 @@
+import Foundation
+import Testing
+@testable import MystatCore
+
+@MainActor @Suite struct DiskSectionTests {
+    @Test func headText() {
+        let src = SampleSource(seed: 1)
+        let h = SectionText.disk(src.snapshot, homeGB: src.diskTree.root.size, freedGB: 0)
+        #expect(h.title == "%62 dolu."); #expect(h.soft == "175 GB boş.")
+        #expect(h.lede == "Ev klasörün 236 GB. En büyük kalem Library; içinde Docker'ın 27 GB'lık diski duruyor. Şu an diske en çok Docker yazıyor.")
+        src.applyDeletion(gb: 24)
+        let after = SectionText.disk(src.snapshot, homeGB: 212, freedGB: 24)
+        #expect(after.title == "%57 dolu."); #expect(after.soft == "199 GB boş.")
+        #expect(after.lede == "Bu oturumda 24 GB yer açtın. Ev klasörün şu an 212 GB.")
+    }
+    @Test func deletionUpdatesSnapshot() {
+        let src = SampleSource(seed: 1)
+        src.applyDeletion(gb: 38)
+        #expect(src.snapshot.disk.freeGB == 213); #expect(src.snapshot.disk.usedGB == 247); #expect(Int(src.snapshot.disk.percent.rounded()) == 54)
+    }
+    @Test func confirmMessages() {
+        let t = SampleSource(seed: 1).diskTree; var b = SelectionBasket()
+        _ = b.toggle(["Library"], in: t)
+        #expect(b.confirmMessage(mode: .permanent) == "96 GB yer hemen boşalacak. Bu işlem geri alınamaz.")
+        _ = b.toggle(["Downloads", "Xcode_26.2.xip"], in: t); _ = b.toggle([".npm"], in: t); _ = b.toggle(["Movies"], in: t)
+        #expect(b.confirmMessage(mode: .trash) == "Library, Xcode_26.2.xip, Movies ve 1 öğe daha. 119 GB çöpe gidecek; çöpü boşaltana kadar geri alabilirsin.")
+    }
+}
