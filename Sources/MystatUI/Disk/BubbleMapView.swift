@@ -72,6 +72,8 @@ struct BubbleButton: Equatable, Identifiable {
     let path: [String]
     let state: SelState
     let x: Double, y: Double, alpha: Double
+    /// Korunan klasör (§6.4): ＋ yerine kilit, ipucunda neden.
+    var locked: String? = nil
 }
 
 /// Mockup `updateLabels`: karedeki balonlardan etiketler ve ＋/✓ düğmeleri.
@@ -96,13 +98,14 @@ enum BubbleOverlayContent {
         var buttons: [BubbleButton] = []
         if !e.isAnimating {
             let ang = -Double.pi / 4
-            for m in f.mains where m.item.kind != .other && m.r >= 20 && m.alpha >= 0.6
-                && DeletionGuard.reason(path: e.path + [m.item.name]) == nil {   // korunan klasörde ＋ yok (§6.4)
+            for m in f.mains where m.item.kind != .other && m.r >= 20 && m.alpha >= 0.6 {
                 let st: SelState = m.selection >= 1 ? .selected : m.selection > 0 ? .implied : .none
                 if st == .none && m.hover < 0.3 { continue }
-                buttons.append(BubbleButton(id: m.item.id, path: e.path + [m.item.name], state: st,
+                let path = e.path + [m.item.name]
+                buttons.append(BubbleButton(id: m.item.id, path: path, state: st,
                                             x: snap(m.x + cos(ang) * m.r * 0.84, q), y: snap(m.y + sin(ang) * m.r * 0.84, q),
-                                            alpha: snap(st == .none ? min(1, m.hover * 1.4) : 1, 0.01)))
+                                            alpha: snap(st == .none ? min(1, m.hover * 1.4) : 1, 0.01),
+                                            locked: DeletionGuard.reason(path: path)))
             }
         }
         return (labels, buttons)
@@ -481,7 +484,8 @@ struct BubbleOverlay: View {
     }
 }
 
-/// Mockup `.bm-sel`: 26 pt cam daire; ＋ / mavi ✓ / soluk mavi ✓ (üst klasörle seçili).
+/// Mockup `.bm-sel`: 26 pt cam daire; ＋ / mavi ✓ / soluk mavi ✓ (üst klasörle seçili) / kilit (korunan klasör; tıklanınca
+/// nedeni bildirim olarak gelir).
 private struct BubbleSelectButton: View {
     let button: BubbleButton
     let dark: Bool
@@ -503,8 +507,8 @@ private struct BubbleSelectButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: button.state == .none ? "plus" : "checkmark")
-                .font(.system(size: 11, weight: .bold))
+            Image(systemName: button.locked != nil ? "lock.fill" : button.state == .none ? "plus" : "checkmark")
+                .font(.system(size: button.locked != nil ? 10 : 11, weight: .bold))
                 .foregroundStyle(tint)
                 .frame(width: 26, height: 26)
                 .background {
@@ -523,7 +527,7 @@ private struct BubbleSelectButton: View {
         .shadow(color: shadow, radius: 6, y: 4)
         .brightness(hovering && button.state != .implied ? 0.04 : 0)
         .onHover { hovering = $0 }
-        .help(button.state == .selected ? "Seçimden çıkar" : button.state == .implied ? "Üst klasörle birlikte seçili" : "Seç")
+        .help(button.locked ?? (button.state == .selected ? "Seçimden çıkar" : button.state == .implied ? "Üst klasörle birlikte seçili" : "Seç"))
         .opacity(button.alpha)
         .position(x: button.x, y: button.y)
     }

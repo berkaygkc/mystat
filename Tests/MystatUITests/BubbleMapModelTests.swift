@@ -222,15 +222,17 @@ import Testing
         #expect(st.disk.path.isEmpty)
     }
 
-    /// Korunan klasörün balonunda ＋ yok (§6.4).
-    @Test func protectedBubbleHasNoPlusButton() {
+    /// Korunan klasörün balonunda ＋ yerine kilit (§6.4); nedeni ipucunda.
+    @Test func protectedBubbleShowsLock() {
         let (_, _, m) = make()
         _ = m.mouseMoved(center(m, "Library", at: 2))
         for i in 0..<40 { _ = m.frame(at: 2 + Double(i) / 60, size: size) }
-        #expect(m.buttons.isEmpty)
+        #expect(m.buttons.map(\.path) == [["Library"]])
+        #expect(m.buttons.first?.locked == "Library macOS için gerekli; içindekileri seçebilirsin.")
         _ = m.mouseMoved(center(m, ".npm", at: 2.7))
         for i in 0..<40 { _ = m.frame(at: 2.7 + Double(i) / 60, size: size) }
         #expect(m.buttons.map(\.path) == [[".npm"]])
+        #expect(m.buttons.first?.locked == nil)
     }
 
     @Test func deleteToastFromSource() async {
