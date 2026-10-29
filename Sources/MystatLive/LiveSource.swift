@@ -8,7 +8,7 @@ import Observation
 @MainActor
 @Observable
 public final class LiveSource: MetricsSource {
-    public nonisolated static let capabilities = SourceCapabilities(docker: true, sensors: false, diskScan: true, netDetails: false)
+    public nonisolated static let capabilities = SourceCapabilities(docker: true, sensors: false, diskScan: true, netDetails: true)
 
     public private(set) var snapshot: Snapshot
     @ObservationIgnored let disk: DiskScanController
@@ -21,6 +21,7 @@ public final class LiveSource: MetricsSource {
     @ObservationIgnored private var groupHistory = GroupHistory()
     @ObservationIgnored private let sampler: Sampler
     @ObservationIgnored let docker: DockerPoller
+    @ObservationIgnored let net: NetDetailPoller
     @ObservationIgnored private let history: HistoryStore?
     @ObservationIgnored private let probe: any SystemProbe
     @ObservationIgnored private var starts: [Int32: Date] = [:]
@@ -29,15 +30,17 @@ public final class LiveSource: MetricsSource {
 
     public init(probe: some SystemProbe = DefaultProbe(), historyURL: URL? = HistoryStore.defaultURL,
                 persistToday: Bool = true, autostart: Bool = true, dockerAPI: some DockerAPI = DockerClient(),
-                disk: DiskScanController? = nil) {
+                disk: DiskScanController? = nil, net: NetDetailPoller? = nil) {
         self.disk = disk ?? DiskScanController()
+        let net = net ?? NetDetailPoller()
+        self.net = net
         snapshot = .empty(capabilities: Self.capabilities)
         let store = historyURL.flatMap { try? HistoryStore(url: $0) }
         history = store
         self.probe = probe
         let docker = DockerPoller(api: dockerAPI)
         self.docker = docker
-        sampler = Sampler(probe: probe, history: store, persistToday: persistToday, docker: docker)
+        sampler = Sampler(probe: probe, history: store, persistToday: persistToday, docker: docker, net: net)
         if autostart { start() }
     }
 
@@ -75,7 +78,7 @@ public final class LiveSource: MetricsSource {
     }
 
     /// Uygulama kapanırken: geçmişin yarım kovaları yazılır.
-    public func flushHistory() { history?.flush() }
+    public func flushHistory() { history?.flush(); net.shutdown() }
 
     public func setDetailInterest(_ visible: Bool) {
         sampler.interest.withLock { $0 = visible }
@@ -89,6 +92,7 @@ public final class LiveSource: MetricsSource {
 
     public func setVisibleSection(_ section: String?) {
         disk.setVisible(section == "disk")
+        net.setVisible(section == "net")
         if section == "disk", DiskAccess.hasFullDiskAccess() != diskFullAccess { diskFullAccess.toggle() }
         guard section == "docker" else { return }
         let docker = docker

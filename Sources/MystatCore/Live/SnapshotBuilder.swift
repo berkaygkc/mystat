@@ -37,6 +37,12 @@ public struct LiveMeasurements: Sendable {
     public var docker: DockerState
     /// Sensör yoksa nil: Sistem bölümü Faz 2a'nın sakin durumunu gösterir.
     public var sensors: SensorReading?
+    /// Ağ bölümü açıkken: birincil bağlantı, yönlendirici gecikmesi, uygulama bazında ağın okunabilirliği (2e).
+    public var link: NetLink? = nil
+    public var latencyMs: Double? = nil
+    public var perAppAvailable = true
+    /// Wi‑Fi ağının adı yoksa konum izninin durumu.
+    public var ssidAccess: SSIDAccess = .needsPermission
 
     public init(cpu: CPUState, memory: MemoryState, disk: DiskState, net: (down: Double, up: Double, todayDown: Double, todayUp: Double),
                 iface: String, ip: String?, groups: [ProcessGroup], thermal: Level, battery: BatteryReading?, batteryDrain30m: Double?,
@@ -60,8 +66,12 @@ public enum SnapshotBuilder {
         if e > 0, m.machine.pCores + e == m.cpu.cores.count { s.cpu.cores = Array(m.cpu.cores[e...] + m.cpu.cores[..<e]) }
         s.memory = m.memory
         s.disk = m.disk
-        s.net = NetState(downMBps: m.net.down, upMBps: m.net.up, todayDownGB: m.net.todayDown, todayUpGB: m.net.todayUp, latencyMs: 0,
-                         iface: m.iface, ssid: "", details: [Fact("Arayüz", m.iface), Fact("Yerel IP", m.ip ?? "—")])
+        var net = NetState(downMBps: m.net.down, upMBps: m.net.up, todayDownGB: m.net.todayDown, todayUpGB: m.net.todayUp,
+                           latencyMs: m.latencyMs ?? .nan, iface: m.link?.displayName ?? m.iface, ssid: m.link?.wifi?.ssid ?? "",
+                           details: m.link.map(NetPresentation.facts) ?? [Fact("Arayüz", m.iface), Fact("Yerel IP", m.ip ?? "—")])
+        net.ssidAccess = m.link.map { l in l.wifi == nil ? .notWiFi : l.wifi?.ssid != nil ? .known : m.ssidAccess } ?? .known
+        net.perAppAvailable = m.perAppAvailable
+        s.net = net
         let b = m.battery
         s.system = SystemState(chipTemp: 0, gpuTemp: 0, ssdTemp: 0, fanRPM: 0, thermal: m.thermal,
                                battery: Int((b?.percent ?? 0).rounded()), charging: b?.charging ?? false,

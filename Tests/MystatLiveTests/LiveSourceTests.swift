@@ -333,4 +333,31 @@ final class FakeProbe: SystemProbe {
         s.setVisibleSection(nil)
         #expect(s.diskTree.root.children == nil)
     }
+
+    /// Uygulama bazında ağ hızları 5 sn'den eskiyse gruplara yazılmaz.
+    @Test func staleNetRatesIgnored() async throws {
+        let p = FakeProbe()
+        let net = NetDetailPoller(link: { nil }, ping: { _ in nil }, stream: { _ in nil }, autoTick: false)
+        let s = Sampler(probe: p, history: nil, persistToday: false, net: net)
+        let t0 = Date()
+        _ = await s.sample(at: t0)
+        net.latest.withLock { $0.rates = [100: 3]; $0.ratesAt = t0.addingTimeInterval(-4) }
+        let stale = await s.sample(at: t0.addingTimeInterval(2))
+        #expect(stale.snapshot.groups.allSatisfy { $0.netMBps == 0 })
+        net.latest.withLock { $0.ratesAt = t0.addingTimeInterval(3) }
+        let fresh = await s.sample(at: t0.addingTimeInterval(4))
+        let g = try #require(fresh.snapshot.groups.first { $0.pids.contains(100) })
+        #expect(g.netMBps == 3)
+    }
+
+    @Test func liveSourceNetDetails() async {
+        let f = NetFakes(), poller = f.poller()
+        let s = LiveSource(probe: FakeProbe(), historyURL: nil, persistToday: false, autostart: false, dockerAPI: FakeDockerAPI(), net: poller)
+        #expect(LiveSource.capabilities.netDetails)
+        s.setVisibleSection("net"); await poller.sync()
+        #expect(f.startCount == 1); #expect(await poller.isVisible)
+        s.setVisibleSection("docker"); await poller.sync()
+        #expect(await poller.isVisible == false)
+        #expect(f.lastStream.withLock { $0?.stops.load(ordering: .relaxed) } == 1)
+    }
 }

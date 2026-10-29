@@ -46,6 +46,7 @@ public actor Sampler {
     private var groups: [ProcessGroup] = [], ports: [Int32: [Int]] = [:], written: [ProcKey: UInt64] = [:], starts: [Int32: Date] = [:]
     private var volume: VolumeCapacity?, battery: BatteryReading?, downloads: [(name: String, gb: Double, idleDays: Int)] = []
     private var iface: String?, ip: String?
+    private let net: NetDetailPoller?
     private var swap: [Double] = []
     private var recorded: String?
     private var netSaves = 0
@@ -54,8 +55,9 @@ public actor Sampler {
 
     static let todayKey = "mystat.net.today"
 
-    public init(probe: some SystemProbe, history: HistoryStore?, persistToday: Bool, docker: DockerPoller? = nil) {
+    public init(probe: some SystemProbe, history: HistoryStore?, persistToday: Bool, docker: DockerPoller? = nil, net: NetDetailPoller? = nil) {
         self.probe = probe
+        self.net = net
         self.history = history
         self.docker = docker
         self.persistToday = persistToday
@@ -162,9 +164,14 @@ public actor Sampler {
             if let i = incident, recorded != "\(i.kind)\(i.startedAt)" { history?.recordIncident(i, at: now); recorded = "\(i.kind)\(i.startedAt)" }
         }
 
-        let m = LiveMeasurements(cpu: cpu, memory: memory, disk: disk, net: lastNet, iface: iface ?? "—", ip: ip, groups: groups,
+        // Uygulama bazında ağ (Ağ bölümü açıkken): 5 sn'den eski hızlar yazılmaz.
+        let netReading = net?.latest.withLock { $0 }
+        var shown = groups
+        if let r = netReading, let at = r.ratesAt, now.timeIntervalSince(at) <= 5 { NetRates.apply(r.rates, to: &shown) }
+        var m = LiveMeasurements(cpu: cpu, memory: memory, disk: disk, net: lastNet, iface: iface ?? "—", ip: ip, groups: shown,
                                  thermal: probe.thermal(), battery: battery, batteryDrain30m: drain, machine: machine,
                                  downloads: downloads, coreCount: max(1, ticks.count), docker: dockerState(), sensors: sensors)
+        m.link = netReading?.link; m.latencyMs = netReading?.latencyMs; m.perAppAvailable = netReading?.perAppAvailable ?? true
         var caps = LiveSource.capabilities
         caps.sensors = sensors != nil
         return Output(snapshot: SnapshotBuilder.build(m, incident: incident, capabilities: caps),

@@ -102,3 +102,11 @@ public final class NettopStream: Sendable {
         return !isRunning
     }
 }
+
+/// Uygulama bazında ağ akışı (testlerde sahtesi kullanılır).
+public protocol NetStream: AnyObject, Sendable {
+    var isRunning: Bool { get }
+    func stop()
+}
+
+extension NettopStream: NetStream {}
