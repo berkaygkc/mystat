@@ -25,6 +25,14 @@ mkdir -p "$APP/Contents/Resources/Locales"
 cp Locales/*.json "$APP/Contents/Resources/Locales/"
 # macOS'un kendi çizdiği metinler (konum izni penceresi) sistem diline göre.
 cp -R Resources/*.lproj "$APP/Contents/Resources/"
+# Uygulama ikonu: Resources/AppIcon.png (1024, Apple ikon ızgarası) → 16…1024 px ikon seti → AppIcon.icns.
+ICONSET="build/AppIcon.iconset"
+rm -rf "$ICONSET"; mkdir -p "$ICONSET"
+for s in 16 32 128 256 512; do
+    sips -z "$s" "$s" Resources/AppIcon.png --out "$ICONSET/icon_${s}x${s}.png" >/dev/null
+    sips -z $((s * 2)) $((s * 2)) Resources/AppIcon.png --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
+done
+iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 # İmza: Developer ID (GitHub'dan dağıtım; Tam Disk Erişimi ve Konum izni kurulumlar arasında korunur), yoksa
 # Apple Development, o da yoksa geçici (ad-hoc). Developer ID'de güçlendirilmiş çalışma ortamı ve zaman damgası:
 # Apple onayının (notarization) şartı; zaman damgası sertifikanın süresi dolsa da imzayı geçerli tutar.
