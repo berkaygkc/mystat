@@ -22,7 +22,11 @@ public struct PanelView<Source: MetricsSource>: View {
         VStack(alignment: .leading, spacing: 0) {
             Kicker(head.kicker, level: level, pulsing: s.incident != nil, tintText: false)
                 .padding(.bottom, 8)
-            Headline(head.title, size: 23, level: level == .ok ? .crit : level)
+            if s.incident != nil {   // mockup kırılımı (itme kapalı); sakin başlık tek satır, SwiftUI'de kalır
+                PlainBreakText(text: PlainBreakText.headline(head.title, size: 23, level: level == .ok ? .crit : level))
+            } else {
+                Headline(head.title, size: 23, level: level == .ok ? .crit : level)
+            }
             Text(head.lede)
                 .font(.system(size: 13.5)).lineSpacing(13.5 * 0.45 - 4)
                 .foregroundStyle(Theme.ink2)

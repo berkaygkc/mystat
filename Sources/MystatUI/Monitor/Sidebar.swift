@@ -52,9 +52,7 @@ struct Sidebar<Source: MetricsSource>: View {
     private func incidentCard(_ inc: Incident, _ s: Snapshot) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Kicker("OLAY · \(inc.minutes) DK", level: inc.level, pulsing: true)
-            Text(MonitorPresentation.sideIncidentText(s))
-                .font(Font(Theme.Fonts.sf(12.5, wght: 600))).foregroundStyle(Theme.ink).lineSpacing(2)
-                .fixedSize(horizontal: false, vertical: true)
+            PlainBreakText(text: PlainBreakText.sideIncident(MonitorPresentation.sideIncidentText(s)))   // mockup kırılımı
         }
         .padding(.horizontal, 12.5).padding(.vertical, 11.5)   // 12/11 px dolgu + 0,5 px kenarlık (border-box)
         .frame(maxWidth: .infinity, alignment: .leading)
