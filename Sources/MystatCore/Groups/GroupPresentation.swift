@@ -60,7 +60,7 @@ public enum GroupPresentation {
                     L10n.plural("headline.memory.lede", inc.minutes, ["list": grew.joined(separator: ", ")]) + swap)
         case .disk:
             var parts: [String] = []
-            if let lost = fact(inc, "Son 24 sa") { parts.append(L10n.t("headline.disk.lost", ["amount": lost.trimmingCharacters(in: ["−", "-"])])) }
+            if let lost = fact(inc, L10n.t("fact.last24h")) { parts.append(L10n.t("headline.disk.lost", ["amount": lost.trimmingCharacters(in: ["−", "-"])])) }
             var writer = inc.culpritIDs.first.map { [L10n.t("headline.disk.writer", ["name": name($0)])] } ?? []
             if s.capabilities.docker, s.docker.running, s.docker.disk.volumesReclaimGB >= 0.05 {
                 writer.append(L10n.t("headline.disk.dockerReclaim", ["gb": Fmt.dec1(s.docker.disk.volumesReclaimGB)]))
@@ -69,11 +69,11 @@ public enum GroupPresentation {
             return (kicker, title("headline.disk.title", emph: "\(Fmt.int(s.disk.freeGB)) GB"), parts.joined(separator: " "))
         case .docker:
             let who = inc.culpritIDs.first ?? L10n.t("common.aContainer")
-            let project = fact(inc, "Proje").flatMap { $0 == "—" ? nil : $0 }
+            let project = fact(inc, L10n.t("fact.project")).flatMap { $0 == "—" ? nil : $0 }
             let lede = { (key: String, args: [String: String]) in
                 project.map { L10n.t(key + "Project", args.merging(["project": $0]) { a, _ in a }) } ?? L10n.t(key, args)
             }
-            switch fact(inc, "Sağlık") {
+            switch fact(inc, L10n.t("fact.health")) {
             case L10n.t("docker.health.restarting"):
                 return (kicker, title("headline.docker.restarting.title", emph: who), lede("headline.docker.restarting.lede", [:]))
             case L10n.t("docker.health.unhealthy"):
@@ -91,7 +91,7 @@ public enum GroupPresentation {
             return (kicker, head, fans + slow)
         case .battery:
             let drain = Fmt.pct(s.system.batteryDrain30m ?? 0)
-            let left = fact(inc, "Kalan").map { L10n.t("incident.battery.left", ["left": $0]) } ?? ""
+            let left = fact(inc, L10n.t("fact.left")).map { L10n.t("incident.battery.left", ["left": $0]) } ?? ""
             let who = inc.culpritIDs.first.map { L10n.t("headline.battery.who", ["name": name($0)]) } ?? ""
             return (kicker, title("headline.battery.title", emph: L10n.t("headline.battery.emph", ["drain": drain])),
                     L10n.t("headline.battery.lede", ["left": left, "who": who]))
@@ -130,13 +130,7 @@ public enum GroupPresentation {
         return (pct, L10n.t("cpu.headline.soft", ["total": String(total), "used": used]))
     }
 
-    /// Başlık şablonu; `{emph}` vurgulu yazılır (sözcük sırası dile göre değişebilir).
     private static func title(_ key: String, emph: String, _ args: [String: String] = [:]) -> AttributedString {
-        let marker = "\u{E000}"
-        let parts = L10n.t(key, args.merging(["emph": marker]) { a, _ in a }).components(separatedBy: marker)
-        guard parts.count == 2 else { return AttributedString(parts.joined(separator: emph)) }
-        var e = AttributedString(emph)
-        e.inlinePresentationIntent = .emphasized
-        return AttributedString(parts[0]) + e + AttributedString(parts[1])
+        L10n.emphasized(key, emph: emph, args)
     }
 }

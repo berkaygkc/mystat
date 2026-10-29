@@ -5,36 +5,35 @@ public enum DockerPresentation {
     public static func confirm(_ a: DockerAction, disk d: DockerDisk) -> (title: String, message: String, confirm: String, destructive: Bool) {
         switch a {
         case .pruneAnonymousVolumes:
-            return ("Kullanılmayan adsız volume'ler temizlensin mi?",
-                    "Hiçbir container'a bağlı olmayan \(d.volumesAnonUnusedCount) adsız volume silinecek; \(Fmt.dec1(d.volumesAnonReclaimGB)) GB boşalacak. "
-                        + "Adlı volume'lere ve çalışan container'lara dokunulmaz.", "Temizle", false)
+            return (L10n.t("docker.confirm.pruneAnon.title"),
+                    L10n.plural("docker.confirm.pruneAnon.message", d.volumesAnonUnusedCount, ["gb": Fmt.dec1(d.volumesAnonReclaimGB)]),
+                    L10n.t("docker.confirm.clean"), false)
         case .pruneNamedVolumes:
             let n = max(0, d.volumesUnusedCount - d.volumesAnonUnusedCount), gb = max(0, d.volumesReclaimGB - d.volumesAnonReclaimGB)
-            return ("Adlı volume'ler de silinsin mi?",
-                    "Hiçbir container'a bağlı olmayan \(n) adlı volume silinecek; \(Fmt.dec1(gb)) GB boşalacak. "
-                        + "Durdurulmuş compose projelerinin veritabanı verileri bunların içinde olabilir; geri alınamaz.", "Adlıları da sil", true)
+            return (L10n.t("docker.confirm.pruneNamed.title"), L10n.plural("docker.confirm.pruneNamed.message", n, ["gb": Fmt.dec1(gb)]),
+                    L10n.t("docker.confirm.pruneNamed.button"), true)
         case .pruneImages:
-            return ("Kullanılmayan image'lar temizlensin mi?",
-                    "Hiçbir container'ın kullanmadığı \(d.imagesUnusedCount) image silinecek; \(Fmt.dec1(d.imagesReclaimGB)) GB boşalacak. "
-                        + "Çalışan container'lar etkilenmez.", "Temizle", false)
+            return (L10n.t("docker.confirm.pruneImages.title"),
+                    L10n.plural("docker.confirm.pruneImages.message", d.imagesUnusedCount, ["gb": Fmt.dec1(d.imagesReclaimGB)]),
+                    L10n.t("docker.confirm.clean"), false)
         case .restart(_, let name):
-            return ("\(name) yeniden başlatılsın mı?", "Container kısa bir süre kapanıp yeniden açılacak.", "Yeniden başlat", false)
+            return (L10n.t("docker.confirm.restart.title", ["name": name]), L10n.t("docker.confirm.restart.message"), L10n.t("docker.confirm.restart.button"), false)
         case .stop(_, let name):
-            return ("\(name) durdurulsun mu?", "Container durdurulacak; Docker Desktop'tan ya da compose ile yeniden başlatılabilir.", "Durdur", true)
+            return (L10n.t("docker.confirm.stop.title", ["name": name]), L10n.t("docker.confirm.stop.message"), L10n.t("docker.confirm.stop.button"), true)
         }
     }
 
     /// Onaydan hemen sonra gösterilen ara bildirim.
     public static func progress(_ a: DockerAction) -> String {
-        switch a { case .restart: "Yeniden başlatılıyor…"; case .stop: "Durduruluyor…"; default: "Temizleniyor…" }
+        switch a { case .restart: L10n.t("docker.progress.restart"); case .stop: L10n.t("docker.progress.stop"); default: L10n.t("docker.progress.clean") }
     }
 
     public static func toast(_ a: DockerAction, _ o: DockerActionOutcome) -> String {
         switch (a, o) {
         case (_, .failed(let message)): message
-        case (.restart(_, let name), .done): "\(name) yeniden başlatıldı"
-        case (.stop(_, let name), .done): "\(name) durduruldu"
-        case (_, .done(let gb)): (gb ?? 0) >= 0.05 ? "\(Fmt.dec1(gb ?? 0)) GB temizlendi" : "Temizlenecek bir şey kalmamış"
+        case (.restart(_, let name), .done): L10n.t("docker.toast.restarted", ["name": name])
+        case (.stop(_, let name), .done): L10n.t("docker.toast.stopped", ["name": name])
+        case (_, .done(let gb)): (gb ?? 0) >= 0.05 ? L10n.t("docker.toast.cleaned", ["gb": Fmt.dec1(gb ?? 0)]) : L10n.t("docker.toast.nothing")
         }
     }
 }
@@ -57,10 +56,11 @@ extension DockerPresentation {
     public static func projects(_ d: DockerState) -> [DockerProjectRow] {
         Dictionary(grouping: d.containers, by: \.project).map { project, cs in
             let bad = cs.filter { $0.restarting || !$0.healthy }.count
-            return DockerProjectRow(name: project.isEmpty ? "diğer container'lar" : project,
+            return DockerProjectRow(name: project.isEmpty ? L10n.t("docker.project.other") : project,
                                     containers: cs.sorted { $0.cpuPercent > $1.cpuPercent },
                                     cpuPercent: cs.reduce(0) { $0 + $1.cpuPercent }, memoryGB: cs.reduce(0) { $0 + $1.memoryMB } / 1024,
-                                    summary: "\(cs.count) container · " + (bad == 0 ? "hepsi çalışıyor" : "\(bad) sorunlu"), troubled: bad > 0)
+                                    summary: bad == 0 ? L10n.plural("docker.project.ok", cs.count) : L10n.plural("docker.project.bad", cs.count, ["bad": String(bad)]),
+                                    troubled: bad > 0)
         }
         .sorted { $0.troubled != $1.troubled ? $0.troubled : $0.cpuPercent != $1.cpuPercent ? $0.cpuPercent > $1.cpuPercent : $0.name < $1.name }
     }
@@ -69,6 +69,6 @@ extension DockerPresentation {
     public static func diskNote(_ d: DockerState) -> String {
         let size = "\(Fmt.int(d.disk.rawGB ?? d.disk.dataGB)) GB"
         guard let t = d.trend30GB else { return size }
-        return size + " · son 30 gün " + (t < 0 ? "−" : "+") + Fmt.int(abs(t)) + " GB"
+        return L10n.t("docker.diskNote.trend", ["size": size, "trend": (t < 0 ? "−" : "+") + Fmt.int(abs(t)) + " GB"])
     }
 }

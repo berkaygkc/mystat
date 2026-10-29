@@ -55,26 +55,25 @@ public struct SelectionBasket: Sendable, Equatable {
 
     public func buttonTitle(mode: DeleteMode) -> String {
         let n = map.count
-        if n > 1 { return "\(n) öğeyi " + (mode == .permanent ? "kalıcı sil" : "çöpe taşı") }
-        return mode == .permanent ? "Kalıcı olarak sil" : "Çöpe taşı"
+        if n > 1 { return L10n.t(mode == .permanent ? "disk.button.permanentMany" : "disk.button.trashMany", ["n": String(n)]) }
+        return L10n.t(mode == .permanent ? "disk.button.permanent" : "disk.button.trash")
     }
 
     public func confirmMessage(mode: DeleteMode) -> String {
         let list = items
         var prefix = ""
         if list.count > 1 {
-            prefix = list.prefix(3).map(\.name).joined(separator: ", ") + (list.count > 3 ? " ve \(list.count - 3) öğe daha" : "") + ". "
+            prefix = list.prefix(3).map(\.name).joined(separator: ", ") + (list.count > 3 ? L10n.plural("disk.confirm.more", list.count - 3) : "") + ". "
         }
-        let tail = mode == .permanent ? " yer hemen boşalacak. Bu işlem geri alınamaz." : " çöpe gidecek; çöpü boşaltana kadar geri alabilirsin."
+        let body = L10n.t(mode == .permanent ? "disk.confirm.permanent" : "disk.confirm.trash", ["size": Fmt.size(totalGB)])
         let cloud = cloudItems > 0
-            ? " İçinde yalnızca bulutta (iCloud vb.) duran \(Fmt.int(Double(cloudItems))) öğe var; bunlar tüm cihazlarından da "
-              + (mode == .permanent ? "silinir." : "çöpe gider.")
+            ? L10n.plural(mode == .permanent ? "disk.confirm.cloudPermanent" : "disk.confirm.cloudTrash", cloudItems, ["n": Fmt.int(Double(cloudItems))])
             : ""
-        return prefix + Fmt.size(totalGB) + tail + cloud
+        return prefix + body + cloud
     }
 
     public func confirmTitle(mode: DeleteMode) -> String {
-        let subject = map.count > 1 ? "\(map.count) öğe" : (items.first?.name ?? "")
-        return subject + (mode == .permanent ? " kalıcı olarak silinsin mi?" : " çöpe taşınsın mı?")
+        let subject = map.count > 1 ? L10n.plural("disk.items", map.count) : (items.first?.name ?? "")
+        return L10n.t(mode == .permanent ? "disk.confirm.title.permanent" : "disk.confirm.title.trash", ["subject": subject])
     }
 }

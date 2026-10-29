@@ -16,6 +16,6 @@ public enum ScanPhase: Sendable, Equatable {
     public func validityText(now: Date) -> String? {
         guard case .ready(let at) = effective(now: now) else { return nil }
         let minutes = Int(((Self.validity - now.timeIntervalSince(at)) / 60).rounded(.up))
-        return "Tarama \(minutes) dk daha geçerli"
+        return L10n.t("disk.scan.validity", ["m": String(minutes)])
     }
 }

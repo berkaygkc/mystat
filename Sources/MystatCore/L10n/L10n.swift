@@ -85,6 +85,16 @@ public enum L10n {
         return out + rest
     }
 
+    /// Başlık şablonu; `{emph}` vurgulu (`.emphasized`) yazılır, arayüz onu seviye rengine boyar. Sözcük sırası dile göre.
+    public static func emphasized(_ key: String, emph: String, _ args: [String: String] = [:]) -> AttributedString {
+        let marker = "\u{E000}"
+        let parts = t(key, args.merging(["emph": marker]) { a, _ in a }).components(separatedBy: marker)
+        guard parts.count == 2 else { return AttributedString(parts.joined(separator: emph)) }
+        var e = AttributedString(emph)
+        e.inlinePresentationIntent = .emphasized
+        return AttributedString(parts[0]) + e + AttributedString(parts[1])
+    }
+
     /// Tercih edilen diller içinden desteklenen ilki: önce tam eşleşme ("pt-BR"), sonra dil kodu ("tr-TR" → "tr").
     public static func detect(preferred: [String], available: [String]) -> String {
         for p in preferred {

@@ -12,7 +12,7 @@ public enum DeletionGuard {
     /// nil: silinebilir; aksi halde kullanıcıya gösterilecek neden.
     public static func reason(path: [String]) -> String? {
         guard protected.contains(path.joined(separator: "/")) else { return nil }
-        return "\(path.last ?? "Ev klasörü") macOS için gerekli; içindekileri seçebilirsin."
+        return L10n.t("disk.protected", ["name": path.last ?? L10n.t("disk.homeFolder")])
     }
 }
 
@@ -31,10 +31,10 @@ public struct DeleteOutcome: Sendable, Equatable {
     public func toast(trash: Bool) -> String {
         var parts: [String] = []
         if freedGB > 0 || (failed.isEmpty && changed.isEmpty) {
-            parts.append(Fmt.size(freedGB) + (trash ? " çöpe taşındı" : " boşaldı") + (simulated ? " (örnek)" : ""))
+            parts.append(L10n.t(trash ? "disk.toast.trashed" : "disk.toast.freed", ["size": Fmt.size(freedGB)]) + (simulated ? L10n.t("disk.toast.sample") : ""))
         }
-        if !failed.isEmpty { parts.append("\(failed.count) öğe silinemedi") }
-        if !changed.isEmpty { parts.append("\(changed.count) öğe taramadan sonra değişmiş; yeniden tara") }
+        if !failed.isEmpty { parts.append(L10n.plural("disk.toast.failed", failed.count)) }
+        if !changed.isEmpty { parts.append(L10n.plural("disk.toast.changed", changed.count)) }
         return parts.joined(separator: " · ")
     }
 }

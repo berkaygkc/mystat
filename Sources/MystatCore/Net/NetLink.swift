@@ -38,28 +38,28 @@ public enum NetPresentation {
         var out: [Fact] = []
         if let w = l.wifi {
             let band = w.bandGHz.rounded() == w.bandGHz ? Fmt.int(w.bandGHz) : Fmt.dec1(w.bandGHz)
-            out.append(Fact("Bant", w.channel > 0 ? "\(band) GHz · kanal \(w.channel)" : Fmt.missing))
-            out.append(Fact("Bağlantı hızı", w.txRateMbps > 0 ? Fmt.int(w.txRateMbps) + " Mb/sn" : Fmt.missing))
-            out.append(Fact("Sinyal", w.rssi < 0 ? "\(signalWord(rssi: w.rssi)) · \u{2212}\(-w.rssi) dBm" : Fmt.missing))
+            out.append(Fact(L10n.t("net.fact.band"), w.channel > 0 ? L10n.t("net.fact.band.value", ["band": band, "channel": String(w.channel)]) : Fmt.missing))
+            out.append(Fact(L10n.t("net.fact.linkSpeed"), w.txRateMbps > 0 ? L10n.t("unit.mbps", ["v": Fmt.int(w.txRateMbps)]) : Fmt.missing))
+            out.append(Fact(L10n.t("net.fact.signal"), w.rssi < 0 ? "\(signalWord(rssi: w.rssi)) · \u{2212}\(-w.rssi) dBm" : Fmt.missing))
         } else if let m = l.linkMbps, m > 0 {
-            out.append(Fact("Bağlantı hızı", Fmt.int(m) + " Mb/sn"))
+            out.append(Fact(L10n.t("net.fact.linkSpeed"), L10n.t("unit.mbps", ["v": Fmt.int(m)])))
         }
-        out.append(Fact("Yerel IP", l.localIP ?? Fmt.missing))
-        out.append(Fact("Yönlendirici", l.router ?? Fmt.missing))
-        out.append(Fact("DNS", l.dns.isEmpty ? Fmt.missing : l.dns.prefix(3).joined(separator: ", ")))
-        out.append(Fact("Arayüz", l.bsdName))
+        out.append(Fact(L10n.t("net.fact.localIP"), l.localIP ?? Fmt.missing))
+        out.append(Fact(L10n.t("net.fact.router"), l.router ?? Fmt.missing))
+        out.append(Fact(L10n.t("net.fact.dns"), l.dns.isEmpty ? Fmt.missing : l.dns.prefix(3).joined(separator: ", ")))
+        out.append(Fact(L10n.t("net.fact.interface"), l.bsdName))
         return out
     }
 
     public static func signalWord(rssi: Int) -> String {
-        rssi >= -55 ? "Çok iyi" : rssi >= -67 ? "İyi" : rssi >= -75 ? "Orta" : "Zayıf"
+        L10n.t(rssi >= -55 ? "net.signal.veryGood" : rssi >= -67 ? "net.signal.good" : rssi >= -75 ? "net.signal.fair" : "net.signal.weak")
     }
 
     /// "Kim kullanıyor" listesinin yerine geçen not; nil: liste gösterilir.
     public static func perAppNote(available: Bool, ready: Bool, empty: Bool) -> String? {
-        if !available { return "Uygulama bazında ağ okunamadı." }
-        if !ready { return "Ölçülüyor…" }
-        return empty ? "Şu an ağı kullanan bir uygulama yok." : nil
+        if !available { return L10n.t("net.perApp.unavailable") }
+        if !ready { return L10n.t("net.perApp.measuring") }
+        return empty ? L10n.t("net.perApp.empty") : nil
     }
 
     /// Yönlendirici gecikmesi; ölçülmediyse "—".
@@ -71,8 +71,8 @@ public enum NetPresentation {
     /// Ağın adı yoksa Bağlantı kartındaki satır: açıklama ve düğme.
     public static func accessLine(_ a: SSIDAccess) -> (text: String, action: String)? {
         switch a {
-        case .needsPermission: ("Ağ adı için konum izni gerekiyor.", "İzin ver")
-        case .denied: ("Ağ adını görmek için Sistem Ayarları'nda konum izni ver.", "Ayarları aç")
+        case .needsPermission: (L10n.t("net.ssid.needs"), L10n.t("net.ssid.allow"))
+        case .denied: (L10n.t("net.ssid.denied"), L10n.t("net.ssid.openSettings"))
         case .known, .notWiFi: nil
         }
     }

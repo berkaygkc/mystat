@@ -39,11 +39,11 @@ public enum MonitorPresentation {
             return L10n.t("monitor.incident.memory", ["for": dur, "pressure": PanelPresentation.pressureWord(inc.level)])
                 + (who.map { L10n.t("monitor.incident.memory.grower", ["name": $0]) } ?? "")
         case .disk:
-            let lost = GroupPresentation.fact(inc, "Son 24 sa").map { L10n.t("monitor.incident.disk.lost", ["amount": $0.trimmingCharacters(in: ["−", "-"])]) } ?? ""
+            let lost = GroupPresentation.fact(inc, L10n.t("fact.last24h")).map { L10n.t("monitor.incident.disk.lost", ["amount": $0.trimmingCharacters(in: ["−", "-"])]) } ?? ""
             return L10n.t("monitor.incident.disk", ["free": Fmt.int(s.disk.freeGB), "lost": lost])
         case .docker:
             let who = inc.culpritIDs.first ?? L10n.t("common.aContainer")
-            switch GroupPresentation.fact(inc, "Sağlık") {
+            switch GroupPresentation.fact(inc, L10n.t("fact.health")) {
             case L10n.t("docker.health.restarting"): return L10n.t("monitor.incident.docker.restarting", ["who": who, "for": dur])
             case L10n.t("docker.health.unhealthy"): return L10n.t("monitor.incident.docker.unhealthy", ["who": who, "for": dur])
             default: return L10n.t("monitor.incident.docker.cpu", ["who": who, "for": dur, "value": inc.culpritValues.first ?? ""])
@@ -53,7 +53,7 @@ public enum MonitorPresentation {
                 ? L10n.t("monitor.incident.heat.fans", ["for": dur, "rpm": Fmt.int(s.system.fanRPM)])
                 : L10n.t("monitor.incident.heat.state", ["for": dur, "state": s.system.thermal.thermalWord.lowercased(with: Fmt.locale)])
         case .battery:
-            let left = GroupPresentation.fact(inc, "Kalan").map { L10n.t("incident.battery.left", ["left": $0]) } ?? ""
+            let left = GroupPresentation.fact(inc, L10n.t("fact.left")).map { L10n.t("incident.battery.left", ["left": $0]) } ?? ""
             return L10n.t("monitor.incident.battery", ["in": L10n.plural("dur.in", inc.minutes), "drain": Fmt.pct(s.system.batteryDrain30m ?? 0), "left": left])
         }
     }

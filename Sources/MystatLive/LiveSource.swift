@@ -133,7 +133,7 @@ public final class LiveSource: MetricsSource {
 
     /// tools/net-check.sh: yönlendirici ve en çok indiren (boşluksuz); bilinmiyorsa "-".
     private nonisolated static func router(_ s: Snapshot) -> String {
-        s.net.details.first { $0.label == "Yönlendirici" }.map(\.value).flatMap { $0 == "—" ? nil : $0 } ?? "-"
+        s.net.details.first { $0.label == L10n.t("net.fact.router") }.map(\.value).flatMap { $0 == "—" ? nil : $0 } ?? "-"
     }
     private nonisolated static func topDownloader(_ s: Snapshot) -> String {
         GroupPresentation.networkUsers(s.groups).first.flatMap { $0.netMBps > 0 ? $0.name.replacingOccurrences(of: " ", with: "_") : nil } ?? "-"

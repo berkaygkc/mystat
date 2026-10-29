@@ -7,7 +7,7 @@ public enum DiskPresentation {
 
     /// Tarama öncesi: Tam Disk Erişimi yoksa ne olacağı. Tarama sonrası: okunamayan klasör varsa sayısı.
     public static func accessNote(fullDiskAccess: Bool, scanned: Bool, inaccessible: Int) -> String? {
-        if scanned { return inaccessible > 0 ? "\(Fmt.int(Double(inaccessible))) klasör okunamadı (macOS korumalı)" : nil }
-        return fullDiskAccess ? nil : "Tam tarama için mystat'a Tam Disk Erişimi ver. Vermezsen korumalı klasörler atlanır."
+        if scanned { return inaccessible > 0 ? L10n.plural("disk.access.unreadable", inaccessible, ["n": Fmt.int(Double(inaccessible))]) : nil }
+        return fullDiskAccess ? nil : L10n.t("disk.access.needFDA")
     }
 }
