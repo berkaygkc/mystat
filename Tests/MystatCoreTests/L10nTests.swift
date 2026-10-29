@@ -69,6 +69,17 @@ import Testing
         await Task { #expect(L10n.code == "tr") }.value   // alt görevlere geçer
     }
 
+    /// Paketteki dosyalar kaynak ağacının önüne geçer; paket boşsa kaynak ağacı, ikisi de yoksa nil.
+    @Test func locatePrefersBundle() throws {
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("loc-\(UUID().uuidString)")
+        let bundle = tmp.appendingPathComponent("Resources"), source = tmp.appendingPathComponent("repo")
+        try FileManager.default.createDirectory(at: source.appendingPathComponent("Locales"), withIntermediateDirectories: true)
+        #expect(Localizer.locate(bundleResources: bundle, sourceRoot: source) == source.appendingPathComponent("Locales"))
+        try FileManager.default.createDirectory(at: bundle.appendingPathComponent("Locales"), withIntermediateDirectories: true)
+        #expect(Localizer.locate(bundleResources: bundle, sourceRoot: source) == bundle.appendingPathComponent("Locales"))
+        #expect(Localizer.locate(bundleResources: nil, sourceRoot: tmp.appendingPathComponent("none")) == nil)
+    }
+
     @Test func realFilesLoad() throws {
         let dir = try #require(Localizer.locate())
         let l = Localizer(directory: dir)

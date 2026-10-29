@@ -47,14 +47,17 @@ public final class Localizer: Sendable {
 
     /// Paketin `Contents/Resources/Locales`'i, yoksa kaynak ağacındaki `Locales/` (geliştirme ve testler).
     static func locate() -> URL? {
-        let fm = FileManager.default
-        if let bundled = Bundle.main.resourceURL?.appendingPathComponent("Locales"), fm.fileExists(atPath: bundled.path) {
-            return bundled
-        }
         // Bu dosya: <depo>/Sources/MystatCore/L10n/Localizer.swift
         let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent()
-        let source = repo.appendingPathComponent("Locales")
-        return fm.fileExists(atPath: source.path) ? source : nil
+        return locate(bundleResources: Bundle.main.resourceURL, sourceRoot: repo)
+    }
+
+    static func locate(bundleResources: URL?, sourceRoot: URL) -> URL? {
+        let fm = FileManager.default
+        for dir in [bundleResources?.appendingPathComponent("Locales"), sourceRoot.appendingPathComponent("Locales")] {
+            if let dir, fm.fileExists(atPath: dir.path) { return dir }
+        }
+        return nil
     }
 }
