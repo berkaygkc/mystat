@@ -21,7 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Dil, ölçüm başlamadan: ilk metinler de doğru dilde üretilsin.
         let language = LanguageSettings()
         LanguageSettings.current = language
-        if Localizer.shared.languages.isEmpty { NSLog("mystat: Locales klasörü bulunamadı; metinler anahtar olarak görünecek") }
+        if Localizer.shared.languages.isEmpty { NSLog("mystat: Locales folder not found; texts will show as keys") }
         source = SourceFactory.make(arguments: args)
         status = StatusItemController(source: source) { [weak self] in self?.togglePanel() }
         panel = PanelController(source: source) { [weak self] section, group in self?.openMonitor(section, group) }

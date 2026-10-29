@@ -228,6 +228,7 @@
   "headline.heat.titleNoSensors.emph": "ısınıyor",
   "headline.kicker": "ŞU AN",
   "headline.kicker.incident.other": "ŞU AN · {n} DAKİKADIR",
+  "headline.memory.item": "{name} {gb} GB",
   "headline.memory.lede.other": "Son {n} dakikada {list} büyüdü. ",
   "headline.memory.swap": "Swap {gb} GB'a çıktı.",
   "headline.memory.title": "Bellek baskısı yükseldi.",

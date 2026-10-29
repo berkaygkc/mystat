@@ -53,7 +53,7 @@ public enum GroupPresentation {
             let lead = s.groups.first { $0.id == inc.culpritIDs.first }
             return (kicker, title("headline.cpu.title", emph: lead?.name ?? ""), lead.map { cpuLede($0, s, inc) } ?? "")
         case .memory:
-            let grew = zip(inc.culpritIDs, inc.culpritValues).prefix(2).map { "\(name($0)) \($1.dropFirst()) GB" }
+            let grew = zip(inc.culpritIDs, inc.culpritValues).prefix(2).map { L10n.t("headline.memory.item", ["name": name($0), "gb": String($1.dropFirst())]) }
             let swap = L10n.t("headline.memory.swap", ["gb": Fmt.dec1(s.memory.swapGB)])
             guard let top = inc.culpritIDs.first else { return (kicker, AttributedString(L10n.t("headline.memory.title")), swap) }   // büyüyen grup yok
             return (kicker, title("headline.memory.titleTop", emph: name(top)),
