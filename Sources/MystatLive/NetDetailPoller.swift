@@ -63,7 +63,12 @@ public actor NetDetailPoller {
             // Loopback ölçümü: çekirdeğin alınanı kaç kez saydığı ve kayıt düzeni (her açılışta, ≈ ms).
             let factor = receiveFactor()
             rates = factor.map { SocketRates(receiveFactor: $0) }
-            latest.withLock { $0 = Reading(); $0.perAppAvailable = factor != nil }
+            // Taban hemen: ilk turda (≈ 2 sn sonra) hızlar hazır; o zamana kadar liste "Ölçülüyor…".
+            if rates != nil {
+                if let stats = readSockets() { _ = rates!.update(stats, at: clock()) } else { rates = nil }
+            }
+            let available = rates != nil
+            latest.withLock { $0 = Reading(); $0.perAppAvailable = available }
             if autoTick {
                 loop = Task { [weak self] in
                     while !Task.isCancelled {

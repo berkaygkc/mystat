@@ -37,6 +37,9 @@ public protocol MetricsSource: AnyObject, Observable {
     /// Monitörde görünen bölüm ("docker", "net" …); monitör kapalıysa nil. Docker'ın diski bölüm açılınca yenilenir (§9.2);
     /// disk ağacı yalnızca "disk" açıkken bellekte tutulur (§6.4).
     func setVisibleSection(_ section: String?)
+    /// Monitör penceresi örtüldü ya da küçültüldü (kapanmadı): yalnızca görünürken çalışanlar (Ağ ayrıntıları) durur,
+    /// disk ağacı bellekte kalır.
+    func setMonitorOccluded(_ occluded: Bool)
     /// Docker eylemi (§7.4); onaydan sonra çağrılır. Uzun sürebilir (temizlik); arayüz beklemez.
     func perform(_ action: DockerAction) async -> DockerActionOutcome
     /// Grubun süreçlerine SIGTERM (`force` ise SIGKILL); yalnızca kendi süreçlerin (spec §7.4).
@@ -46,6 +49,7 @@ public protocol MetricsSource: AnyObject, Observable {
 
 public extension MetricsSource {
     var diskScanSimulated: Bool { false }
+    func setMonitorOccluded(_ occluded: Bool) {}
 }
 
 public enum StopOutcome: Sendable, Equatable {

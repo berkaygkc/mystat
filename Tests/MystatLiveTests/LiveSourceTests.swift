@@ -364,4 +364,16 @@ final class FakeProbe: SystemProbe {
         s.setVisibleSection("docker"); await poller.sync()
         #expect(await poller.isVisible == false)
     }
+
+    /// Monitör örtülünce ya da küçültülünce ağ ayrıntıları durur (§9.2 "yalnızca görünürken"; 2 sn ping Wi‑Fi'yi uyanık tutar).
+    @Test func occludedMonitorStopsNetDetails() async {
+        let f = NetFakes(), poller = f.poller()
+        let s = LiveSource(probe: FakeProbe(), historyURL: nil, persistToday: false, autostart: false, dockerAPI: FakeDockerAPI(), net: poller)
+        s.setVisibleSection("net"); await poller.sync()
+        #expect(await poller.isVisible)
+        s.setMonitorOccluded(true); await poller.sync()
+        #expect(await poller.isVisible == false)
+        s.setMonitorOccluded(false); await poller.sync()
+        #expect(await poller.isVisible)
+    }
 }

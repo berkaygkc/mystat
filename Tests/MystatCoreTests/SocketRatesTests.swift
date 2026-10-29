@@ -3,7 +3,11 @@ import Testing
 @testable import MystatCore
 
 @Suite struct SocketRatesTests {
-    func s(_ handle: UInt64, _ pid: Int32, _ rx: UInt64) -> SocketStat { SocketStat(handle: handle, pid: pid, rxBytes: rx) }
+    func s(_ generation: UInt64, _ pid: Int32, _ rx: UInt64) -> SocketStat { SocketStat(generation: generation, pid: pid, rxBytes: rx) }
+    /// Network.framework akışı: çekirdek kaydında kuşak 0; kimliği bağlantı noktaları.
+    func flow(_ pid: Int32, _ lport: UInt16, _ rx: UInt64) -> SocketStat {
+        SocketStat(generation: 0, pid: pid, rxBytes: rx, proto: 6, localPort: lport, foreignPort: 443)
+    }
 
     @Test func firstReadIsBaseline() {
         var r = SocketRates(receiveFactor: 2)
@@ -42,5 +46,14 @@ import Testing
         var groups = [g("A", [10, 11]), g("B", [12])]
         NetRates.apply([10: 1, 11: 0.5, 99: 7], to: &groups)
         #expect(groups.map(\.netMBps) == [1.5, 0])
+    }
+
+    /// Kullanıcı alanı akışları ortak bir tutamaçta çakışmaz (hayalet hız yok) ve tek sayılır (2'ye bölünmez).
+    @Test func userSpaceFlowsKeyedByPortsAndSingleCounted() {
+        var r = SocketRates(receiveFactor: 2)
+        _ = r.update([flow(378, 5223, 46_791), flow(7728, 50_001, 563_700_574), s(5, 9, 0)], at: 0)
+        #expect(r.update([flow(378, 5223, 46_791), flow(7728, 50_001, 563_700_574), s(5, 9, 0)], at: 2) == [378: 0, 7728: 0, 9: 0])
+        let out = r.update([flow(378, 5223, 46_791), flow(7728, 50_001, 567_700_574), s(5, 9, 8_000_000)], at: 4)
+        #expect(out == [378: 0, 7728: 2.0, 9: 2.0])   // akış 4 MB / 2 sn; çekirdek soketi 8 MB / 2 / 2 sn
     }
 }

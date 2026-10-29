@@ -175,6 +175,7 @@ public actor Sampler {
                                  downloads: downloads, coreCount: max(1, ticks.count), docker: dockerState(), sensors: sensors)
         m.link = netReading?.link; m.latencyMs = netReading?.latencyMs; m.perAppAvailable = netReading?.perAppAvailable ?? true
         m.ssidAccess = ssidAccess.withLock { $0 }
+        m.perAppReady = netReading.map { $0.ratesAt != nil } ?? true
         var caps = LiveSource.capabilities
         caps.sensors = sensors != nil
         return Output(snapshot: SnapshotBuilder.build(m, incident: incident, capabilities: caps),

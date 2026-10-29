@@ -29,7 +29,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         monitor?.onVisibilityChange = { [weak self] visible in
             guard let self else { return }
             self.monitorVisible = visible
-            if visible { self.source.setVisibleSection(self.monitor?.state.section.rawValue) }   // örtülünce disk ağacı kalır
+            self.source.setMonitorOccluded(!visible)   // ağ ayrıntıları durur, disk ağacı kalır
+            if visible { self.source.setVisibleSection(self.monitor?.state.section.rawValue) }
         }
         monitor?.onClose = { [weak self] in self?.source.setVisibleSection(nil) }
         installKeys()

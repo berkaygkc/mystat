@@ -41,7 +41,7 @@ final class NetFakes: Sendable {
         let f = NetFakes(), p = f.poller()
         p.setVisible(true); await p.sync()
         for _ in 0..<3 { await p.tick() }
-        #expect(f.n(f.factorCalls) == 1); #expect(f.n(f.pings) == 3); #expect(f.n(f.socketReads) == 3)
+        #expect(f.n(f.factorCalls) == 1); #expect(f.n(f.pings) == 3); #expect(f.n(f.socketReads) == 4)   // taban + 3 tur
         #expect(p.latest.withLock { $0.latencyMs } == 4)   // 30, 3, 4 → ortanca
         #expect(p.latest.withLock { $0.link?.bsdName } == "en0")
     }
@@ -49,21 +49,21 @@ final class NetFakes: Sendable {
     /// 2 sn'de 8 MB sayaç farkı, çekirdek iki kez sayıyor → 2 MB/s.
     @Test func socketsBecomeRates() async {
         let f = NetFakes(), p = f.poller()
-        f.sockets.withLock { $0 = [[SocketStat(handle: 1, pid: 7, rxBytes: 0)], [SocketStat(handle: 1, pid: 7, rxBytes: 8_000_000)]] }
+        f.sockets.withLock { $0 = [[SocketStat(generation: 1, pid: 7, rxBytes: 0)], [SocketStat(generation: 1, pid: 7, rxBytes: 8_000_000)]] }
         p.setVisible(true); await p.sync()
-        await p.tick(); await p.tick()
+        await p.tick()
         #expect(p.latest.withLock { $0.rates } == [7: 2.0])
         #expect(p.latest.withLock { $0.ratesAt } != nil)
     }
 
     @Test func hiddenStopsAndClears() async {
         let f = NetFakes(), p = f.poller()
-        f.sockets.withLock { $0 = [[SocketStat(handle: 1, pid: 7, rxBytes: 0)], [SocketStat(handle: 1, pid: 7, rxBytes: 4_000_000)]] }
+        f.sockets.withLock { $0 = [[SocketStat(generation: 1, pid: 7, rxBytes: 0)], [SocketStat(generation: 1, pid: 7, rxBytes: 4_000_000)]] }
         p.setVisible(true); await p.sync(); await p.tick(); await p.tick()
         p.setVisible(false); await p.sync()
         #expect(p.latest.withLock { $0.rates.isEmpty && $0.latencyMs == nil && $0.link == nil })
         await p.tick()
-        #expect(f.n(f.socketReads) == 2); #expect(f.n(f.pings) == 2)   // gizliyken tur yok
+        #expect(f.n(f.socketReads) == 3); #expect(f.n(f.pings) == 2)   // taban + 2 tur; gizliyken tur yok
     }
 
     @Test func noRouterNoPing() async {
@@ -87,7 +87,7 @@ final class NetFakes: Sendable {
     @Test func socketReadFailureMarksUnavailable() async {
         let f = NetFakes(), p = f.poller()
         f.sockets.withLock { $0 = [nil] }
-        p.setVisible(true); await p.sync()
+        p.setVisible(true); await p.sync()   // taban okunamadı
         await p.tick(); await p.tick()
         #expect(p.latest.withLock { $0.perAppAvailable } == false)
         #expect(f.n(f.socketReads) == 1)
@@ -102,5 +102,26 @@ final class NetFakes: Sendable {
         await p.sync(); await p.sync()
         #expect(await p.isVisible == false)
         #expect(f.n(f.factorCalls) == 0)
+    }
+
+    /// Taban bölüm açılınca alınır: ilk turda hızlar hazır (açılışta 2–4 sn "kimse kullanmıyor" görünmesin).
+    @Test func baselineTakenOnOpen() async {
+        let f = NetFakes(), p = f.poller()
+        f.sockets.withLock { $0 = [[SocketStat(generation: 1, pid: 7, rxBytes: 0)], [SocketStat(generation: 1, pid: 7, rxBytes: 8_000_000)]] }
+        p.setVisible(true); await p.sync()
+        #expect(f.n(f.socketReads) == 1)
+        await p.tick()
+        #expect(p.latest.withLock { $0.rates } == [7: 2.0])
+    }
+
+    /// Taban alındıktan sonra sayaçlar okunamazsa liste "okunamadı" olur ve bu görünürlükte yeniden denenmez.
+    @Test func tickReadFailureMarksUnavailable() async {
+        let f = NetFakes(), p = f.poller()
+        f.sockets.withLock { $0 = [[SocketStat(generation: 1, pid: 7, rxBytes: 0)], nil] }
+        p.setVisible(true); await p.sync()
+        #expect(p.latest.withLock { $0.perAppAvailable })
+        await p.tick(); await p.tick()
+        #expect(p.latest.withLock { $0.perAppAvailable } == false)
+        #expect(f.n(f.socketReads) == 2)
     }
 }

@@ -83,4 +83,11 @@ import Testing
         #expect(NetPresentation.latencyText(18) == "18 ms")
         #expect(NetPresentation.latencyText(3.6) == "4 ms")
     }
+
+    @Test func perAppNotes() {
+        #expect(NetPresentation.perAppNote(available: false, ready: true, empty: false) == "Uygulama bazında ağ okunamadı.")
+        #expect(NetPresentation.perAppNote(available: true, ready: false, empty: true) == "Ölçülüyor…")
+        #expect(NetPresentation.perAppNote(available: true, ready: true, empty: true) == "Şu an ağı kullanan bir uygulama yok.")
+        #expect(NetPresentation.perAppNote(available: true, ready: true, empty: false) == nil)
+    }
 }

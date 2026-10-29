@@ -124,8 +124,10 @@ public struct NetState: Sendable {
     public var details: [Fact]
     /// Ağın adı yoksa nedeni (konum izni, Wi‑Fi değil).
     public var ssidAccess: SSIDAccess = .known
-    /// Uygulama bazında ağ okunabiliyor mu (`nettop`).
+    /// Uygulama bazında ağ okunabiliyor mu (çekirdek soket sayaçları).
     public var perAppAvailable = true
+    /// İlk hızlar geldi mi (bölüm açıldıktan ≈ 2 sn sonra); gelmediyse "Ölçülüyor…".
+    public var perAppReady = true
 }
 
 public struct DockerDisk: Sendable {

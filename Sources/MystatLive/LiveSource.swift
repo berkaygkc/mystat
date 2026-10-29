@@ -23,6 +23,8 @@ public final class LiveSource: MetricsSource {
     @ObservationIgnored let docker: DockerPoller
     @ObservationIgnored let net: NetDetailPoller
     @ObservationIgnored let location: LocationAccess
+    @ObservationIgnored private var visibleSection: String?
+    @ObservationIgnored private var occluded = false
     @ObservationIgnored private let history: HistoryStore?
     @ObservationIgnored private let probe: any SystemProbe
     @ObservationIgnored private var starts: [Int32: Date] = [:]
@@ -97,13 +99,19 @@ public final class LiveSource: MetricsSource {
 
     public func perform(_ action: DockerAction) async -> DockerActionOutcome { await docker.perform(action) }
 
+    public func setMonitorOccluded(_ occluded: Bool) {
+        self.occluded = occluded
+        net.setVisible(visibleSection == "net" && !occluded)
+    }
+
     public func startDiskScan() { disk.start() }
     public func requestNetworkNameAccess() { location.request() }
     public func cancelDiskScan() { disk.cancel() }
 
     public func setVisibleSection(_ section: String?) {
         disk.setVisible(section == "disk")
-        net.setVisible(section == "net")
+        visibleSection = section
+        net.setVisible(section == "net" && !occluded)
         if section == "disk", DiskAccess.hasFullDiskAccess() != diskFullAccess { diskFullAccess.toggle() }
         guard section == "docker" else { return }
         let docker = docker

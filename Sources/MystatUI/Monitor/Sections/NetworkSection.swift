@@ -29,10 +29,9 @@ struct NetworkSection<Source: MetricsSource>: View {
                 VStack(alignment: .leading, spacing: 0) {
                     SecH("Kim kullanıyor", note: "uygulamaya göre")
                     let users = GroupPresentation.networkUsers(s.groups)
-                    if s.capabilities.netDetails, !s.net.perAppAvailable {
-                        Text("Uygulama bazında ağ okunamadı.").font(.system(size: 12.5)).foregroundStyle(Theme.ink3).padding(.top, 10)
-                    } else if s.capabilities.netDetails, users.isEmpty {
-                        Text("Şu an ağı kullanan bir uygulama yok.").font(.system(size: 12.5)).foregroundStyle(Theme.ink3).padding(.top, 10)
+                    if s.capabilities.netDetails,
+                       let note = NetPresentation.perAppNote(available: s.net.perAppAvailable, ready: s.net.perAppReady, empty: users.isEmpty) {
+                        Text(note).font(.system(size: 12.5)).foregroundStyle(Theme.ink3).padding(.top, 10)
                     } else if s.capabilities.netDetails {
                         GroupList(groups: users, metric: .network, state: state)
                     } else {

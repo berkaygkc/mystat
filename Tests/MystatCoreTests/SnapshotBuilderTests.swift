@@ -102,11 +102,11 @@ import Testing
         var m = measurements()
         let link = NetLink(bsdName: "en0", displayName: "Wi‑Fi", localIP: "192.168.1.42", router: "192.168.1.1", dns: ["1.1.1.1"],
                            wifi: WiFiReading(ssid: nil, rssi: -60, noise: -90, txRateMbps: 195, channel: 100, bandGHz: 5), linkMbps: nil)
-        m.link = link; m.latencyMs = nil; m.perAppAvailable = false; m.ssidAccess = .needsPermission
+        m.link = link; m.latencyMs = nil; m.perAppAvailable = false; m.ssidAccess = .needsPermission; m.perAppReady = false
         let n = SnapshotBuilder.build(m, incident: nil, capabilities: .all).net
         #expect(n.iface == "Wi‑Fi"); #expect(n.ssid == "")
         #expect(n.details == NetPresentation.facts(link))
-        #expect(n.latencyMs.isNaN); #expect(n.ssidAccess == .needsPermission); #expect(n.perAppAvailable == false)
+        #expect(n.latencyMs.isNaN); #expect(n.ssidAccess == .needsPermission); #expect(n.perAppAvailable == false); #expect(n.perAppReady == false)
         m.link?.wifi?.ssid = "Ev"; m.latencyMs = 4
         let k = SnapshotBuilder.build(m, incident: nil, capabilities: .all).net
         #expect(k.ssid == "Ev"); #expect(k.ssidAccess == .known); #expect(k.latencyMs == 4)

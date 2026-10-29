@@ -55,6 +55,13 @@ public enum NetPresentation {
         rssi >= -55 ? "Çok iyi" : rssi >= -67 ? "İyi" : rssi >= -75 ? "Orta" : "Zayıf"
     }
 
+    /// "Kim kullanıyor" listesinin yerine geçen not; nil: liste gösterilir.
+    public static func perAppNote(available: Bool, ready: Bool, empty: Bool) -> String? {
+        if !available { return "Uygulama bazında ağ okunamadı." }
+        if !ready { return "Ölçülüyor…" }
+        return empty ? "Şu an ağı kullanan bir uygulama yok." : nil
+    }
+
     /// Yönlendirici gecikmesi; ölçülmediyse "—".
     public static func latencyText(_ ms: Double) -> String { ms.isFinite ? Fmt.int(ms) + " ms" : Fmt.missing }
 

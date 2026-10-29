@@ -41,6 +41,7 @@ public struct LiveMeasurements: Sendable {
     public var link: NetLink? = nil
     public var latencyMs: Double? = nil
     public var perAppAvailable = true
+    public var perAppReady = true
     /// Wi‑Fi ağının adı yoksa konum izninin durumu.
     public var ssidAccess: SSIDAccess = .needsPermission
 
@@ -70,7 +71,7 @@ public enum SnapshotBuilder {
                            latencyMs: m.latencyMs ?? .nan, iface: m.link?.displayName ?? m.iface, ssid: m.link?.wifi?.ssid ?? "",
                            details: m.link.map(NetPresentation.facts) ?? [Fact("Arayüz", m.iface), Fact("Yerel IP", m.ip ?? "—")])
         net.ssidAccess = m.link.map { l in l.wifi == nil ? .notWiFi : l.wifi?.ssid != nil ? .known : m.ssidAccess } ?? .known
-        net.perAppAvailable = m.perAppAvailable
+        net.perAppAvailable = m.perAppAvailable; net.perAppReady = m.perAppReady
         s.net = net
         let b = m.battery
         s.system = SystemState(chipTemp: 0, gpuTemp: 0, ssdTemp: 0, fanRPM: 0, thermal: m.thermal,
