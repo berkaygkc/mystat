@@ -3,7 +3,7 @@ import MystatCore
 import MystatUI
 import SwiftUI
 
-/// `mystat --snapshot <menubar|panel|monitor|bubbles|charts> --out x.png [--dark] [--incident] [--kind k] [--section s] [--size WxH] [--scan s]`
+/// `mystat --snapshot <menubar|panel|monitor|bubbles|charts> --out x.png [--lang en|tr] [--dark] [--incident] [--kind k] [--section s] [--size WxH] [--scan s]`
 /// Görünümü ekran dışı bir pencerede çizip PNG'ye yazar; mockup karşılaştırması içindir.
 @MainActor
 enum SnapshotMode {
@@ -15,6 +15,7 @@ enum SnapshotMode {
         var fda = true, inaccessible = 0, ssid = ""
         var bmPath: [String] = [], bmSelect: [[String]] = [], bmZoom: String?, bmP = 0.0, bmHover: String?
         var size = CGSize(width: 1400, height: 900)
+        var lang = "en"
     }
 
     static func parse(_ args: [String]) -> Options {
@@ -24,6 +25,7 @@ enum SnapshotMode {
             switch args[i] {
             case "--snapshot": o.target = next()
             case "--out": o.out = next()
+            case "--lang": o.lang = next()
             case "--dark": o.dark = true
             case "--incident": o.incident = true
             case "--kind": o.kind = IncidentKind(rawValue: next()) ?? .cpu
@@ -54,6 +56,7 @@ enum SnapshotMode {
 
     static func run(_ args: [String]) -> Never {
         let o = parse(args)
+        L10n.setLanguage(o.lang)
         NSApplication.shared.setActivationPolicy(.prohibited)
         let source = SampleSource(seed: 1, incident: o.incident, kind: o.kind)
         if o.docker == "down" { source.dockerRunning = false }

@@ -15,5 +15,5 @@ public struct SourceCapabilities: Sendable, Equatable {
 
 public extension Level {
     /// Sensör yokken termal durumun sözcüğü.
-    var thermalWord: String { switch self { case .ok: "Normal"; case .warn: "Ilık"; case .crit: "Sıcak" } }
+    var thermalWord: String { L10n.t("thermal.\(self == .ok ? "ok" : self == .warn ? "warn" : "crit")") }
 }

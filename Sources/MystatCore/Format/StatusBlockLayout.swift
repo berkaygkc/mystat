@@ -44,9 +44,9 @@ public enum StatusBlockLayout {
 
     public static func model(_ s: Snapshot, now: Date, calendar: Calendar) -> StatusBlockModel {
         let metrics = [
-            StatusMetric(label: "CPU", value: Fmt.pct(s.cpu.percent), level: Thresholds.cpuTotal(s.cpu.percent)),
-            StatusMetric(label: "RAM", value: Fmt.pct(s.memory.percent), level: s.memory.pressureLevel),
-            StatusMetric(label: "DİSK", value: Fmt.pct(s.disk.percent), level: Thresholds.diskFree(s.disk.freeGB)),
+            StatusMetric(label: L10n.t("menubar.cpu"), value: Fmt.pct(s.cpu.percent), level: Thresholds.cpuTotal(s.cpu.percent)),
+            StatusMetric(label: L10n.t("menubar.ram"), value: Fmt.pct(s.memory.percent), level: s.memory.pressureLevel),
+            StatusMetric(label: L10n.t("menubar.disk"), value: Fmt.pct(s.disk.percent), level: Thresholds.diskFree(s.disk.freeGB)),
         ]
         return StatusBlockModel(alert: alert(s), metrics: metrics,
                                 down: "↓" + Fmt.rate(s.net.downMBps), up: "↑" + Fmt.rate(s.net.upMBps),
@@ -59,12 +59,12 @@ public enum StatusBlockLayout {
         guard let inc = s.incident else { return nil }
         if inc.kind == .heat || s.system.thermal != .ok {
             let value = s.capabilities.sensors ? Fmt.int(s.system.chipTemp) + "°" : s.system.thermal.thermalWord
-            return StatusMetric(label: "ISI", value: value, level: s.system.thermal == .ok ? inc.level : s.system.thermal)
+            return StatusMetric(label: L10n.t("menubar.temp"), value: value, level: s.system.thermal == .ok ? inc.level : s.system.thermal)
         }
-        if inc.kind == .battery, let drain = s.system.batteryDrain30m { return StatusMetric(label: "PİL", value: "−" + Fmt.pct(drain), level: .warn) }
-        if inc.kind == .docker {   // yüzde değilse (yeniden başlama, sağlıksız) kısa durum
+        if inc.kind == .battery, let drain = s.system.batteryDrain30m { return StatusMetric(label: L10n.t("menubar.battery"), value: "−" + Fmt.pct(drain), level: .warn) }
+        if inc.kind == .docker {   // yüzde değilse (yeniden başlama, sağlıksız) kısa durum; yüzde işaretinin yeri dile bağlı
             let v = inc.culpritValues.first ?? ""
-            return StatusMetric(label: "DOCKER", value: v.hasPrefix("%") || inc.level != .crit ? v : "hata", level: inc.level)
+            return StatusMetric(label: L10n.t("menubar.docker"), value: v.contains("%") || inc.level != .crit ? v : L10n.t("menubar.error"), level: inc.level)
         }
         return nil
     }

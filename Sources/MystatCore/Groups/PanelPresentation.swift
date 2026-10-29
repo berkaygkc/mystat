@@ -20,46 +20,50 @@ public struct CulpritRow: Sendable, Equatable {
 
 /// Panel ve Genel Bakış'taki 2×3 özet hücreleri ile olay sorumluları.
 public enum PanelPresentation {
-    public static func pressureWord(_ l: Level) -> String { l == .crit ? "yüksek" : l == .warn ? "orta" : "düşük" }
+    public static func pressureWord(_ l: Level) -> String { L10n.t(l == .crit ? "pressure.crit" : l == .warn ? "pressure.warn" : "pressure.ok") }
 
     public static func cells(_ s: Snapshot) -> [PanelCell] {
         let inc = s.incident
         let cpuLevel = Thresholds.cpuTotal(s.cpu.percent)
         let cpuSub: String
         if let inc, inc.kind == .cpu {   // toplam düşükse olay tek grubun yükü: yüzde iddiası yazılmaz
-            cpuSub = s.cpu.percent >= 70 ? "\(inc.minutes) dakikadır %\(Int(s.cpu.percent / 10) * 10) üzerinde" : "\(inc.minutes) dakikadır yoğun"
-        } else { cpuSub = "\(s.cpu.cores.count) çekirdek, sakin" }
+            let dur = L10n.plural("dur.for", inc.minutes)
+            cpuSub = s.cpu.percent >= 70 ? L10n.t("panel.cpu.above", ["for": dur, "pct": Fmt.pct(Double(Int(s.cpu.percent / 10) * 10))])
+                                         : L10n.t("panel.cpu.busy", ["for": dur])
+        } else { cpuSub = L10n.t("panel.cpu.calm", ["n": String(s.cpu.cores.count)]) }
         let dockerCores = s.docker.containers.reduce(0) { $0 + $1.cpuPercent } / 100
-        let sysSub: String
-        if let drain = s.system.batteryDrain30m, drain > 0 { sysSub = "Pil %\(s.system.battery), prizde değil" }
+        let sysSub: String, battery = Fmt.pct(Double(s.system.battery)), rpm = Fmt.int(s.system.fanRPM)
+        if let drain = s.system.batteryDrain30m, drain > 0 { sysSub = L10n.t("panel.sys.unplugged", ["battery": battery]) }
         else if s.system.thermal != .ok {
-            sysSub = s.system.fanCount > 0 && s.system.fanRPM > 0 ? "Fan \(Fmt.int(s.system.fanRPM)) dev/dk, ısınıyor" : "Isınıyor, pil %\(s.system.battery)"
+            sysSub = s.system.fanCount > 0 && s.system.fanRPM > 0 ? L10n.t("panel.sys.fanWarming", ["rpm": rpm]) : L10n.t("panel.sys.warming", ["battery": battery])
         } else if s.system.fanCount == 0 {
-            sysSub = "Pil %\(s.system.battery)"
+            sysSub = L10n.t("panel.sys.battery", ["battery": battery])
         } else {   // panelde "duruyor" da "sessiz" (Faz 1 metni)
             let quiet = SystemPresentation.quiet(s.system)
-            sysSub = "Fan \(quiet ? "sessiz" : Fmt.int(s.system.fanRPM) + " dev/dk"), pil %\(s.system.battery)"
+            sysSub = L10n.t("panel.sys.fan", ["fan": quiet ? L10n.t("fan.quiet") : L10n.t("unit.rpm", ["rpm": rpm]), "battery": battery])
         }
         let sysLevel: Level = s.system.batteryDrain30m != nil ? .warn : s.system.thermal
         let caps = s.capabilities
         return [
-            PanelCell(section: "cpu", label: "İşlemci", big: Fmt.pct(s.cpu.percent), unit: nil, sub: cpuSub, level: cpuLevel),
-            PanelCell(section: "mem", label: "Bellek", big: Fmt.pct(s.memory.percent), unit: nil,
-                      sub: "\(Fmt.dec1(s.memory.usedGB)) / \(Fmt.int(s.memory.totalGB)) GB, baskı \(pressureWord(s.memory.pressureLevel))",
+            PanelCell(section: "cpu", label: L10n.t("section.cpu"), big: Fmt.pct(s.cpu.percent), unit: nil, sub: cpuSub, level: cpuLevel),
+            PanelCell(section: "mem", label: L10n.t("section.mem"), big: Fmt.pct(s.memory.percent), unit: nil,
+                      sub: L10n.t("panel.mem.sub", ["used": Fmt.dec1(s.memory.usedGB), "total": Fmt.int(s.memory.totalGB),
+                                                    "pressure": pressureWord(s.memory.pressureLevel)]),
                       level: s.memory.pressureLevel),
-            PanelCell(section: "disk", label: "Disk", big: Fmt.pct(s.disk.percent), unit: nil, sub: "\(Fmt.int(s.disk.freeGB)) GB boş",
-                      level: Thresholds.diskFree(s.disk.freeGB)),
-            PanelCell(section: "net", label: "Ağ", big: Fmt.rate(s.net.downMBps), unit: "MB/s",
+            PanelCell(section: "disk", label: L10n.t("section.disk"), big: Fmt.pct(s.disk.percent), unit: nil,
+                      sub: L10n.t("panel.disk.sub", ["free": Fmt.int(s.disk.freeGB)]), level: Thresholds.diskFree(s.disk.freeGB)),
+            PanelCell(section: "net", label: L10n.t("section.net"), big: Fmt.rate(s.net.downMBps), unit: "MB/s",
                       sub: "↑ \(Fmt.rate(s.net.upMBps)) MB/s · \(s.net.iface)", level: .ok),
             caps.docker && !s.docker.running
-                ? PanelCell(section: "docker", label: "Docker", big: "—", unit: nil, sub: "çalışmıyor", level: .ok)
+                ? PanelCell(section: "docker", label: L10n.t("section.docker"), big: "—", unit: nil, sub: L10n.t("panel.docker.notRunning"), level: .ok)
                 : caps.docker
-                ? PanelCell(section: "docker", label: "Docker", big: String(s.docker.containers.count), unit: nil,
-                            sub: "container · \(Fmt.cores(dockerCores)) çekirdek", level: inc?.kind == .docker ? inc!.level : .ok)
-                : PanelCell(section: "docker", label: "Docker", big: "—", unit: nil, sub: "bağlanmadı", level: .ok),
+                ? PanelCell(section: "docker", label: L10n.t("section.docker"), big: String(s.docker.containers.count), unit: nil,
+                            sub: L10n.t("panel.docker.sub", ["cores": Fmt.cores(dockerCores)]), level: inc?.kind == .docker ? inc!.level : .ok)
+                : PanelCell(section: "docker", label: L10n.t("section.docker"), big: "—", unit: nil, sub: L10n.t("panel.docker.notConnected"), level: .ok),
             caps.sensors
-                ? PanelCell(section: "sys", label: "Sistem", big: Fmt.int(s.system.chipTemp) + "°", unit: nil, sub: sysSub, level: sysLevel)
-                : PanelCell(section: "sys", label: "Sistem", big: s.system.thermal.thermalWord, unit: nil, sub: "pil %\(s.system.battery)", level: sysLevel),
+                ? PanelCell(section: "sys", label: L10n.t("section.sys"), big: Fmt.int(s.system.chipTemp) + "°", unit: nil, sub: sysSub, level: sysLevel)
+                : PanelCell(section: "sys", label: L10n.t("section.sys"), big: s.system.thermal.thermalWord, unit: nil,
+                            sub: L10n.t("panel.sys.noSensors", ["battery": battery]), level: sysLevel),
         ]
     }
 
