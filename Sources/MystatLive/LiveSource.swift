@@ -120,6 +120,15 @@ public final class LiveSource: MetricsSource {
             + " imgReclaim=\(f(s.docker.disk.imagesReclaimGB, 2)) volReclaim=\(f(s.docker.disk.volumesReclaimGB, 2)) volAnon=\(f(s.docker.disk.volumesAnonReclaimGB, 2))"
             + " chip=\(f(s.system.chipTemp, 1)) gpuT=\(f(s.system.gpuTemp, 1)) fan=\(f(s.system.fanRPM, 0)) pstr=\(f(s.system.watts, 1))"
             + " cpuW=\(f(s.system.cpuWatts ?? 0, 1)) gpuW=\(f(s.system.gpuWatts ?? 0, 1)) gpu=\(f(s.system.gpuPercent, 0))"
+            + " rtr=\(router(s)) lat=\(s.net.latencyMs.isFinite ? f(s.net.latencyMs, 1) : "-") top=\(topDownloader(s))"
+    }
+
+    /// tools/net-check.sh: yönlendirici ve en çok indiren (boşluksuz); bilinmiyorsa "-".
+    private nonisolated static func router(_ s: Snapshot) -> String {
+        s.net.details.first { $0.label == "Yönlendirici" }.map(\.value).flatMap { $0 == "—" ? nil : $0 } ?? "-"
+    }
+    private nonisolated static func topDownloader(_ s: Snapshot) -> String {
+        GroupPresentation.networkUsers(s.groups).first.flatMap { $0.netMBps > 0 ? $0.name.replacingOccurrences(of: " ", with: "_") : nil } ?? "-"
     }
 
     /// Grubun pid'leri o anki listeden yeniden çözülür: o arada biten ya da başka sürece geçmiş pid'e sinyal gitmez.

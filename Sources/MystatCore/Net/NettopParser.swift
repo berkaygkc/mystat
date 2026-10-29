@@ -34,6 +34,14 @@ public struct NettopParser: Sendable {
         current![pid] = NetBytes(inBytes: prev.inBytes &+ inn, outBytes: prev.outBytes &+ out)
         return nil
     }
+
+    /// Süreç bitti (kısa çalıştırma, `-L 2`): son örneğin ardından başlık gelmez, burada kapanır. İlk örnekse atlanır.
+    public mutating func finish() -> [Int32: NetBytes]? {
+        guard let done = current else { return nil }
+        current = nil
+        closed += 1
+        return closed == 1 ? nil : done
+    }
 }
 
 /// Uygulama bazında ↓ hız (spec §6.3 "Kim kullanıyor").

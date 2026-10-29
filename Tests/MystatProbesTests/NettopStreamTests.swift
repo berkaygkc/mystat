@@ -31,12 +31,23 @@ final class SampleLog: Sendable {
         let pid = try #require(s.processID)
         #expect(Self.waitUntil(12) { log.count >= 1 })
         #expect(log.samples.withLock { $0.first?.isEmpty == false })   // en az kernel_task satırı
-        let child = Self.children(of: pid).first   // script'in altındaki nettop
-        #expect(child != nil)
         s.stop()
         #expect(!s.isRunning)
-        #expect(kill(pid, 0) == -1 && errno == ESRCH)
-        if let child { #expect(Self.waitUntil(3) { kill(child, 0) == -1 }) }   // nettop da biter (SIGHUP)
+        #expect(Self.waitUntil(2) { kill(pid, 0) == -1 && errno == ESRCH })
+    }
+
+    /// Terminale bağlı nettop 1,4 çekirdek yiyor (ölçüldü): çıktı boruya gider, denetim terminali yok.
+    @Test func runsWithoutTerminal() throws {
+        let s = NettopStream { _ in }
+        #expect(s.start())
+        defer { s.stop() }
+        let pid = try #require(s.processID)
+        let p = Process(); p.executableURL = URL(fileURLWithPath: "/bin/ps"); p.arguments = ["-o", "tty=,comm=", "-p", String(pid)]
+        let out = Pipe(); p.standardOutput = out
+        try p.run(); p.waitUntilExit()
+        let line = String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        #expect(line.hasPrefix("??"), "\(line)")
+        #expect(line.contains("nettop"), "\(line)")
     }
 
     @Test func missingExecutable() {

@@ -183,7 +183,10 @@ final class FakeProbe: SystemProbe {
         let dl = LiveSource.logLine(d)                                   // tools/docker-check.sh bunları docker CLI ile karşılaştırır
         #expect(dl.contains(" containers=2 ") && dl.contains(" dockerCPU=") && dl.contains(" dockerMem="))
         #expect(dl.contains(" imgReclaim=2.80 volReclaim=12.60 volAnon=7.10"))
-        #expect(dl.hasSuffix(" chip=48.0 gpuT=41.0 fan=0 pstr=14.0 cpuW=6.0 gpuW=1.0 gpu=6"))   // tools/sensor-check.sh
+        #expect(dl.contains(" chip=48.0 gpuT=41.0 fan=0 pstr=14.0 cpuW=6.0 gpuW=1.0 gpu=6 "))   // tools/sensor-check.sh
+        #expect(dl.hasSuffix(" rtr=192.168.1.1 lat=18.0 top=Docker"))   // tools/net-check.sh
+        var n = d; n.net.latencyMs = .nan; n.net.details = []; n.groups = []
+        #expect(LiveSource.logLine(n).hasSuffix(" rtr=- lat=- top=-"))
     }
 
     /// Onay penceresi açıkken grubun kimliği başka oturuma geçebilir (aynı klasörde iki oturum, biri bitti):
@@ -334,20 +337,22 @@ final class FakeProbe: SystemProbe {
         #expect(s.diskTree.root.children == nil)
     }
 
-    /// Uygulama bazında ağ hızları 5 sn'den eskiyse gruplara yazılmaz.
+    /// Uygulama bazında ağ hızları 12 sn'den eskiyse gruplara yazılmaz (nettop ≈ 5 sn'de bir örnek verir).
     @Test func staleNetRatesIgnored() async throws {
         let p = FakeProbe()
         let net = NetDetailPoller(link: { nil }, ping: { _ in nil }, stream: { _ in nil }, autoTick: false)
         let s = Sampler(probe: p, history: nil, persistToday: false, net: net)
         let t0 = Date()
         _ = await s.sample(at: t0)
-        net.latest.withLock { $0.rates = [100: 3]; $0.ratesAt = t0.addingTimeInterval(-4) }
+        net.latest.withLock { $0.rates = [100: 3]; $0.ratesAt = t0.addingTimeInterval(-11) }
         let stale = await s.sample(at: t0.addingTimeInterval(2))
         #expect(stale.snapshot.groups.allSatisfy { $0.netMBps == 0 })
         net.latest.withLock { $0.ratesAt = t0.addingTimeInterval(3) }
         let fresh = await s.sample(at: t0.addingTimeInterval(4))
         let g = try #require(fresh.snapshot.groups.first { $0.pids.contains(100) })
         #expect(g.netMBps == 3)
+        let older = await s.sample(at: t0.addingTimeInterval(11))   // 8 sn önceki örnek: nettop'un temposunda hâlâ geçerli
+        #expect(older.snapshot.groups.first { $0.pids.contains(100) }?.netMBps == 3)
     }
 
     @Test func liveSourceNetDetails() async {

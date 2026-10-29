@@ -53,4 +53,14 @@ import Testing
         NetRates.apply([10: 1, 11: 0.5, 99: 7], to: &groups)
         #expect(groups.map(\.netMBps) == [1.5, 0])
     }
+
+    /// Kısa çalıştırmada (`-L 2`) son örneğin ardından başlık gelmez: süreç bitince `finish()` onu verir.
+    @Test func finishReturnsLastSample() {
+        var p = NettopParser()
+        #expect(feed(&p, [Self.header, "a.1,9,9,", Self.header, "a.1,4,2,"]).isEmpty)
+        #expect(p.finish() == [1: NetBytes(inBytes: 4, outBytes: 2)])
+        var q = NettopParser()
+        _ = feed(&q, [Self.header, "a.1,9,9,"])
+        #expect(q.finish() == nil)   // tek örnek: birikmiş toplam, atlanır
+    }
 }
