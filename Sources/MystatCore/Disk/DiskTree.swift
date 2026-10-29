@@ -20,7 +20,7 @@ public final class DiskNode {
     /// Ekranda "Diğer" yazar (`displayName`).
     public static let smallFilesName = "\u{0}küçük"
     public static let restName = "\u{0}kalan"
-    public static func display(_ name: String) -> String { name.first == "\u{0}" ? "Diğer" : name }
+    public static func display(_ name: String) -> String { name.first == "\u{0}" ? L10n.t("disk.other") : name }
     public var displayName: String { Self.display(name) }
 
     public init(_ name: String, _ size: Double, file: Bool = false, docker: Bool = false, _ children: [DiskNode]? = nil,
@@ -34,7 +34,7 @@ public final class DiskNode {
     public var kind: NodeKind {
         if case .other? = ref { return .other }
         if isDocker || name == "Docker" { return .docker }
-        if ref == nil, name == "Diğer" { return .other }
+        if ref == nil, name == L10n.t("disk.other") { return .other }   // örnek veri
         if Self.isRegen(name) { return .regen }
         if isFile { return .file }
         return .folder
@@ -43,7 +43,7 @@ public final class DiskNode {
     /// İçine girilebilir mi. Örnek veride alt düğüm üretilebilir mi; tarama ağacında klasör mü.
     public var canHaveChildren: Bool {
         if let ref { if case .dir = ref { return true } else { return false } }
-        return !isFile && name != "Diğer" && size >= 0.03
+        return !isFile && name != L10n.t("disk.other") && size >= 0.03
     }
 
     /// Yeniden oluşturulabilir klasör adları. `Regex` Sendable değil; arka plan taramasında da güvenle
@@ -194,7 +194,6 @@ enum SampleGenerator {
         "nm": ["next", "@next", "typescript", "@swc", "esbuild", "react-dom", "@prisma", "turbo", "sharp", "lightningcss", "@img", "playwright-core", "@babel", "webpack", "caniuse-lite", "date-fns", "lodash", "@tanstack", "rxjs", "zod"],
         "pkg": ["dist", "lib", "cjs", "esm", "node_modules", "bin", "src", "types", "vendor"],
         "next": ["cache", "server", "static", "standalone", "types", "webpack", "swc"],
-        "media": ["Ekran Kaydı 2026-10-{n}.mov", "Toplantı {n}.mp4", "Demo {n}.mov", "Sunum kaydı {n}.mp4", "Klip {n}.mov"],
         "cache": ["com.apple.{h}", "v3", "blobs", "index", "tmp", "store-{h}", "metadata", "objects"],
         "gen": ["src", "assets", "build", "dist", "logs", "data", "backup", "archive", "cache", ".git", "exports", "vendor", "public", "tests", "scripts", "models", "fixtures", "raw", "temp"],
         "files": ["export.zip", "dump.sql", "video.mp4", "dataset.parquet", "backup.tar.gz", "model.bin", "image.dmg", "recording.mov", "events.log", "archive.7z", "bundle.js.map", "snapshot.db"],
@@ -210,13 +209,14 @@ enum SampleGenerator {
         if nm.hasPrefix("node_modules") { pool = "nm"; fileP = 0 }
         else if path.contains("node_modules") { pool = "pkg"; fileP = 0.2 }
         else if nm == ".next" { pool = "next"; fileP = 0.1 }
-        else if nm.contains("Movies") || nm.contains("Kayıt") || nm.contains("Klip") { pool = "media"; fileP = 1 }
+        else if nm.contains("Movies") || nm == L10n.t("sample.disk.screenRecordings") { pool = "media"; fileP = 1 }
         else if ["Cache", "cache", "pnpm", "Homebrew", ".npm", "store"].contains(where: nm.contains) { pool = "cache"; fileP = 0.3 }
 
         let k = 3 + Int(r.next() * 5)
         let ws = (0..<k).map { _ in pow(r.next(), 2.2) + 0.03 }.sorted(by: >)
         let sum = ws.reduce(0, +)
-        let names = shuffled(pools[pool]!, &r), fnames = shuffled(pools["files"]!, &r)
+        let media = L10n.t("sample.disk.media").components(separatedBy: "|")   // dosya adları seçili dilde
+        let names = shuffled(pool == "media" ? media : pools[pool]!, &r), fnames = shuffled(pools["files"]!, &r)
         var used = Set<String>()
         var kids: [DiskNode] = ws.enumerated().map { i, w in
             let size = n.size * 0.9 * w / sum
@@ -228,7 +228,7 @@ enum SampleGenerator {
             used.insert(name)
             return DiskNode(name, size, file: isFile)
         }
-        if n.size * 0.1 >= 0.004 { kids.append(DiskNode("Diğer", n.size * 0.1)) }
+        if n.size * 0.1 >= 0.004 { kids.append(DiskNode(L10n.t("disk.other"), n.size * 0.1)) }
         n.children = kids
     }
 

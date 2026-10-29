@@ -16,6 +16,15 @@ import Testing
         Container(name: name, image: "img", cpuPercent: cpu, memoryMB: mb, healthy: true, uptime: "2 gün", project: project, dockerID: name)
     }
 
+    @Test func englishContext() {
+        L10n.$override.withValue("en") {
+            let cs = [c("verifier", "deploy", 62, 1024), c("pg", "deploy", 18, 512), c("tunnel", "initech", 10, 256), c("lane-pg", "", 5, 128)]
+            let g = Dictionary(uniqueKeysWithValues: DockerGroups.split([vm, brave], containers: cs).map { ($0.id, $0) })
+            #expect(g["docker:project:deploy"]?.context == "deploy · 2 containers"); #expect(g["docker:project:initech"]?.context == "initech · 1 container")
+            #expect(g["docker:other"]?.context == "other containers")
+        }
+    }
+
     @Test func splitsByProject() {
         let cs = [c("verifier", "deploy", 62, 1024), c("pg", "deploy", 18, 512), c("tunnel", "initech", 10, 256), c("lane-pg", "", 5, 128)]
         let g = Dictionary(uniqueKeysWithValues: DockerGroups.split([vm, brave], containers: cs).map { ($0.id, $0) })

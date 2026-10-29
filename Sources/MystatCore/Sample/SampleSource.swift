@@ -150,7 +150,7 @@ public final class SampleSource: MetricsSource {
         }
         let containers = SampleData.containers.map { c in
             let cpu = cpuInc ? c.2.1 : (inc && kind == .docker && c.0 == "acmecorp-verifier") ? 62 : c.2.0
-            return Container(name: c.0, image: c.1, cpuPercent: cpu, memoryMB: c.3, healthy: true, uptime: "45 sa", project: "deploy")
+            return Container(name: c.0, image: c.1, cpuPercent: cpu, memoryMB: c.3, healthy: true, uptime: Fmt.uptime(45 * 3600), project: "deploy")
         }
         var coreRNG = Mulberry32(seed: 77)
         let cores = (0..<14).map { i in
@@ -169,7 +169,7 @@ public final class SampleSource: MetricsSource {
             disk: DiskState(percent: diskInc ? 98 : (285 - freedGB) / 460 * 100, freeGB: diskInc ? 8 : 175 + freedGB, usedGB: diskInc ? 452 : 285 - freedGB,
                             purgeableGB: 12, readMBps: read, writeMBps: write, topWriter: "Docker"),
             net: NetState(downMBps: liveDown, upMBps: liveDown * 0.13, todayDownGB: 12.4, todayUpGB: 1.8, latencyMs: 18,
-                          iface: "Wi‑Fi", ssid: ssidAccess == .known ? "Ev" : "", details: SampleData.netDetails, ssidAccess: ssidAccess),
+                          iface: "Wi‑Fi", ssid: ssidAccess == .known ? L10n.t("sample.ssid") : "", details: SampleData.netDetails, ssidAccess: ssidAccess),
             docker: DockerState(running: dockerRunning, containers: dockerRunning ? containers : [], vmMemoryGB: 10.2, vmCores: 8,
                                 disk: DockerDisk(imagesGB: 8.8, imagesReclaimGB: 2.8, imagesCount: 21,
                                                  volumesGB: 16.9, volumesReclaimGB: 12.6, volumesCount: 192,
@@ -178,8 +178,8 @@ public final class SampleSource: MetricsSource {
                                 trend30GB: 9),
             system: SystemState(chipTemp: heat ? 91 : 48, gpuTemp: heat ? 63 : 41, ssdTemp: 38, fanRPM: heat ? 4800 : 0,
                                 thermal: heat ? .warn : .ok, battery: bat ? 62 : 100, charging: !bat, batteryDrain30m: bat ? 25 : nil,
-                                watts: bat ? 38 : load ? 78 : 14, adapter: "140 W USB‑C", health: "%91 · iyi",
-                                capacity: "7.819 / 8.579 mAh", cycles: 75, gpuPercent: load ? 18 : 6, gpuCores: 20, onAC: !bat,
+                                watts: bat ? 38 : load ? 78 : 14, adapter: "140 W USB‑C", health: Fmt.pct(91) + " · " + L10n.t("battery.health.good"),
+                                capacity: Fmt.int(7819) + " / " + Fmt.int(8579) + " mAh", cycles: 75, gpuPercent: load ? 18 : 6, gpuCores: 20, onAC: !bat,
                                 machine: MachineInfo(model: "MacBook Pro", chip: "M4 Pro", pCores: 10, eCores: 4, memoryGB: 48,
                                                      boot: Date().addingTimeInterval(-3 * 86_400 - 600)),
                                 fanCount: 2, fanMinRPM: 1200, cpuWatts: load ? 52 : 6, gpuWatts: load ? 9 : 1,
@@ -187,9 +187,11 @@ public final class SampleSource: MetricsSource {
             groups: groups,
             incident: inc ? makeIncident() : nil,
             suggestions: [
-                Suggestion(title: "acmecorp/web :3011 sahipsiz çalışıyor", detail: "Başlatan terminal kapanmış · 14 dk", target: .group("next-web")),
-                Suggestion(title: "Docker'da 12,6 GB geri kazanılabilir", detail: "177 kullanılmayan volume", target: .docker),
-                Suggestion(title: "İndirilenler'de 9,5 GB'lık Xcode arşivi", detail: "3 haftadır açılmamış", target: .disk(["Downloads"])),
+                Suggestion(title: L10n.t("suggest.orphan.title", ["context": "acmecorp/web :3011"]),
+                           detail: L10n.t("suggest.orphan.detail", ["uptime": Fmt.uptime(14 * 60)]), target: .group("next-web")),
+                Suggestion(title: L10n.t("headline.disk.dockerReclaim", ["gb": Fmt.dec1(12.6)]), detail: L10n.t("sample.unusedVolumes", ["n": "177"]), target: .docker),
+                Suggestion(title: L10n.t("suggest.downloads.title", ["size": Fmt.dec1(9.5), "name": L10n.t("sample.xcodeArchive")]),
+                           detail: L10n.plural("suggest.downloads.detail", 3), target: .disk(["Downloads"])),
             ],
             calmTop: ("Brave Browser", 8), capabilities: capabilities)
     }
@@ -198,28 +200,33 @@ public final class SampleSource: MetricsSource {
         switch kind {
         case .cpu:
             return Incident(kind: .cpu, level: .crit, startedAt: "08:41", minutes: 4, peakPercent: 97,
-                            culpritIDs: ["claude-acmecorp", "next-web", "docker"], culpritValues: ["4,2", "3,1", "0,9"], culpritUnit: "çekirdek",
-                            facts: [Fact("Başladı", "08:41"), Fact("Zirve", "%97"), Fact("Şu an", Fmt.pct(liveCPU)), Fact("Isı", "91°", level: .warn)])
+                            culpritIDs: ["claude-acmecorp", "next-web", "docker"], culpritValues: [4.2, 3.1, 0.9].map(Fmt.dec1), culpritUnit: L10n.t("unit.cores"),
+                            facts: [Fact(L10n.t("fact.started"), "08:41"), Fact(L10n.t("fact.peak"), Fmt.pct(97)), Fact(L10n.t("fact.now"), Fmt.pct(liveCPU)),
+                                    Fact(L10n.t("fact.temp"), "91°", level: .warn)])
         case .memory:
             return Incident(kind: .memory, level: .crit, startedAt: "09:12", minutes: 6, peakPercent: 86,
-                            culpritIDs: ["docker", "next-web"], culpritValues: ["+2,1", "+1,4"], culpritUnit: "GB",
-                            facts: [Fact("Baskı", "yüksek"), Fact("Swap", "3,2 GB"), Fact("Sıkıştırılmış", "18,9 GB")])
+                            culpritIDs: ["docker", "next-web"], culpritValues: ["+" + Fmt.dec1(2.1), "+" + Fmt.dec1(1.4)], culpritUnit: "GB",
+                            facts: [Fact(L10n.t("fact.pressure"), L10n.t("pressure.crit")), Fact(L10n.t("fact.swap"), Fmt.dec1(3.2) + " GB"),
+                                    Fact(L10n.t("fact.compressed"), Fmt.dec1(18.9) + " GB")])
         case .disk:
             return Incident(kind: .disk, level: .crit, startedAt: "07:55", minutes: 35, peakPercent: 98,
-                            culpritIDs: ["docker", "next-web"], culpritValues: ["12", "3,1"], culpritUnit: "GB yazdı",
-                            facts: [Fact("Boş alan", "8 GB"), Fact("Son 24 sa", "−14 GB"), Fact("Docker'da geri kazanılabilir", "12,6 GB")])
+                            culpritIDs: ["docker", "next-web"], culpritValues: ["12", Fmt.dec1(3.1)], culpritUnit: L10n.t("unit.gbWritten"),
+                            facts: [Fact(L10n.t("fact.freeSpace"), "8 GB"), Fact(L10n.t("fact.last24h"), "−14 GB"), Fact(L10n.t("fact.dockerReclaim"), Fmt.dec1(12.6) + " GB")])
         case .docker:
             return Incident(kind: .docker, level: .warn, startedAt: "09:24", minutes: 6, peakPercent: 62,
-                            culpritIDs: ["acmecorp-verifier"], culpritValues: ["%62"], culpritUnit: "CPU",
-                            facts: [Fact("Proje", "deploy"), Fact("Süre", "6 dk"), Fact("Sağlık", "sağlıklı")])
+                            culpritIDs: ["acmecorp-verifier"], culpritValues: [Fmt.pct(62)], culpritUnit: "CPU",
+                            facts: [Fact(L10n.t("fact.project"), "deploy"), Fact(L10n.t("fact.duration"), L10n.t("unit.minutes", ["m": "6"])),
+                                    Fact(L10n.t("fact.health"), L10n.t("docker.health.healthy"))])
         case .heat:
             return Incident(kind: .heat, level: .warn, startedAt: "09:02", minutes: 9, peakPercent: 91,
                             culpritIDs: ["claude-acmecorp", "next-web", "docker"], culpritValues: ["26", "19", "6"], culpritUnit: "W",
-                            facts: [Fact("Sıcaklık", "91°"), Fact("Fan", "4.800 dev/dk"), Fact("Durum", "ılık")])
+                            facts: [Fact(L10n.t("fact.temperature"), "91°"), Fact(L10n.t("fact.fan"), L10n.t("unit.rpm", ["rpm": Fmt.int(4800)])),
+                                    Fact(L10n.t("fact.state"), L10n.t("thermal.warn").lowercased(with: Fmt.locale))])
         case .battery:
             return Incident(kind: .battery, level: .warn, startedAt: "08:58", minutes: 30, peakPercent: 25,
                             culpritIDs: ["claude-acmecorp", "next-web", "brave"], culpritValues: ["14", "11", "6"], culpritUnit: "W",
-                            facts: [Fact("Erime", "30 dk'da %25"), Fact("Kalan", "1 sa 10 dk"), Fact("Şarj", "prizde değil")])
+                            facts: [Fact(L10n.t("fact.drain"), L10n.t("headline.battery.emph", ["drain": Fmt.pct(25)])), Fact(L10n.t("fact.left"), Fmt.uptime(70 * 60)),
+                                    Fact(L10n.t("fact.charge"), L10n.t("fact.charge.unplugged"))])
         }
     }
 

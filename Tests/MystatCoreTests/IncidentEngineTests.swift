@@ -61,6 +61,15 @@ import Testing
         #expect(inc?.level == .crit && inc?.culpritIDs.first == gs[0].id && inc?.culpritUnit == "çekirdek")
     }
 
+    @Test func englishFacts() {
+        L10n.$override.withValue("en") {
+            var e = IncidentEngine()
+            let inc = run(&e, inputs(cpu: 92), from: 0, seconds: 62)!
+            #expect(inc.facts.map(\.label) == ["Started", "Peak", "Now", "Temp"]); #expect(inc.culpritUnit == "cores")
+            #expect(inc.facts[1].value == "92%")
+        }
+    }
+
     @Test func culpritsAreTopThreeByCores() {
         var e = IncidentEngine()
         let inc = run(&e, inputs(cpu: 92), from: 0, seconds: 62)!

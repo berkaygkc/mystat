@@ -110,7 +110,7 @@ public struct BatteryReading: Sendable, Equatable {
     public var healthText: String {
         guard let d = designCapacity, d > 0, let m = maxCapacity else { return "—" }
         let pct = min(100, Double(m) / Double(d) * 100)
-        return Fmt.pct(pct) + " · " + (pct >= 80 ? "iyi" : pct >= 60 ? "orta" : "zayıf")
+        return Fmt.pct(pct) + " · " + L10n.t(pct >= 80 ? "battery.health.good" : pct >= 60 ? "battery.health.fair" : "battery.health.weak")
     }
 
     public var capacityText: String {

@@ -55,3 +55,44 @@ import Testing
         #expect(MonitorPresentation.coreLabels(count: 14, machine: nil).labels.last == "E4")
     }
 }
+
+/// Örnek veri ve ölçüm tarafında üretilen metinler, İngilizce.
+@MainActor @Suite(.language("en")) struct EnglishSampleTests {
+    @Test func sampleIncidentAndMenubar() {
+        let docker = SampleSource(seed: 1, incident: true, kind: .docker).snapshot
+        #expect(StatusBlockLayout.alert(docker) == StatusMetric(label: "DOCKER", value: "62%", level: .warn))
+        #expect(docker.incident?.facts.map(\.label) == ["Project", "Duration", "Health"])
+        #expect(docker.incident?.facts.last?.value == "healthy")
+        let cpu = SampleSource(seed: 1, incident: true).snapshot
+        #expect(cpu.incident?.facts.first.map { "\($0.label) \($0.value)" } == "Started 08:41")
+        #expect(cpu.incident?.facts[1].value == "97%"); #expect(cpu.incident?.culpritValues.first == "4.2")
+        #expect(cpu.incident?.culpritUnit == "cores")
+        let bat = SampleSource(seed: 1, incident: true, kind: .battery).snapshot
+        #expect(MonitorPresentation.incidentSentence(bat) == "Battery dropped 25% in 30 minutes; at this rate it lasts 1 h 10 min.")
+    }
+
+    @Test func sampleSuggestionsAndGroups() {
+        let s = SampleSource(seed: 1).snapshot
+        #expect(s.suggestions.map(\.title).last == "9.5 GB Xcode archive in Downloads")
+        #expect(s.suggestions.last?.detail == "Not opened for 3 weeks")
+        #expect(s.groups.first { $0.id == "brave" }?.context == "14 processes")
+        #expect(s.groups.first { $0.id == "docker" }?.context == "deploy · 15 containers")
+        #expect(s.groups.first { $0.id == "claude-mystat" }?.uptime == "1 h 02 min")
+        #expect(SectionText.system(s).lede == "Chip 48°, fans stopped. Plugged in, battery full and healthy.")
+        #expect(s.net.details.first?.label == "Band")
+    }
+
+    @Test func timeAndMachine() {
+        #expect(TimeRange.h24.title == "24 h"); #expect(TimeRange.d7.axisLabels == ["7 days ago", "3 days", "now"])
+        let m = MachineInfo(model: "MacBook Pro", chip: "M4 Pro", pCores: 10, eCores: 4, memoryGB: 48, boot: Date().addingTimeInterval(-3 * 86_400 - 60))
+        #expect(m.footer(now: Date()).hasSuffix("14 cores · 48 GB · up 3 days"))
+        #expect(StopOutcome.foreignReason.hasPrefix("Some of this group's processes"))
+    }
+
+    @Test func sampleDiskNames() {
+        let t = SampleSource(seed: 1).diskTree
+        #expect(t.node(at: ["Downloads"])?.children?.map(\.displayName) == ["Xcode_26.2.xip", "Screen Recordings", "Other"])
+        #expect(t.node(at: ["Other"])?.kind == .other)
+        #expect(DiskNode.display(DiskNode.smallFilesName) == "Other")
+    }
+}

@@ -90,3 +90,17 @@ public enum Fmt {
         return d.formatted(style)
     }
 }
+
+extension DateFormatter {
+    /// Gün adları (Pazar'dan başlar), dil başına bir kez.
+    static func weekdays(_ locale: Locale) -> [String] {
+        weekdayCache.withLock { cache in
+            if let w = cache[locale.identifier] { return w }
+            let f = DateFormatter(); f.locale = locale
+            let w = f.standaloneWeekdaySymbols ?? []
+            cache[locale.identifier] = w
+            return w
+        }
+    }
+    private static let weekdayCache = Mutex<[String: [String]]>([:])
+}

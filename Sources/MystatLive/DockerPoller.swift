@@ -101,7 +101,7 @@ public actor DockerPoller {
 
     /// §7.4 eylemleri. Aynı eylem sürerken ikinci istek gönderilmez.
     public nonisolated func perform(_ action: DockerAction) async -> DockerActionOutcome {
-        guard inFlight.withLock({ $0.insert(action).inserted }) else { return .failed("Bu işlem zaten sürüyor") }
+        guard inFlight.withLock({ $0.insert(action).inserted }) else { return .failed(L10n.t("docker.error.inProgress")) }
         defer { inFlight.withLock { _ = $0.remove(action) } }
         return await run(action)
     }
@@ -125,15 +125,15 @@ public actor DockerPoller {
             case 200..<300, 304:
                 let reclaimed = (try? JSONDecoder().decode(Reclaimed.self, from: r.body)).map { Double($0.SpaceReclaimed ?? 0) / 1e9 }
                 outcome = .done(reclaimedGB: action.isPrune ? reclaimed ?? 0 : nil)
-            case 404: outcome = .failed("Container bulunamadı")
-            default: outcome = .failed("Docker isteği reddetti (\(r.status))")
+            case 404: outcome = .failed(L10n.t("docker.error.notFound"))
+            default: outcome = .failed(L10n.t("docker.error.rejected", ["status": String(r.status)]))
             }
         } catch DockerError.notRunning {
-            return .failed("Docker çalışmıyor")
+            return .failed(L10n.t("docker.error.notRunning"))
         } catch DockerError.timeout {
-            return .failed("Docker cevap vermedi")
+            return .failed(L10n.t("docker.error.noResponse"))
         } catch {
-            return .failed("Docker isteği başarısız")
+            return .failed(L10n.t("docker.error.failed"))
         }
         let now = Date()
         poll(at: now)

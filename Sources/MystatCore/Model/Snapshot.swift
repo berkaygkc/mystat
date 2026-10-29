@@ -199,7 +199,8 @@ public struct MachineInfo: Sendable, Equatable {
     }
 
     public func footer(now: Date) -> String {
-        "\(model) · \(chip)\n\(pCores + eCores) çekirdek · \(memoryGB) GB · açık \(Fmt.uptime(now.timeIntervalSince(boot)))"
+        L10n.t("machine.footer", ["model": model, "chip": chip, "cores": String(pCores + eCores), "mem": String(memoryGB),
+                                  "uptime": Fmt.uptime(now.timeIntervalSince(boot))])
     }
 }
 

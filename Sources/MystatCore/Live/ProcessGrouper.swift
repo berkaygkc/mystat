@@ -53,19 +53,19 @@ public enum ProcessGrouper {
         for (k, ms) in members {
             switch k {
             case .docker:
-                out.append(make(id: "docker:vm", name: "Docker", context: "sanal makine", ms, cores, owner, watts, now: now, docker: true))
+                out.append(make(id: "docker:vm", name: "Docker", context: L10n.t("group.vm"), ms, cores, owner, watts, now: now, docker: true))
             case .app(let path):
                 let name = ((path as NSString).lastPathComponent as NSString).deletingPathExtension
-                out.append(make(id: "app:\(path)", name: name, context: ms.count > 1 ? "\(ms.count) süreç" : "", ms, cores, owner, watts, now: now))
+                out.append(make(id: "app:\(path)", name: name, context: ms.count > 1 ? L10n.plural("group.processes", ms.count) : "", ms, cores, owner, watts, now: now))
             case .systemApp(let path):   // loginwindow, Dock, Finder: kullanıcının uid'iyle çalışır ama durdurulmamalı
                 var g = make(id: "app:\(path)", name: ((path as NSString).lastPathComponent as NSString).deletingPathExtension, context: "macOS",
                              ms, cores, owner, watts, now: now)
                 g.foreign = true
                 out.append(g)
             case .other(let name):
-                out.append(make(id: "proc:\(name)", name: name, context: ms.count > 1 ? "\(ms.count) süreç" : "", ms, cores, owner, watts, now: now))
+                out.append(make(id: "proc:\(name)", name: name, context: ms.count > 1 ? L10n.plural("group.processes", ms.count) : "", ms, cores, owner, watts, now: now))
             case .system:
-                var g = make(id: "sys:macos", name: "macOS", context: "sistem süreçleri", ms, cores, owner, watts, now: now)
+                var g = make(id: "sys:macos", name: "macOS", context: L10n.t("group.systemProcesses"), ms, cores, owner, watts, now: now)
                 g.cpuCores += system.cores
                 g.memoryGB += system.memoryGB
                 g.foreign = true
@@ -168,7 +168,7 @@ public enum ProcessGrouper {
         return parts[s - 1]
     }
 
-    private static func devName(_ p: ProcessRecord) -> String { devKind(p) ?? "Sunucu" }
+    private static func devName(_ p: ProcessRecord) -> String { devKind(p) ?? L10n.t("group.server") }
 
     static func ancestors(_ p: ProcessRecord, _ byPid: [Int32: ProcessRecord]) -> [ProcessRecord] {
         var out: [ProcessRecord] = [], cur = p, seen: Set<Int32> = [p.pid]

@@ -69,7 +69,7 @@ public enum SnapshotBuilder {
         s.disk = m.disk
         var net = NetState(downMBps: m.net.down, upMBps: m.net.up, todayDownGB: m.net.todayDown, todayUpGB: m.net.todayUp,
                            latencyMs: m.latencyMs ?? .nan, iface: m.link?.displayName ?? m.iface, ssid: m.link?.wifi?.ssid ?? "",
-                           details: m.link.map(NetPresentation.facts) ?? [Fact("Arayüz", m.iface), Fact("Yerel IP", m.ip ?? "—")])
+                           details: m.link.map(NetPresentation.facts) ?? [Fact(L10n.t("net.fact.interface"), m.iface), Fact(L10n.t("net.fact.localIP"), m.ip ?? "—")])
         net.ssidAccess = m.link.map { l in l.wifi == nil ? .notWiFi : l.wifi?.ssid != nil ? .known : m.ssidAccess } ?? .known
         net.perAppAvailable = m.perAppAvailable; net.perAppReady = m.perAppReady
         s.net = net
@@ -98,19 +98,21 @@ public enum SnapshotBuilder {
     static func suggestions(_ m: LiveMeasurements) -> [Suggestion] {
         var out: [Suggestion] = []
         for g in m.groups where g.isOrphan {
-            out.append(Suggestion(title: "\(g.context.replacingOccurrences(of: " · :", with: " :")) sahipsiz çalışıyor",
-                                  detail: "Başlatan terminal kapanmış · \(g.uptime)", target: .group(g.id)))
+            out.append(Suggestion(title: L10n.t("suggest.orphan.title", ["context": g.context.replacingOccurrences(of: " · :", with: " :")]),
+                                  detail: L10n.t("suggest.orphan.detail", ["uptime": g.uptime]), target: .group(g.id)))
         }
         // Kullanıcının kararı: güvenli miktar (adsız volume + image); durmuş projelerin adlı veri volume'leri sayılmaz.
         let k = m.docker.disk, safe = k.volumesAnonReclaimGB + k.imagesReclaimGB
         if m.docker.running, safe >= 5 {
-            out.append(Suggestion(title: "Docker'da \(Fmt.dec1(safe)) GB geri kazanılabilir",
-                                  detail: "\(k.volumesAnonUnusedCount) adsız volume" + (k.imagesUnusedCount > 0 ? " · \(k.imagesUnusedCount) image" : ""),
+            out.append(Suggestion(title: L10n.t("headline.disk.dockerReclaim", ["gb": Fmt.dec1(safe)]),
+                                  detail: L10n.plural("suggest.docker.volumes", k.volumesAnonUnusedCount)
+                                      + (k.imagesUnusedCount > 0 ? L10n.plural("suggest.docker.images", k.imagesUnusedCount) : ""),
                                   target: .docker))
         }
         for f in m.downloads.sorted(by: { $0.gb > $1.gb }) {
             let size = f.gb >= 10 ? Fmt.int(f.gb) : Fmt.dec1(f.gb)
-            out.append(Suggestion(title: "İndirilenler'de \(size) GB'lık \(f.name)", detail: "\(max(2, f.idleDays / 7)) haftadır açılmamış",
+            out.append(Suggestion(title: L10n.t("suggest.downloads.title", ["size": size, "name": f.name]),
+                                  detail: L10n.plural("suggest.downloads.detail", max(2, f.idleDays / 7)),
                                   target: .disk(["Downloads"])))
         }
         return out

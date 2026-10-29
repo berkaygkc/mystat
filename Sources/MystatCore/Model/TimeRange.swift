@@ -5,7 +5,7 @@ public enum TimeRange: CaseIterable, Sendable, Hashable {
     case m10, h1, h24, d7
 
     public var title: String {
-        switch self { case .m10: "10 dk"; case .h1: "1 sa"; case .h24: "24 sa"; case .d7: "7 gün" }
+        L10n.t("range.\(key)")
     }
 
     public var pointCount: Int {
@@ -18,22 +18,19 @@ public enum TimeRange: CaseIterable, Sendable, Hashable {
     }
 
     public var axisLabels: [String] {
-        switch self {
-        case .m10: ["10 dk önce", "5 dk", "şimdi"]
-        case .h1: ["1 sa önce", "30 dk", "şimdi"]
-        case .h24: ["24 sa önce", "12 sa", "şimdi"]
-        case .d7: ["7 gün önce", "3 gün", "şimdi"]
-        }
+        L10n.t("range.\(key).axis").components(separatedBy: "|")
     }
+
+    private var key: String { switch self { case .m10: "m10"; case .h1: "h1"; case .h24: "h24"; case .d7: "d7" } }
 
     public func hoverLabel(index: Int, now: Date, calendar: Calendar) -> String {
         let back = pointCount - 1 - index
         switch self {
         case .m10, .h1:
             let s = back * Int(step)
-            if s == 0 { return "şimdi" }
-            if s < 60 { return "\(s) sn önce" }
-            return s % 60 == 0 ? "\(s / 60) dk önce" : "\(s / 60) dk \(s % 60) sn önce"
+            if s == 0 { return L10n.t("time.now") }
+            if s < 60 { return L10n.t("time.secondsAgo", ["s": String(s)]) }
+            return s % 60 == 0 ? L10n.t("time.minutesAgo", ["m": String(s / 60)]) : L10n.t("time.minutesSecondsAgo", ["m": String(s / 60), "s": String(s % 60)])
         case .h24:
             let d = now.addingTimeInterval(-Double(back) * step)
             let c = calendar.dateComponents([.hour, .minute], from: d)
@@ -45,5 +42,6 @@ public enum TimeRange: CaseIterable, Sendable, Hashable {
         }
     }
 
-    static let dayNames = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"]
+    /// Seçili dilde gün adları (Pazar'dan başlar).
+    static var dayNames: [String] { DateFormatter.weekdays(Fmt.locale) }
 }

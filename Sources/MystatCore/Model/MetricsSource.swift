@@ -58,5 +58,5 @@ public enum StopOutcome: Sendable, Equatable {
     case notFound
 
     /// Grupta kullanıcının olmayan süreç varken; arayüz düğmeleri pasif gösterir ve bunu yazar.
-    public static let foreignReason = "Bu grubun bazı süreçleri sistemin; yalnızca kendi süreçlerin kapatılabilir."
+    public static var foreignReason: String { L10n.t("process.foreign") }
 }

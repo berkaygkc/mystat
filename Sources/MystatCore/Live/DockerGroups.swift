@@ -17,7 +17,7 @@ public enum DockerGroups {
         for project in byProject.keys.sorted() {
             let cs = byProject[project]!
             out.append(ProcessGroup(id: project.isEmpty ? "docker:other" : "docker:project:\(project)", name: "Docker",
-                                    context: project.isEmpty ? "diğer container'lar" : "\(project) · \(cs.count) container",
+                                    context: project.isEmpty ? L10n.t("docker.project.other") : L10n.plural("group.docker", cs.count, ["project": project]),
                                     cpuCores: cs.reduce(0) { $0 + $1.cpuPercent } / 100, memoryGB: cs.reduce(0) { $0 + $1.memoryMB } / 1024,
                                     netMBps: 0, uptime: vm.uptime, processCount: cs.count, folder: nil, terminal: nil, port: nil,
                                     isOrphan: false, relatedID: nil, isDocker: true,

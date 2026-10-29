@@ -30,6 +30,13 @@ import Testing
         #expect(GroupPresentation.panelHeadline(s).lede == "Makine rahat. En yoğun uygulama Brave Browser, %8 ile.")
     }
 
+    @Test func englishSuggestions() {
+        L10n.$override.withValue("en") {
+            let sg = SnapshotBuilder.build(measurements(), incident: nil, capabilities: .all).suggestions
+            #expect(sg.map(\.title) == ["acmecorp/web :3011 is running orphaned", "9.5 GB Xcode_26.2.xip in Downloads"])
+        }
+    }
+
     @Test func suggestionsFromOrphanAndDownloads() {
         let sg = SnapshotBuilder.build(measurements(), incident: nil, capabilities: .all).suggestions
         #expect(sg.map(\.title) == ["acmecorp/web :3011 sahipsiz çalışıyor", "İndirilenler'de 9,5 GB'lık Xcode_26.2.xip"])

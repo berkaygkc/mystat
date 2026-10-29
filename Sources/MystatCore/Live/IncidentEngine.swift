@@ -152,34 +152,34 @@ public struct IncidentEngine: Sendable {
         let ids: [String], values: [String], unit: String, facts: [Fact]
         switch k {
         case .cpu:
-            ids = byCPU.map(\.id); values = byCPU.map { Fmt.dec1($0.cpuCores) }; unit = "çekirdek"
-            facts = [Fact("Başladı", started), Fact("Zirve", Fmt.pct(a.peak)), Fact("Şu an", Fmt.pct(i.cpu.percent)),
-                     Fact("Isı", i.thermal.thermalWord.lowercased(with: Fmt.locale), level: i.thermal)]
+            ids = byCPU.map(\.id); values = byCPU.map { Fmt.dec1($0.cpuCores) }; unit = L10n.t("unit.cores")
+            facts = [Fact(L10n.t("fact.started"), started), Fact(L10n.t("fact.peak"), Fmt.pct(a.peak)), Fact(L10n.t("fact.now"), Fmt.pct(i.cpu.percent)),
+                     Fact(L10n.t("fact.temp"), i.thermal.thermalWord.lowercased(with: Fmt.locale), level: i.thermal)]
         case .memory:
             let t = top(i.memoryGrowthGB, 3, min: 0.1)
             ids = t.map(\.0); values = t.map { "+" + Fmt.dec1($0.1) }; unit = "GB"
-            let word = switch i.memory.pressureLevel { case .ok: "düşük"; case .warn: "orta"; case .crit: "yüksek" }
-            facts = [Fact("Baskı", word), Fact("Swap", Fmt.dec1(i.memory.swapGB) + " GB"), Fact("Sıkıştırılmış", Fmt.dec1(i.memory.compressed) + " GB")]
+            facts = [Fact(L10n.t("fact.pressure"), PanelPresentation.pressureWord(i.memory.pressureLevel)), Fact(L10n.t("fact.swap"), Fmt.dec1(i.memory.swapGB) + " GB"),
+                     Fact(L10n.t("fact.compressed"), Fmt.dec1(i.memory.compressed) + " GB")]
         case .disk:
             let t = top(i.diskWrittenGB1h, 2, min: 0.1)
-            ids = t.map(\.0); values = t.map { $0.1 >= 10 ? Fmt.int($0.1) : Fmt.dec1($0.1) }; unit = "GB yazdı"
-            facts = [Fact("Boş alan", Fmt.int(i.disk.freeGB) + " GB"), Fact("Sistemin boşaltabileceği", Fmt.int(i.disk.purgeableGB) + " GB")]
+            ids = t.map(\.0); values = t.map { $0.1 >= 10 ? Fmt.int($0.1) : Fmt.dec1($0.1) }; unit = L10n.t("unit.gbWritten")
+            facts = [Fact(L10n.t("fact.freeSpace"), Fmt.int(i.disk.freeGB) + " GB"), Fact(L10n.t("fact.purgeable"), Fmt.int(i.disk.purgeableGB) + " GB")]
         case .docker:
             let shown = dockerCulprits?.list ?? [], trouble = dockerCulprits?.trouble ?? false
             ids = shown.map(\.name)
-            values = shown.map { trouble ? ($0.restarting ? "yeniden başlıyor" : "sağlıksız") : Fmt.pct($0.cpuPercent) }
+            values = shown.map { trouble ? L10n.t($0.restarting ? "docker.health.restarting" : "docker.health.unhealthy") : Fmt.pct($0.cpuPercent) }
             unit = trouble ? "" : "CPU"
             let first = shown.first
-            let health = first.map { $0.restarting ? "yeniden başlıyor" : $0.healthy ? "sağlıklı" : "sağlıksız" } ?? "sağlıklı"
-            facts = [Fact("Proje", first.map { $0.project.isEmpty ? "—" : $0.project } ?? "—"),
-                     Fact("Süre", "\(Int(now.timeIntervalSince(a.start) / 60)) dk"), Fact("Sağlık", health)]
+            let health = L10n.t(first.map { $0.restarting ? "docker.health.restarting" : $0.healthy ? "docker.health.healthy" : "docker.health.unhealthy" } ?? "docker.health.healthy")
+            facts = [Fact(L10n.t("fact.project"), first.map { $0.project.isEmpty ? "—" : $0.project } ?? "—"),
+                     Fact(L10n.t("fact.duration"), L10n.t("unit.minutes", ["m": String(Int(now.timeIntervalSince(a.start) / 60))])), Fact(L10n.t("fact.health"), health)]
         case .heat, .battery:
             // §7.2.1: enerji tüketen gruplar (W); süreç enerjisi okunamıyorsa CPU'ya göre.
             let byWatts = i.groups.filter { $0.watts >= 0.1 }.sorted { $0.watts > $1.watts }.prefix(3)
-            if byWatts.isEmpty { ids = byCPU.map(\.id); values = byCPU.map { Fmt.dec1($0.cpuCores) }; unit = "çekirdek" }
+            if byWatts.isEmpty { ids = byCPU.map(\.id); values = byCPU.map { Fmt.dec1($0.cpuCores) }; unit = L10n.t("unit.cores") }
             else { ids = byWatts.map(\.id); values = byWatts.map { Fmt.dec1($0.watts) }; unit = "W" }
-            facts = k == .battery ? [Fact("Erime", "30 dk'da " + Fmt.pct(a.peak)), Fact("Şarj", "prizde değil")]
-                                  : [Fact("Durum", i.thermal.thermalWord.lowercased(with: Fmt.locale), level: i.thermal), Fact("Başladı", started)]
+            facts = k == .battery ? [Fact(L10n.t("fact.drain"), L10n.t("headline.battery.emph", ["drain": Fmt.pct(a.peak)])), Fact(L10n.t("fact.charge"), L10n.t("fact.charge.unplugged"))]
+                                  : [Fact(L10n.t("fact.state"), i.thermal.thermalWord.lowercased(with: Fmt.locale), level: i.thermal), Fact(L10n.t("fact.started"), started)]
         }
         return Incident(kind: k, level: a.level, startedAt: started, minutes: Int(now.timeIntervalSince(a.start) / 60),
                         peakPercent: a.peak, culpritIDs: ids, culpritValues: values, culpritUnit: unit, facts: facts)
