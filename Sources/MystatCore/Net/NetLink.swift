@@ -55,6 +55,18 @@ public enum NetPresentation {
         rssi >= -55 ? "Çok iyi" : rssi >= -67 ? "İyi" : rssi >= -75 ? "Orta" : "Zayıf"
     }
 
+    /// Sistem Ayarları → Gizlilik ve Güvenlik → Konum Servisleri.
+    public static let locationSettingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices")!
+
+    /// Ağın adı yoksa Bağlantı kartındaki satır: açıklama ve düğme.
+    public static func accessLine(_ a: SSIDAccess) -> (text: String, action: String)? {
+        switch a {
+        case .needsPermission: ("Ağ adı için konum izni gerekiyor.", "İzin ver")
+        case .denied: ("Ağ adını görmek için Sistem Ayarları'nda konum izni ver.", "Ayarları aç")
+        case .known, .notWiFi: nil
+        }
+    }
+
     /// Sistem adı ("Wi-Fi") → satırda kırılmayan tire (U+2011), mockup'taki gibi.
     public static func displayName(_ systemName: String) -> String {
         systemName.replacingOccurrences(of: "-", with: "\u{2011}")

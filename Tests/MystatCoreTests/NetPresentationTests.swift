@@ -58,4 +58,13 @@ import Testing
         #expect(SectionText.networkLede(s) == "Wi‑Fi arayüzü. Bugün 12,4 GB indirildi, 1,8 GB gönderildi.")
         #expect(s.net.ssidAccess == .known); #expect(s.net.perAppAvailable)
     }
+
+    @Test func accessLines() {
+        #expect(NetPresentation.accessLine(.needsPermission)?.text == "Ağ adı için konum izni gerekiyor.")
+        #expect(NetPresentation.accessLine(.needsPermission)?.action == "İzin ver")
+        #expect(NetPresentation.accessLine(.denied)?.text == "Ağ adını görmek için Sistem Ayarları'nda konum izni ver.")
+        #expect(NetPresentation.accessLine(.denied)?.action == "Ayarları aç")
+        #expect(NetPresentation.accessLine(.known) == nil); #expect(NetPresentation.accessLine(.notWiFi) == nil)
+        #expect(NetPresentation.locationSettingsURL.absoluteString == "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices")
+    }
 }

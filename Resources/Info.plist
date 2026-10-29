@@ -12,6 +12,9 @@
     <key>LSUIElement</key><true/>
     <key>LSMinimumSystemVersion</key><string>26.0</string>
     <key>NSHighResolutionCapable</key><true/>
+    <!-- Wi‑Fi ağının adı (SSID) macOS'ta konum izni ister; yalnızca Ağ bölümündeki "İzin ver" ile sorulur (plan 2e). -->
+    <key>NSLocationUsageDescription</key><string>Wi‑Fi ağının adını göstermek için. Konumun kullanılmaz ve saklanmaz.</string>
+    <key>NSLocationWhenInUseUsageDescription</key><string>Wi‑Fi ağının adını göstermek için. Konumun kullanılmaz ve saklanmaz.</string>
     <!-- libmalloc serbest bırakılan büyük blokları önbellekte tutar ve ayak izinde sayar (disk taraması bittiğinde
          ~120 MB geri verilmiyordu). Kapalıyken bırakılan bellek hemen sisteme döner (plan 2d, Task 8). -->
     <key>LSEnvironment</key>

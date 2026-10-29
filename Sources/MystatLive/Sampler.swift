@@ -47,6 +47,8 @@ public actor Sampler {
     private var volume: VolumeCapacity?, battery: BatteryReading?, downloads: [(name: String, gb: Double, idleDays: Int)] = []
     private var iface: String?, ip: String?
     private let net: NetDetailPoller?
+    /// Konum izninin durumu (ağ adı yoksa Bağlantı kartında); LiveSource yazar.
+    nonisolated let ssidAccess = Mutex(SSIDAccess.needsPermission)
     private var swap: [Double] = []
     private var recorded: String?
     private var netSaves = 0
@@ -172,6 +174,7 @@ public actor Sampler {
                                  thermal: probe.thermal(), battery: battery, batteryDrain30m: drain, machine: machine,
                                  downloads: downloads, coreCount: max(1, ticks.count), docker: dockerState(), sensors: sensors)
         m.link = netReading?.link; m.latencyMs = netReading?.latencyMs; m.perAppAvailable = netReading?.perAppAvailable ?? true
+        m.ssidAccess = ssidAccess.withLock { $0 }
         var caps = LiveSource.capabilities
         caps.sensors = sensors != nil
         return Output(snapshot: SnapshotBuilder.build(m, incident: incident, capabilities: caps),

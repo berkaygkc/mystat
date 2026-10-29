@@ -5,6 +5,7 @@ import SwiftUI
 struct NetworkSection<Source: MetricsSource>: View {
     let source: Source
     @Bindable var state: MonitorState
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         let s = source.snapshot
@@ -36,6 +37,14 @@ struct NetworkSection<Source: MetricsSource>: View {
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Bağlantı").font(.system(size: 18, weight: .semibold)).tracking(-0.27).foregroundStyle(Theme.ink)
                     Text(s.net.ssid.isEmpty ? s.net.iface : "\(s.net.iface) · \(s.net.ssid)").font(.system(size: 12.5)).foregroundStyle(Theme.ink2).padding(.top, 3)
+                    if let line = NetPresentation.accessLine(s.net.ssidAccess) {   // ağ adı için konum izni (yalnızca düğmeyle)
+                        (Text(line.text + " ") + Text(line.action).fontWeight(.semibold).foregroundStyle(Theme.ink2))
+                            .font(.system(size: 12)).lineSpacing(2).foregroundStyle(Theme.ink3).padding(.top, 6)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .onTapGesture {
+                                if s.net.ssidAccess == .denied { openURL(NetPresentation.locationSettingsURL) } else { source.requestNetworkNameAccess() }
+                            }
+                    }
                     VStack(spacing: 0) { ForEach(s.net.details, id: \.label) { FactRow(k: $0.label, v: $0.value) } }.padding(.top, 12)
                     Text("Dış IP adresi, bir dış servise sormak gerektiği için varsayılan olarak gösterilmiyor.")
                         .font(.system(size: 12)).lineSpacing(3).foregroundStyle(Theme.ink3).padding(.top, 12).fixedSize(horizontal: false, vertical: true)

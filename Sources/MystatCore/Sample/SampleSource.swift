@@ -82,6 +82,11 @@ public final class SampleSource: MetricsSource {
         }
     }
 
+    public func requestNetworkNameAccess() {}
+
+    /// İnceleme için: konum izni satırını örnek veriyle görmek (`--snapshot … --ssid needs|denied`).
+    public var ssidAccess: SSIDAccess = .known { didSet { snapshot = build() } }
+
     public func cancelDiskScan() {
         scanTask?.cancel(); scanTask = nil
         diskScan = .none
@@ -164,7 +169,7 @@ public final class SampleSource: MetricsSource {
             disk: DiskState(percent: diskInc ? 98 : (285 - freedGB) / 460 * 100, freeGB: diskInc ? 8 : 175 + freedGB, usedGB: diskInc ? 452 : 285 - freedGB,
                             purgeableGB: 12, readMBps: read, writeMBps: write, topWriter: "Docker"),
             net: NetState(downMBps: liveDown, upMBps: liveDown * 0.13, todayDownGB: 12.4, todayUpGB: 1.8, latencyMs: 18,
-                          iface: "Wi‑Fi", ssid: "Ev", details: SampleData.netDetails),
+                          iface: "Wi‑Fi", ssid: ssidAccess == .known ? "Ev" : "", details: SampleData.netDetails, ssidAccess: ssidAccess),
             docker: DockerState(running: dockerRunning, containers: dockerRunning ? containers : [], vmMemoryGB: 10.2, vmCores: 8,
                                 disk: DockerDisk(imagesGB: 8.8, imagesReclaimGB: 2.8, imagesCount: 21,
                                                  volumesGB: 16.9, volumesReclaimGB: 12.6, volumesCount: 192,

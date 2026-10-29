@@ -22,6 +22,7 @@ public final class LiveSource: MetricsSource {
     @ObservationIgnored private let sampler: Sampler
     @ObservationIgnored let docker: DockerPoller
     @ObservationIgnored let net: NetDetailPoller
+    @ObservationIgnored let location: LocationAccess
     @ObservationIgnored private let history: HistoryStore?
     @ObservationIgnored private let probe: any SystemProbe
     @ObservationIgnored private var starts: [Int32: Date] = [:]
@@ -30,7 +31,7 @@ public final class LiveSource: MetricsSource {
 
     public init(probe: some SystemProbe = DefaultProbe(), historyURL: URL? = HistoryStore.defaultURL,
                 persistToday: Bool = true, autostart: Bool = true, dockerAPI: some DockerAPI = DockerClient(),
-                disk: DiskScanController? = nil, net: NetDetailPoller? = nil) {
+                disk: DiskScanController? = nil, net: NetDetailPoller? = nil, location: LocationAccess? = nil) {
         self.disk = disk ?? DiskScanController()
         let net = net ?? NetDetailPoller()
         self.net = net
@@ -41,6 +42,15 @@ public final class LiveSource: MetricsSource {
         let docker = DockerPoller(api: dockerAPI)
         self.docker = docker
         sampler = Sampler(probe: probe, history: store, persistToday: persistToday, docker: docker, net: net)
+        let location = location ?? LocationAccess()
+        self.location = location
+        let sampler0 = sampler
+        sampler0.ssidAccess.withLock { $0 = location.status }
+        location.onChange = { [weak location] in
+            guard let location else { return }
+            sampler0.ssidAccess.withLock { $0 = location.status }
+            net.refreshLink()
+        }
         if autostart { start() }
     }
 
@@ -88,6 +98,7 @@ public final class LiveSource: MetricsSource {
     public func perform(_ action: DockerAction) async -> DockerActionOutcome { await docker.perform(action) }
 
     public func startDiskScan() { disk.start() }
+    public func requestNetworkNameAccess() { location.request() }
     public func cancelDiskScan() { disk.cancel() }
 
     public func setVisibleSection(_ section: String?) {

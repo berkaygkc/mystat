@@ -21,6 +21,8 @@ public protocol MetricsSource: AnyObject, Observable {
     /// gerçekten büyür.
     var diskScanSimulated: Bool { get }
     func startDiskScan()
+    /// Wi‑Fi ağının adı için konum izni (yalnızca kullanıcı "İzin ver"e basınca).
+    func requestNetworkNameAccess()
     /// Tam Disk Erişimi var mı; yoksa taramada korumalı klasörler atlanır (§6.4).
     var diskFullAccess: Bool { get }
     /// Son taramada okunamayan klasör sayısı.

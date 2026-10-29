@@ -83,6 +83,15 @@ public actor NetDetailPoller {
         }
     }
 
+    /// Konum izni verilince: ağın adı bir sonraki tura kalmadan gelsin.
+    public nonisolated func refreshLink() { Task { await self.readLinkNow() } }
+
+    func readLinkNow() {
+        guard isVisible else { return }
+        let link = readLink()
+        latest.withLock { $0.link = link }
+    }
+
     /// `nettop`'u hemen durdurur (bölüm kapanınca ve uygulama kapanırken).
     public nonisolated func shutdown() {
         let s = streamBox.withLock { box in defer { box = nil }; return box }
