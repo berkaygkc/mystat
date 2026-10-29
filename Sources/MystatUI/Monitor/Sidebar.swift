@@ -23,6 +23,8 @@ struct Sidebar<Source: MetricsSource>: View {
             if let inc = s.incident { incidentCard(inc, s) }
             Text(s.system.machine?.footer(now: Date()) ?? "")
                 .font(.system(size: 11)).lineSpacing(5).foregroundStyle(Theme.ink3)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .overlay(alignment: .topTrailing) { LanguageMenu(size: 11) }   // ilk satırın sağında; yükseklik değişmez
                 .padding(.horizontal, 10).padding(.top, 8)
         }
         // Mockup border-box: 236 px'in içinden 8 px dolgu + 1 px kenarlık düşülür.

@@ -88,6 +88,18 @@ final class FakeProbe: SystemProbe {
 @MainActor @Suite(.language("tr")) struct LiveSourceTests {
     let t0 = Date(timeIntervalSince1970: 1_793_163_600)
 
+    /// Dil değişince ölçüm tarafındaki metinler (olgular, grup bağlamı) bir sonraki 2 sn'yi beklemeden yenilenir.
+    @Test func languageChangeResamples() async {
+        let s = source(FakeProbe())
+        await s.step(at: Date())
+        #expect(s.snapshot.net.details.first?.label == "Arayüz")
+        await L10n.$override.withValue("en") {
+            s.languageChanged()
+            await s.pendingResample?.value
+        }
+        #expect(s.snapshot.net.details.first?.label == "Interface")
+    }
+
     func source(_ p: FakeProbe) -> LiveSource { LiveSource(probe: p, historyURL: nil, persistToday: false, autostart: false, dockerAPI: FakeDockerAPI()) }
 
     func tick(_ s: LiveSource, _ p: FakeProbe, _ seconds: Double) async {

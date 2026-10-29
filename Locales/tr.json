@@ -248,6 +248,7 @@
   "kicker.mem": "BELLEK",
   "kicker.net": "AĞ",
   "kicker.sys": "SİSTEM",
+  "language.system": "Sistem ({name})",
   "legend.download": "İndirme",
   "legend.read": "Okuma",
   "legend.total": "Toplam",

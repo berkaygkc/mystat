@@ -6,10 +6,10 @@ import SwiftUI
 @MainActor
 public enum SourceViews {
     public static func panel(source: some MetricsSource, openMonitor: @escaping (MonitorSection?, String?) -> Void) -> AnyView {
-        AnyView(PanelView(source: source, openMonitor: openMonitor))
+        AnyView(LanguageRoot(content: PanelView(source: source, openMonitor: openMonitor)))
     }
 
     public static func monitor(source: some MetricsSource, state: MonitorState) -> AnyView {
-        AnyView(MonitorView(source: source, state: state))
+        AnyView(LanguageRoot(content: MonitorView(source: source, state: state)))
     }
 }

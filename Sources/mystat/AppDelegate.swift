@@ -18,6 +18,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let args = CommandLine.arguments
+        // Dil, ölçüm başlamadan: ilk metinler de doğru dilde üretilsin.
+        let language = LanguageSettings()
+        LanguageSettings.current = language
+        if Localizer.shared.languages.isEmpty { NSLog("mystat: Locales klasörü bulunamadı; metinler anahtar olarak görünecek") }
         source = SourceFactory.make(arguments: args)
         status = StatusItemController(source: source) { [weak self] in self?.togglePanel() }
         panel = PanelController(source: source) { [weak self] section, group in self?.openMonitor(section, group) }
@@ -33,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if visible { self.source.setVisibleSection(self.monitor?.state.section.rawValue) }
         }
         monitor?.onClose = { [weak self] in self?.source.setVisibleSection(nil) }
+        language.onChange = { [weak self] in self?.languageChanged() }
         installKeys()
         #if DEBUG
         if args.contains("--log-values") { startValueLog() }
@@ -49,6 +54,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         (source as? LiveSource)?.flushHistory()
+    }
+
+    /// Panel ve monitör kök görünümleri `LanguageRoot` ile kendiliğinden yeniden kurulur; burada geri kalanlar.
+    private func languageChanged() {
+        status?.refresh(now: Date())
+        panel?.relayout()
+        monitor?.state.confirm = nil   // açık onay penceresi eski dilde kalmasın
+        source.languageChanged()
     }
 
     func togglePanel() {

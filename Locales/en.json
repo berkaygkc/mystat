@@ -272,6 +272,7 @@
   "kicker.mem": "MEMORY",
   "kicker.net": "NETWORK",
   "kicker.sys": "SYSTEM",
+  "language.system": "System ({name})",
   "legend.download": "Download",
   "legend.read": "Read",
   "legend.total": "Total",

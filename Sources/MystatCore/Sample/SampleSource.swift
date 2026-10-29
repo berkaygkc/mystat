@@ -52,6 +52,12 @@ public final class SampleSource: MetricsSource {
     }
 
     /// Disk haritasından örnek silme sonrası açılan alanı doluluğa yansıtır.
+    /// Örnek veri seçili dilde kurulur: ağaç ("Diğer", örnek dosya adları) ve görüntü yeniden.
+    public func languageChanged() {
+        diskTree = DiskTree(root: SampleData.makeTree())
+        snapshot = build()
+    }
+
     public func applyDeletion(gb: Double) {
         freedGB += gb
         snapshot = build()

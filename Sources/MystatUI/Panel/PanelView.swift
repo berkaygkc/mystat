@@ -39,8 +39,10 @@ public struct PanelView<Source: MetricsSource>: View {
             HoverLink { on in
                 Text(UIText.quit).font(.system(size: 12.5)).foregroundStyle(on ? Theme.ink : Theme.ink3).underline(on)
             }
-            .padding(.top, 10)
             .onTapGesture { NSApp.terminate(nil) }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(alignment: .trailing) { LanguageMenu() }   // satır boyunu değiştirmez (mockup ölçüleri)
+            .padding(.top, 10)
         }
         .padding(.horizontal, 22).padding(.top, 22).padding(.bottom, 16)
         .frame(width: 352, alignment: .leading)

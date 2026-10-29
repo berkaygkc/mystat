@@ -88,6 +88,19 @@ final class PanelController {
         onVisibilityChange?(true)
     }
 
+    /// İçerik boyu değişti (dil): pencere sağ üst köşesi yerinde kalacak biçimde yeni boya getirilir.
+    func relayout() {
+        Task { @MainActor [weak self] in
+            await Task.yield()   // SwiftUI yeni dilde çizsin
+            guard let self, let p = self.panel, let host = p.contentView else { return }
+            host.layoutSubtreeIfNeeded()
+            let size = host.fittingSize, m = Self.margin
+            guard size != p.frame.size else { return }
+            self.content = CGRect(x: m.left, y: m.bottom, width: size.width - m.left - m.right, height: size.height - m.top - m.bottom)
+            p.setFrame(NSRect(x: p.frame.maxX - size.width, y: p.frame.maxY - size.height, width: size.width, height: size.height), display: true)
+        }
+    }
+
     /// `returnFocus`: monitör açılmayacaksa odak önceki uygulamaya döner.
     func close(returnFocus: Bool = true) {
         guard let p = panel else { return }

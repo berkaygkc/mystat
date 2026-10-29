@@ -64,6 +64,18 @@ public final class LiveSource: MetricsSource {
         }
     }
 
+    /// Dil değişince hemen bir ölçüm: olgular, öneriler ve grup bağlamı yeni dilde (seriler kova ortalamalı, ek örnek bozmaz).
+    @ObservationIgnored private(set) var pendingResample: Task<Void, Never>?
+
+    public func languageChanged() {
+        let sampler = sampler
+        pendingResample = Task { [weak self] in
+            await sampler.requestProcesses()
+            let out = await sampler.sample(at: Date())
+            self?.apply(out)
+        }
+    }
+
     /// Testler örneklemeyi saatle sürer.
     func step(at date: Date) async { apply(await sampler.sample(at: date)) }
 

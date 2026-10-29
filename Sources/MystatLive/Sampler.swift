@@ -88,6 +88,9 @@ public actor Sampler {
     /// Silmeden sonra: disk doluluğu (ve diğer yavaş okumalar) 60 sn beklemeden bir sonraki örnekte okunur.
     public func requestVolume() { lastSlow = nil }
 
+    /// Dil değişince: süreç grupları (bağlam metinleri) bir sonraki örnekte yeniden kurulur.
+    public func requestProcesses() { lastProc = nil }
+
     public func sample(at now: Date) -> Output {
         let wantDetail = interest.withLock { $0 }
         dockerReading = docker?.latest.withLock { $0 } ?? DockerPoller.Reading()

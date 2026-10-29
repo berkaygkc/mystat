@@ -45,11 +45,14 @@ public protocol MetricsSource: AnyObject, Observable {
     /// Grubun süreçlerine SIGTERM (`force` ise SIGKILL); yalnızca kendi süreçlerin (spec §7.4).
     /// `pids`: onay penceresi açıldığındaki üyeler; yalnızca hâlâ grupta olanlara sinyal gider.
     func stop(groupID: String, pids: [Int32], force: Bool) -> StopOutcome
+    /// Dil değişti: ölçüm tarafında üretilen metinler (olgular, öneriler, grup bağlamı) beklemeden yeni dilde yenilenir.
+    func languageChanged()
 }
 
 public extension MetricsSource {
     var diskScanSimulated: Bool { false }
     func setMonitorOccluded(_ occluded: Bool) {}
+    func languageChanged() {}
 }
 
 public enum StopOutcome: Sendable, Equatable {
