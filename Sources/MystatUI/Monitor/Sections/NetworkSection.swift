@@ -21,15 +21,20 @@ struct NetworkSection<Source: MetricsSource>: View {
                     StatsRow(items: [("Bugün indirilen", Fmt.dec1(s.net.todayDownGB) + " GB", nil),
                                      ("Bugün gönderilen", Fmt.dec1(s.net.todayUpGB) + " GB", nil),
                                      ("Zirve (bu aralık)", Fmt.rate(down.filter(\.isFinite).max() ?? 0) + " MB/s", nil),
-                                     ("Gecikme", s.capabilities.netDetails ? Fmt.int(s.net.latencyMs) + " ms" : "—", "yönlendirici")])
+                                     ("Gecikme", s.capabilities.netDetails ? NetPresentation.latencyText(s.net.latencyMs) : "—", "yönlendirici")])
                 }
             }
             .padding(.top, 26)
             HStack(alignment: .top, spacing: 26) {
                 VStack(alignment: .leading, spacing: 0) {
                     SecH("Kim kullanıyor", note: "uygulamaya göre")
-                    if s.capabilities.netDetails {
-                        GroupList(groups: s.groups, metric: .network, state: state)
+                    let users = GroupPresentation.networkUsers(s.groups)
+                    if s.capabilities.netDetails, !s.net.perAppAvailable {
+                        Text("Uygulama bazında ağ okunamadı.").font(.system(size: 12.5)).foregroundStyle(Theme.ink3).padding(.top, 10)
+                    } else if s.capabilities.netDetails, users.isEmpty {
+                        Text("Şu an ağı kullanan bir uygulama yok.").font(.system(size: 12.5)).foregroundStyle(Theme.ink3).padding(.top, 10)
+                    } else if s.capabilities.netDetails {
+                        GroupList(groups: users, metric: .network, state: state)
                     } else {
                         Text("Uygulama bazında ağ kullanımı henüz bağlanmadı.").font(.system(size: 12.5)).foregroundStyle(Theme.ink3).padding(.top, 10)
                     }

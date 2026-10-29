@@ -12,6 +12,12 @@ public enum GroupPresentation {
         groups.sorted { value($0, m) > value($1, m) }
     }
 
+    /// "Kim kullanıyor" (Ağ): büyükten küçüğe, en çok 12. Gerçek veride onlarca grup var; 12'yi aşınca trafiksizler
+    /// düşer (boşta liste boş kalır). Az gruplu örnek veri mockup'taki gibi tümüyle gösterilir.
+    public static func networkUsers(_ groups: [ProcessGroup]) -> [ProcessGroup] {
+        Array(sorted(groups.count > 12 ? groups.filter { $0.netMBps > 0 } : groups, by: .network).prefix(12))
+    }
+
     public static func related(of g: ProcessGroup, in all: [ProcessGroup]) -> ProcessGroup? {
         g.relatedID.flatMap { id in all.first { $0.id == id } }
     }

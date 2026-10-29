@@ -67,4 +67,20 @@ import Testing
         #expect(NetPresentation.accessLine(.known) == nil); #expect(NetPresentation.accessLine(.notWiFi) == nil)
         #expect(NetPresentation.locationSettingsURL.absoluteString == "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices")
     }
+
+    @Test func networkUsersFilters() {
+        let sample = SampleSource(seed: 1).snapshot.groups
+        #expect(GroupPresentation.networkUsers(sample).map(\.id) == GroupPresentation.sorted(sample, by: .network).map(\.id))   // örnek aynı
+        var many = (0..<15).map { i in var g = sample[0]; g.netMBps = Double(15 - i); return g }
+        many[3].netMBps = 0
+        let users = GroupPresentation.networkUsers(many)
+        #expect(users.count == 12); #expect(users.allSatisfy { $0.netMBps > 0 })
+        #expect(users.map(\.netMBps) == users.map(\.netMBps).sorted(by: >))
+    }
+
+    @Test func latencyText() {
+        #expect(NetPresentation.latencyText(.nan) == "—")
+        #expect(NetPresentation.latencyText(18) == "18 ms")
+        #expect(NetPresentation.latencyText(3.6) == "4 ms")
+    }
 }

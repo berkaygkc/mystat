@@ -55,6 +55,9 @@ public enum NetPresentation {
         rssi >= -55 ? "Çok iyi" : rssi >= -67 ? "İyi" : rssi >= -75 ? "Orta" : "Zayıf"
     }
 
+    /// Yönlendirici gecikmesi; ölçülmediyse "—".
+    public static func latencyText(_ ms: Double) -> String { ms.isFinite ? Fmt.int(ms) + " ms" : Fmt.missing }
+
     /// Sistem Ayarları → Gizlilik ve Güvenlik → Konum Servisleri.
     public static let locationSettingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices")!
 
