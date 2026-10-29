@@ -7,9 +7,9 @@ struct Sidebar<Source: MetricsSource>: View {
     @Bindable var state: MonitorState
 
     static var items: [(MonitorSection, String, String)] {
-        [(.overview, "Genel Bakış", "square.grid.2x2"), (.cpu, "İşlemci", "cpu"), (.mem, "Bellek", "memorychip"),
-         (.disk, "Disk", "internaldrive"), (.net, "Ağ", "arrow.up.arrow.down"), (.docker, "Docker", "shippingbox"),
-         (.sys, "Sistem", "thermometer.medium")]
+        [(.overview, L10n.t("section.overview"), "square.grid.2x2"), (.cpu, L10n.t("section.cpu"), "cpu"), (.mem, L10n.t("section.mem"), "memorychip"),
+         (.disk, L10n.t("section.disk"), "internaldrive"), (.net, L10n.t("section.net"), "arrow.up.arrow.down"), (.docker, L10n.t("section.docker"), "shippingbox"),
+         (.sys, L10n.t("section.sys"), "thermometer.medium")]
     }
 
     var body: some View {
@@ -51,7 +51,7 @@ struct Sidebar<Source: MetricsSource>: View {
 
     private func incidentCard(_ inc: Incident, _ s: Snapshot) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Kicker("OLAY · \(inc.minutes) DK", level: inc.level, pulsing: true)
+            Kicker(L10n.t("sidebar.incident", ["n": String(inc.minutes)]), level: inc.level, pulsing: true)
             PlainBreakText(text: PlainBreakText.sideIncident(MonitorPresentation.sideIncidentText(s)))   // mockup kırılımı
         }
         .padding(.horizontal, 12.5).padding(.vertical, 11.5)   // 12/11 px dolgu + 0,5 px kenarlık (border-box)

@@ -87,7 +87,7 @@ public final class ScanIndex: Sendable {
     @discardableResult
     public func addDirectory(parent: Int32, name: String, fileID: UInt64) -> Int32 {
         state.withLock { s in
-            precondition(parent >= 0 && Int(parent) < s.parent.count, "üst klasör önce eklenir")
+            precondition(parent >= 0 && Int(parent) < s.parent.count, "parent directory must be added first")
             let (start, len) = s.appendName(name)
             s.parent.append(parent); s.nameStart.append(start); s.nameLen.append(len)
             s.ownSmall.append(0); s.smallCount.append(0); s.cloud.append(0); s.fileID.append(fileID)

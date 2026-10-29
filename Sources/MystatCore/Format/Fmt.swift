@@ -104,3 +104,14 @@ extension DateFormatter {
     }
     private static let weekdayCache = Mutex<[String: [String]]>([:])
 }
+
+extension Fmt {
+    /// Ekranda yazılmış bir değeri ("4,2", "%62", "62%", "+2.1", "1.201") seçili dilin ayırıcılarıyla geri okur;
+    /// sayı yoksa nil ("yeniden başlıyor").
+    public static func number(_ s: String) -> Double? {
+        let dec = Character(locale.decimalSeparator ?? ".")
+        let kept = s.filter { $0.isNumber || $0 == dec }   // binlik ayırıcı, yüzde ve işaretler düşer
+        guard kept.contains(where: \.isNumber) else { return nil }
+        return Double(String(kept.map { $0 == dec ? "." : $0 }))
+    }
+}

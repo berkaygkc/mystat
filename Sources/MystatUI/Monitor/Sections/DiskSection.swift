@@ -10,7 +10,7 @@ struct DiskSection<Source: MetricsSource>: View {
         let s = source.snapshot, disk = state.disk
         let h = SectionText.disk(s, home: source.diskTree.root, freedGB: disk.freedGB)
         VStack(alignment: .leading, spacing: 0) {
-            SectionHead("DİSK", title: h.title, soft: h.soft, lede: h.lede, level: h.level, pulsing: h.level != .ok)
+            SectionHead(UIText.sectionKicker(.disk), title: h.title, soft: h.soft, lede: h.lede, level: h.level, pulsing: h.level != .ok)
             if s.incident?.kind == .disk { IncidentBlock(source: source, state: state, inOverview: false).padding(.top, 20) }
             usage(s).padding(.top, 16)
             HStack(alignment: .top, spacing: 22) {
@@ -25,9 +25,9 @@ struct DiskSection<Source: MetricsSource>: View {
             .padding(.top, 22)
             Card {
                 VStack(alignment: .leading, spacing: 0) {
-                    SecH(title: "Disk etkinliği") { Legend(items: [("Yazma", Theme.chart), ("Okuma", Theme.chart2)]) }
-                    AreaChart(series: [ChartSeries(source.series(.diskWrite, range: state.range), color: Theme.chart, fill: true, name: "yazma"),
-                                       ChartSeries(source.series(.diskRead, range: state.range), color: Theme.chart2, name: "okuma")],
+                    SecH(title: L10n.t("disk.activity.title")) { Legend(items: [(L10n.t("legend.write"), Theme.chart), (L10n.t("legend.read"), Theme.chart2)]) }
+                    AreaChart(series: [ChartSeries(source.series(.diskWrite, range: state.range), color: Theme.chart, fill: true, name: L10n.t("series.write")),
+                                       ChartSeries(source.series(.diskRead, range: state.range), color: Theme.chart2, name: L10n.t("series.read"))],
                               height: 140, range: state.range, format: { Fmt.rate($0) + " MB/s" }, formatY: { Fmt.int($0) + " MB/s" })
                 }
             }
@@ -37,7 +37,7 @@ struct DiskSection<Source: MetricsSource>: View {
 
     private func usage(_ s: Snapshot) -> some View {
         let d = s.disk
-        let parts: [(String, Double, Color)] = [("Kullanılan", d.usedGB, Theme.c1), ("Sistemin boşaltabileceği", d.purgeableGB, Theme.c3), ("Boş", d.freeGB, Theme.c4)]
+        let parts: [(String, Double, Color)] = [(L10n.t("disk.used"), d.usedGB, Theme.c1), (L10n.t("fact.purgeable"), d.purgeableGB, Theme.c3), (L10n.t("disk.free"), d.freeGB, Theme.c4)]
         return VStack(alignment: .leading, spacing: 10) {
             GeometryReader { g in
                 let total = parts.reduce(0) { $0 + $1.1 }, gaps: CGFloat = 4
@@ -55,7 +55,7 @@ struct DiskSection<Source: MetricsSource>: View {
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 1) {
-                    Text("Etkinlik").font(.system(size: 12)).foregroundStyle(Theme.ink2)
+                    Text(L10n.t("disk.activity")).font(.system(size: 12)).foregroundStyle(Theme.ink2)
                     Text("↑ \(Fmt.rate(d.writeMBps)) · ↓ \(Fmt.rate(d.readMBps)) MB/s").font(.system(size: 15, weight: .semibold).monospacedDigit()).foregroundStyle(Theme.ink)
                 }
             }
@@ -71,7 +71,7 @@ struct DiskSection<Source: MetricsSource>: View {
                 let current = i == parts.count - 1
                 Text(c.name).fontWeight(current ? .semibold : .regular).foregroundStyle(current ? Theme.ink : Theme.ink2)
                     .padding(.horizontal, 6).padding(.vertical, 2)
-                    .help(c.isEllipsis ? "Gizlenen seviyeler" : "")
+                    .help(c.isEllipsis ? L10n.t("disk.hiddenLevels") : "")
                     .contentShape(Rectangle())
                     .onTapGesture { if !current { disk.open(c.path) } }
             }
@@ -95,15 +95,15 @@ struct ScanStatus: View {
             HStack(spacing: 6) {
                 switch scan.effective(now: ctx.date) {
                 case .scanning(_, let gb, let path):
-                    Text("Taranıyor · \(Fmt.size(gb)) · \(path) ·").monospacedDigit().lineLimit(1).truncationMode(.middle)
-                    Text("Durdur").fontWeight(.semibold).foregroundStyle(Theme.ink2)
+                    Text(L10n.t("disk.scanning", ["size": Fmt.size(gb), "path": path])).monospacedDigit().lineLimit(1).truncationMode(.middle)
+                    Text(L10n.t("common.stop")).fontWeight(.semibold).foregroundStyle(Theme.ink2)
                         .onTapGesture { stop() }
                 case .ready:
                     if let note {
-                        Text(note + " ·").help("Tam Disk Erişimi verirsen bu klasörler de taranır.")
+                        Text(note + " ·").help(L10n.t("disk.fdaHelp"))
                     }
                     Text((scan.validityText(now: ctx.date) ?? "") + " ·")
-                    Text("Yeniden tara").fontWeight(.semibold).foregroundStyle(Theme.ink2)
+                    Text(L10n.t("disk.rescan")).fontWeight(.semibold).foregroundStyle(Theme.ink2)
                         .onTapGesture { start() }
                 case .none:
                     EmptyView()
@@ -155,8 +155,8 @@ struct DiskMapArea<Map: View>: View {
                 Circle().fill(Theme.kindColor(.regen).opacity(0.55)).frame(width: 26, height: 26).offset(x: 26, y: 22)
             }
             .frame(height: 90)
-            Text("Disk haritası").font(.system(size: 17, weight: .semibold)).tracking(-0.25).foregroundStyle(Theme.ink).padding(.top, 14)
-            Text("Ev klasörünü tarayıp neyin ne kadar yer tuttuğunu gösterir. Sonuç 1 saat geçerli kalır; ardından yeniden taraman gerekir.")
+            Text(L10n.t("disk.map.title")).font(.system(size: 17, weight: .semibold)).tracking(-0.25).foregroundStyle(Theme.ink).padding(.top, 14)
+            Text(L10n.t("disk.map.intro"))
                 .font(.system(size: 13)).lineSpacing(3).multilineTextAlignment(.center).foregroundStyle(Theme.ink2)
                 .frame(maxWidth: 340).padding(.top, 6)
             if scanAvailable {
@@ -166,12 +166,12 @@ struct DiskMapArea<Map: View>: View {
                         .frame(maxWidth: 340).padding(.top, 12)
                 }
                 HStack(spacing: 8) {
-                    Btn("Taramayı başlat", icon: "magnifyingglass", style: .primary) { start() }
-                    if accessNote != nil { Btn("Ayarları aç", icon: "gearshape") { openURL(DiskPresentation.settingsURL) } }
+                    Btn(L10n.t("disk.scan.start"), icon: "magnifyingglass", style: .primary) { start() }
+                    if accessNote != nil { Btn(L10n.t("net.ssid.openSettings"), icon: "gearshape") { openURL(DiskPresentation.settingsURL) } }
                 }
                 .fixedSize().padding(.top, 18)
             } else {
-                Text("Disk haritası taraması henüz bağlanmadı.").font(.system(size: 12.5)).foregroundStyle(Theme.ink3).padding(.top, 18)
+                Text(L10n.t("disk.scan.unavailable")).font(.system(size: 12.5)).foregroundStyle(Theme.ink3).padding(.top, 18)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -181,7 +181,7 @@ struct DiskMapArea<Map: View>: View {
         ZStack(alignment: .topLeading) {
             if !disk.path.isEmpty {
                 Button { disk.open(Array(disk.path.dropLast())) } label: {
-                    HStack(spacing: 4) { Image(systemName: "chevron.left").font(.system(size: 12, weight: .semibold)); Text("Geri") }
+                    HStack(spacing: 4) { Image(systemName: "chevron.left").font(.system(size: 12, weight: .semibold)); Text(L10n.t("common.back")) }
                         .font(.system(size: 12.5, weight: .semibold)).foregroundStyle(Theme.ink)
                         .padding(.leading, 9).padding(.trailing, 14).frame(height: 30)
                         .background(Theme.tipFill, in: Capsule())
@@ -190,12 +190,12 @@ struct DiskMapArea<Map: View>: View {
                 .buttonStyle(.plain).padding(14)
                 .transition(.opacity.combined(with: .move(edge: .leading)))
             }
-            Text("Tıkla: içine gir · ＋ ya da ⌘-tık: seç · Esc: geri").font(.system(size: 11.5)).foregroundStyle(Theme.ink3)
+            Text(L10n.t("disk.map.hint")).font(.system(size: 11.5)).foregroundStyle(Theme.ink3)
                 .frame(maxWidth: .infinity, alignment: .trailing).padding(.trailing, 16).padding(.top, 20)
             VStack {
                 Spacer()
                 HStack(spacing: 12) {
-                    ForEach([(NodeKind.folder, "Klasör"), (.regen, "Yeniden oluşturulabilir"), (.docker, "Docker"), (.file, "Dosya")], id: \.1) { k, t in
+                    ForEach([(NodeKind.folder, L10n.t("detail.folder")), (.regen, L10n.t("disk.kind.regen")), (.docker, "Docker"), (.file, L10n.t("disk.kind.file"))], id: \.1) { k, t in
                         HStack(spacing: 6) { Circle().fill(Theme.kindColor(k)).frame(width: 8, height: 8); Text(t) }
                     }
                 }

@@ -15,11 +15,11 @@ struct IncidentBlock<Source: MetricsSource>: View {
 
     private func content(_ inc: Incident, _ s: Snapshot) -> some View {
         let rows = PanelPresentation.culprits(s)
-        let maxV = rows.compactMap { Double($0.value.filter { $0.isNumber || $0 == "," }.replacingOccurrences(of: ",", with: ".")) }.max() ?? 1
+        let maxV = rows.compactMap { Fmt.number($0.value) }.max() ?? 1
         return VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 22) {
                 VStack(alignment: .leading, spacing: 0) {
-                    Kicker("OLAY · \(inc.minutes) DAKİKADIR SÜRÜYOR", level: inc.level, pulsing: true).padding(.bottom, 8)
+                    Kicker(L10n.plural("incident.kicker", inc.minutes), level: inc.level, pulsing: true).padding(.bottom, 8)
                     Text(MonitorPresentation.incidentSentence(s))
                         .font(.system(size: 17, weight: .semibold)).tracking(-0.25).lineSpacing(4).foregroundStyle(Theme.ink)
                         .fixedSize(horizontal: false, vertical: true)
@@ -36,7 +36,7 @@ struct IncidentBlock<Source: MetricsSource>: View {
             }
             VStack(spacing: 0) {
                 ForEach(Array(rows.enumerated()), id: \.offset) { i, r in
-                    let v = Double(r.value.filter { $0.isNumber || $0 == "," }.replacingOccurrences(of: ",", with: ".")) ?? 0
+                    let v = Fmt.number(r.value) ?? 0
                     HStack(spacing: 10) {
                         Text("\(i + 1)").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.ink3).frame(width: 16, alignment: .leading)
                         Text("\(Text(r.name).fontWeight(.semibold).foregroundColor(Theme.ink))  \(Text(r.context).foregroundColor(Theme.ink2))")
@@ -54,13 +54,13 @@ struct IncidentBlock<Source: MetricsSource>: View {
             }
             .padding(.top, 12)
             HStack(spacing: 8) {
-                Btn("Teşhisi kopyala", icon: "doc.on.doc") {
+                Btn(L10n.t("detail.copyDiagnosis"), icon: "doc.on.doc") {
                     if let g = s.groups.first(where: { $0.id == rows.first?.groupID }) {
                         state.copyDiagnosis(GroupPresentation.diagnosis(g, incident: inc))
                     }
                 }.fixedSize()
                 let sec = MonitorPresentation.section(for: inc.kind)
-                Btn(inOverview ? MonitorPresentation.inspectTitle(section: sec) : "Sorumluyu göster", trailing: "chevron.right") {
+                Btn(inOverview ? MonitorPresentation.inspectTitle(section: sec) : L10n.t("incident.showCulprit"), trailing: "chevron.right") {
                     if inOverview { state.go(MonitorSection(rawValue: sec) ?? .cpu) }
                     else if let first = rows.first { state.show(MonitorSection(rawValue: sec) ?? .cpu, group: first.groupID) }
                 }.fixedSize()

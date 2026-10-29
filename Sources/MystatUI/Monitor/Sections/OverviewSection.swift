@@ -10,7 +10,7 @@ struct OverviewSection<Source: MetricsSource>: View {
         let s = source.snapshot
         let head = GroupPresentation.panelHeadline(s)
         VStack(alignment: .leading, spacing: 0) {
-            SectionHead("ŞU AN", title: head.title, lede: MonitorPresentation.overviewLede(s),
+            SectionHead(UIText.sectionKicker(.overview), title: head.title, lede: MonitorPresentation.overviewLede(s),
                         level: s.incident?.level ?? .ok, pulsing: s.incident != nil)
             IncidentBlock(source: source, state: state, inOverview: true).padding(.top, s.incident == nil ? 0 : 20)
             tiles(s).padding(.top, 24)
@@ -56,18 +56,18 @@ struct OverviewSection<Source: MetricsSource>: View {
 
     private func topEaters(_ s: Snapshot) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            SecH("Şu an en çok yiyenler", note: "tüm makine")
+            SecH(L10n.t("overview.top"), note: L10n.t("overview.top.note"))
             HStack(spacing: 10) {
-                Text("Uygulama / grup").frame(maxWidth: .infinity, alignment: .leading)
-                Text("İşlemci").frame(width: 86, alignment: .trailing)
-                Text("Bellek").frame(width: 70, alignment: .trailing)
+                Text(L10n.t("list.appGroup")).frame(maxWidth: .infinity, alignment: .leading)
+                Text(L10n.t("section.cpu")).frame(width: 86, alignment: .trailing)
+                Text(L10n.t("section.mem")).frame(width: 70, alignment: .trailing)
             }
             .font(.system(size: 11)).foregroundStyle(Theme.ink3).padding(.bottom, 6)
             ForEach(GroupPresentation.sorted(s.groups, by: .cpu).prefix(5)) { g in
                 HStack(spacing: 10) {
                     Text("\(Text(g.name).fontWeight(.semibold).foregroundColor(Theme.ink))  \(Text(g.context).foregroundColor(Theme.ink2))")
                         .lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
-                    Text("\(Fmt.cores(g.cpuCores)) çek.").fontWeight(g.cpuCores >= 2 ? .semibold : .regular)
+                    Text(L10n.t("unit.coresShort", ["v": Fmt.cores(g.cpuCores)])).fontWeight(g.cpuCores >= 2 ? .semibold : .regular)
                         .foregroundStyle(g.cpuCores >= 2 ? Theme.red : Theme.ink2).frame(width: 86, alignment: .trailing)
                     Text(Fmt.mem(g.memoryGB)).foregroundStyle(Theme.ink2).frame(width: 70, alignment: .trailing)
                 }
@@ -80,7 +80,7 @@ struct OverviewSection<Source: MetricsSource>: View {
 
     private func suggestions(_ s: Snapshot) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            SecH("Öneriler", note: "acil değil")
+            SecH(L10n.t("overview.suggestions"), note: L10n.t("overview.suggestions.note"))
             ForEach(Array(s.suggestions.enumerated()), id: \.offset) { _, sg in
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     Text("→").foregroundStyle(Theme.ink3)

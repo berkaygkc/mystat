@@ -13,41 +13,41 @@ struct SystemSection<Source: MetricsSource>: View {
         let warm = sys.thermal != .ok
         let onBattery = !sys.onAC
         VStack(alignment: .leading, spacing: 0) {
-            SectionHead("SİSTEM", title: h.title, lede: h.lede, level: h.level, pulsing: h.level != .ok)
+            SectionHead(UIText.sectionKicker(.sys), title: h.title, lede: h.lede, level: h.level, pulsing: h.level != .ok)
             if let k = s.incident?.kind, k == .heat || k == .battery { IncidentBlock(source: source, state: state, inOverview: false).padding(.top, 20) }
             HStack(alignment: .top, spacing: 16) {
                 if s.capabilities.sensors {
                     let pill = SystemPresentation.heatPill(sys)
-                    card(title: "Isı ve fan", pill: Pill(text: pill.0, level: pill.1),
+                    card(title: L10n.t("sys.card.heat"), pill: Pill(text: pill.0, level: pill.1),
                          big: Fmt.int(sys.chipTemp), unit: "°C", bigLevel: sys.thermal,
                          label: SystemPresentation.heatLabel(sys),
                          series: ChartSeries(source.series(.temp, range: state.range), color: warm ? Theme.orange : Theme.chart, fill: true, name: "°C"),
                          max: 105, format: { Fmt.int($0) + "°" },
-                         facts: [("İşlemci", Fmt.int(sys.chipTemp) + "°"), ("GPU", degrees(sys.gpuTemp)), ("SSD", degrees(sys.ssdTemp)),
-                                 ("Yavaşlatma", SystemPresentation.slowdown(sys))])
+                         facts: [(L10n.t("section.cpu"), Fmt.int(sys.chipTemp) + "°"), ("GPU", degrees(sys.gpuTemp)), ("SSD", degrees(sys.ssdTemp)),
+                                 (L10n.t("sys.fact.slowdown"), SystemPresentation.slowdown(sys))])
                 } else {
                     // Sensörler 2c'de: sahte sıcaklık yerine termal durum.
-                    card(title: "Isı ve fan", pill: Pill(text: sys.thermal.thermalWord, level: sys.thermal),
-                         big: "—", unit: "", bigLevel: .ok, label: "sensörler bağlanmadı",
+                    card(title: L10n.t("sys.card.heat"), pill: Pill(text: sys.thermal.thermalWord, level: sys.thermal),
+                         big: "—", unit: "", bigLevel: .ok, label: L10n.t("sys.noSensors"),
                          series: ChartSeries([], color: Theme.chart, fill: true, name: "°C"), max: 105, format: { Fmt.int($0) + "°" },
-                         facts: [("Yavaşlatma", sys.thermal == .crit ? "Var" : "Yok")])
+                         facts: [(L10n.t("sys.fact.slowdown"), L10n.t(sys.thermal == .crit ? "sys.slowdown.yes" : "sys.slowdown.no"))])
                 }
-                card(title: "Güç ve pil", pill: Pill(text: onBattery ? "Pilde" : "Prizde", level: onBattery ? .warn : .ok),
+                card(title: L10n.t("sys.card.power"), pill: Pill(text: L10n.t(onBattery ? "sys.pill.onBattery" : "sys.pill.onAC"), level: onBattery ? .warn : .ok),
                      big: String(sys.battery), unit: "%", bigLevel: onBattery ? .warn : .ok,
                      label: SystemPresentation.powerLabel(sys, sensors: s.capabilities.sensors),
                      series: ChartSeries(s.capabilities.sensors ? source.series(.power, range: state.range) : [], color: Theme.chart, fill: true, name: "W"),
                      max: 100, format: { Fmt.int($0) + " W" },
-                     facts: [("Adaptör", sys.adapter), ("Pil sağlığı", sys.health), ("Döngü", String(sys.cycles)), ("Kapasite", sys.capacity)])
+                     facts: [(L10n.t("sys.fact.adapter"), sys.adapter), (L10n.t("sys.fact.health"), sys.health), (L10n.t("sys.fact.cycles"), String(sys.cycles)), (L10n.t("sys.fact.capacity"), sys.capacity)])
                 if s.capabilities.sensors {
                     let pill = SystemPresentation.gpuPill(sys)
                     card(title: "GPU", pill: Pill(text: pill.0, level: pill.1),
                          big: Fmt.int(sys.gpuPercent), unit: "%", bigLevel: pill.1,
-                         label: "\(sys.gpuCores) çekirdekli GPU" + (sys.gpuTemp > 0 ? " · \(Fmt.int(sys.gpuTemp))°" : ""),
+                         label: L10n.t("sys.gpuLabel", ["n": String(sys.gpuCores)]) + (sys.gpuTemp > 0 ? " · \(Fmt.int(sys.gpuTemp))°" : ""),
                          series: ChartSeries(source.series(.gpu, range: state.range), color: Theme.chart, fill: true, name: "GPU"),
                          max: 100, format: Fmt.pct,
                          facts: SystemPresentation.gpuFacts(withDisplays(sys)))
                 } else {
-                    card(title: "GPU", pill: Pill(text: "—", level: .ok), big: "—", unit: "", bigLevel: .ok, label: "sensörler bağlanmadı",
+                    card(title: "GPU", pill: Pill(text: "—", level: .ok), big: "—", unit: "", bigLevel: .ok, label: L10n.t("sys.noSensors"),
                          series: ChartSeries([], color: Theme.chart, fill: true, name: "GPU"), max: 100, format: Fmt.pct, facts: [])
                 }
             }
@@ -84,7 +84,7 @@ struct SystemSection<Source: MetricsSource>: View {
         let top = SystemPresentation.energyTop(s.groups, n: 5)
         let maxW = max(0.001, top.first?.watts ?? 1)
         return VStack(alignment: .leading, spacing: 0) {
-            SecH("En çok enerji harcayanlar", note: "son 10 dk")   // grup watt'ı 10 dk penceresinin ortalaması
+            SecH(L10n.t("sys.energy.title"), note: L10n.t("sys.energy.note"))   // grup watt'ı 10 dk penceresinin ortalaması
             ForEach(Array(top.enumerated()), id: \.offset) { i, g in
                 HStack(spacing: 10) {
                     Text("\(i + 1)").foregroundStyle(Theme.ink3).frame(width: 16, alignment: .leading)

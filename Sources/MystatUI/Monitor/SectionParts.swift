@@ -88,7 +88,7 @@ struct StatsRow: View {
 /// Mockup `.badge`: "sahipsiz".
 struct OrphanBadge: View {
     var body: some View {
-        Text("sahipsiz").font(.system(size: 10.5, weight: .semibold)).foregroundStyle(Theme.orange)
+        Text(L10n.t("badge.orphan")).font(.system(size: 10.5, weight: .semibold)).foregroundStyle(Theme.orange)
             .padding(.horizontal, 7).padding(.vertical, 1)
             .background(Theme.orangeSoft, in: Capsule())
     }

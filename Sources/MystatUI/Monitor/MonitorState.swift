@@ -48,6 +48,6 @@ public final class MonitorState {
     public func copyDiagnosis(_ text: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
-        ToastCenter.shared.show("Teşhis panoya kopyalandı")
+        ToastCenter.shared.show(L10n.t("toast.diagnosisCopied"))
     }
 }

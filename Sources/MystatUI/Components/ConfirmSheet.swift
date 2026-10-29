@@ -1,3 +1,4 @@
+import MystatCore
 import SwiftUI
 
 /// Onay penceresi içeriği (mockup'taki `.sheet`). Perde ve sunum `ConfirmHost` tarafından yapılır.
@@ -23,7 +24,7 @@ public struct ConfirmSheet: View {
             Text(req.message).font(.system(size: 13)).lineSpacing(3).foregroundStyle(Theme.ink2).padding(.top, 7)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 8) {
-                Btn("Vazgeç", action: dismiss)
+                Btn(L10n.t("common.cancel"), action: dismiss)
                 Btn(req.confirm, style: req.destructive ? .dangerFill : .primary) { dismiss(); req.onConfirm() }
             }
             .padding(.top, 18)

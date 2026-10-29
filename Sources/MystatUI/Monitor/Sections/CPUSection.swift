@@ -13,25 +13,25 @@ struct CPUSection<Source: MetricsSource>: View {
         let hot = s.incident?.kind == .cpu
         let cpu = source.series(.cpu, range: state.range)
         VStack(alignment: .leading, spacing: 0) {
-            SectionHead("İŞLEMCİ", title: h.title, soft: h.soft, lede: hot ? nil : MonitorPresentation.cpuCalmLede,
+            SectionHead(UIText.sectionKicker(.cpu), title: h.title, soft: h.soft, lede: hot ? nil : MonitorPresentation.cpuCalmLede,
                         level: hot ? level : .ok, pulsing: hot)
             if hot { IncidentBlock(source: source, state: state, inOverview: false).padding(.top, 20) }
             Card {
                 VStack(alignment: .leading, spacing: 0) {
-                    SecH(title: "Kullanım") { Legend(items: [("Toplam", Theme.chart), ("Sistem", Theme.chart2)]) }
-                    AreaChart(series: [ChartSeries(cpu, color: hot ? Theme.red : Theme.chart, fill: true, name: "toplam"),
-                                       ChartSeries(source.series(.cpuSystem, range: state.range), color: Theme.chart2, name: "sistem")],
+                    SecH(title: L10n.t("cpu.chart.title")) { Legend(items: [(L10n.t("legend.total"), Theme.chart), (L10n.t("section.sys"), Theme.chart2)]) }
+                    AreaChart(series: [ChartSeries(cpu, color: hot ? Theme.red : Theme.chart, fill: true, name: L10n.t("series.total")),
+                                       ChartSeries(source.series(.cpuSystem, range: state.range), color: Theme.chart2, name: L10n.t("series.system"))],
                               max: 100, height: 190, range: state.range, format: Fmt.pct, formatY: Fmt.pct)
-                    StatsRow(items: [("Kullanıcı", Fmt.pct(s.cpu.percent - s.cpu.systemPercent), nil), ("Sistem", Fmt.pct(s.cpu.systemPercent), nil),
-                                     ("Yük ortalaması", s.cpu.loadAvg.map(Fmt.dec1).joined(separator: " · "), nil),
-                                     ("Zirve (bu aralık)", Fmt.pct(cpu.filter(\.isFinite).max() ?? 0), nil)])
+                    StatsRow(items: [(L10n.t("cpu.user"), Fmt.pct(s.cpu.percent - s.cpu.systemPercent), nil), (L10n.t("section.sys"), Fmt.pct(s.cpu.systemPercent), nil),
+                                     (L10n.t("cpu.loadAvg"), s.cpu.loadAvg.map(Fmt.dec1).joined(separator: " · "), nil),
+                                     (L10n.t("stats.peakRange"), Fmt.pct(cpu.filter(\.isFinite).max() ?? 0), nil)])
                 }
             }
             .padding(.top, 26)
             cores(s).padding(.top, 26)
             HStack(alignment: .top, spacing: 26) {
                 VStack(alignment: .leading, spacing: 0) {
-                    SecH("Kim yiyor", note: "uygulama ve projeye göre gruplu")
+                    SecH(L10n.t("cpu.who"), note: L10n.t("cpu.who.note"))
                     GroupList(groups: s.groups, metric: .cpu, state: state)
                 }
                 if let g = s.groups.first(where: { $0.id == state.selected[.cpu] }) {
@@ -45,7 +45,7 @@ struct CPUSection<Source: MetricsSource>: View {
     private func cores(_ s: Snapshot) -> some View {
         let names = MonitorPresentation.coreLabels(count: s.cpu.cores.count, machine: s.system.machine)
         return VStack(alignment: .leading, spacing: 0) {
-            SecH("Çekirdekler", note: names.note)
+            SecH(L10n.t("cpu.cores.title"), note: names.note)
             HStack(spacing: 6) {
                 ForEach(Array(s.cpu.cores.enumerated()), id: \.offset) { _, v in
                     RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.line2)

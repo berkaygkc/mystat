@@ -19,7 +19,7 @@ public final class DiskUIState {
 
     public func toggle(_ p: [String], tree: DiskTree) {
         switch basket.toggle(p, in: tree) {
-        case .blockedByAncestor: ToastCenter.shared.show("Üst klasörü zaten seçili")
+        case .blockedByAncestor: ToastCenter.shared.show(L10n.t("disk.toast.parentSelected"))
         case .notSelectable: if let r = DeletionGuard.reason(path: p) { ToastCenter.shared.show(r) }
         case .added, .removed: break
         }
@@ -35,7 +35,7 @@ public final class DiskUIState {
         if case .scanning = source.diskScan { ToastCenter.shared.show(Self.busyText); return }
         let items = basket.items, mode = mode
         basket.clear()
-        ToastCenter.shared.show(mode == .trash ? "Çöpe taşınıyor…" : "Siliniyor…")
+        ToastCenter.shared.show(L10n.t(mode == .trash ? "disk.toast.trashing" : "disk.toast.deleting"))
         let out = await source.delete(items, mode: mode)
         if mode == .permanent { freedGB += out.freedGB }   // çöpe taşımak yer açmaz
         var p = path
@@ -45,14 +45,14 @@ public final class DiskUIState {
         ToastCenter.shared.show(out.toast(trash: mode == .trash))
     }
 
-    static let busyText = "Tarama sürerken silinemez; bitince silebilirsin."
+    static var busyText: String { L10n.t("disk.busy") }
 
     public func confirmDelete(tree: DiskTree, source: some MetricsSource) -> ConfirmRequest? {
         guard !basket.isEmpty else { return nil }
         if case .scanning = source.diskScan { ToastCenter.shared.show(Self.busyText); return nil }
         let perm = mode == .permanent
         return ConfirmRequest(title: basket.confirmTitle(mode: mode), message: basket.confirmMessage(mode: mode),
-                              confirm: perm ? "Kalıcı olarak sil" : "Çöpe taşı", destructive: perm,
+                              confirm: L10n.t(perm ? "disk.button.permanent" : "disk.button.trash"), destructive: perm,
                               onConfirm: { [weak self] in Task { await self?.performDelete(tree: tree, source: source) } })
     }
 }

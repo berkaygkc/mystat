@@ -79,3 +79,16 @@ import Testing
         #expect(StatusBlockLayout.netTemplate == "↓88,8")
     }
 }
+
+/// Olay sorumlularının değerleri ekranda yazıldığı biçimden geri okunur (çubuk uzunlukları).
+@Suite struct FmtNumberTests {
+    @Test func parsesDisplayedValues() {
+        L10n.$override.withValue("tr") {
+            #expect(Fmt.number("4,2") == 4.2); #expect(Fmt.number("%62") == 62); #expect(Fmt.number("+2,1") == 2.1); #expect(Fmt.number("1.201") == 1201)
+        }
+        L10n.$override.withValue("en") {
+            #expect(Fmt.number("4.2") == 4.2); #expect(Fmt.number("62%") == 62); #expect(Fmt.number("+2.1") == 2.1); #expect(Fmt.number("1,201") == 1201)
+            #expect(Fmt.number("restarting") == nil)
+        }
+    }
+}

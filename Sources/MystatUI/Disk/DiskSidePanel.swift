@@ -25,15 +25,15 @@ struct DiskSidePanel<Source: MetricsSource>: View {
             }
             .padding(.top, 4).padding(.bottom, 10)
             if here != .none {
-                Text(here == .selected ? "Bu klasörün tamamı seçili." : "Bu klasör, seçili bir üst klasörle birlikte silinecek.")
+                Text(L10n.t(here == .selected ? "disk.side.allSelected" : "disk.side.implied"))
                     .font(.system(size: 12)).lineSpacing(2).foregroundStyle(Theme.acc)
                     .padding(.horizontal, 10).padding(.vertical, 8).frame(maxWidth: .infinity, alignment: .leading)
                     .background(Theme.accSoft, in: RoundedRectangle(cornerRadius: 10, style: .continuous)).padding(.bottom, 8)
             }
             if !source.snapshot.capabilities.diskScan {
-                Text("Klasör listesi tarama bağlanınca gelecek.").font(.system(size: 12)).foregroundStyle(Theme.ink3)
+                Text(L10n.t("disk.side.unavailable")).font(.system(size: 12)).foregroundStyle(Theme.ink3)
             } else if case .none = source.diskScan.effective(now: Date()) {
-                Text("Harita için önce taramayı başlat.").font(.system(size: 12)).foregroundStyle(Theme.ink3)
+                Text(L10n.t("disk.side.startScan")).font(.system(size: 12)).foregroundStyle(Theme.ink3)
             } else {
                 let sorted = kids.sorted { $0.size > $1.size }
                 if sorted.count > Self.plainRows {   // gerçek taramada binlerce satır olabilir (node_modules)
@@ -71,7 +71,7 @@ struct DiskSidePanel<Source: MetricsSource>: View {
         let folder = c.canHaveChildren
         let locked = DeletionGuard.reason(path: p)
         var name = c.displayName
-        if case .other(let n)? = c.ref { name += " · \(Fmt.int(Double(n))) küçük dosya" }
+        if case .other(let n)? = c.ref { name += L10n.plural("disk.smallFiles", n, ["n": Fmt.int(Double(n))]) }
         return HStack(spacing: 8) {
             Group {
                 if other { Color.clear }
@@ -100,17 +100,17 @@ struct DiskSidePanel<Source: MetricsSource>: View {
     private func basket(_ tree: DiskTree) -> some View {
         let items = disk.basket.items
         if items.isEmpty {
-            Text("Seçmek için balonun üzerindeki ＋ işaretine, listedeki daireye ya da ⌘ basılıyken balona tıkla. Farklı klasörlerden seçtiklerin burada birikir; hepsini tek seferde silebilirsin.")
+            Text(L10n.t("disk.side.hint"))
                 .font(.system(size: 12)).lineSpacing(3).foregroundStyle(Theme.ink3).fixedSize(horizontal: false, vertical: true)
         } else {
             let hasDocker = items.contains { $0.kind == .docker || $0.path.contains("Docker") }
             Card(radius: 16) {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text("Seçilenler").font(.system(size: 13.5, weight: .semibold)).foregroundStyle(Theme.ink)
-                        Text("\(items.count) öğe · \(Fmt.size(disk.basket.totalGB))").font(.system(size: 12).monospacedDigit()).foregroundStyle(Theme.ink2)
+                        Text(L10n.t("disk.basket.title")).font(.system(size: 13.5, weight: .semibold)).foregroundStyle(Theme.ink)
+                        Text(L10n.plural("disk.items", items.count) + " · " + Fmt.size(disk.basket.totalGB)).font(.system(size: 12).monospacedDigit()).foregroundStyle(Theme.ink2)
                         Spacer()
-                        Text("Temizle").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.ink2)
+                        Text(L10n.t("disk.basket.clear")).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.ink2)
                             .onTapGesture { disk.basket.clear() }
                     }
                     .padding(.bottom, 8)
@@ -135,21 +135,21 @@ struct DiskSidePanel<Source: MetricsSource>: View {
                         }
                     if items.count > 5 { ScrollView { list }.frame(height: 200) } else { list }
                     if hasDocker {
-                        Text("Seçimde Docker'ın diski var. Bunu silmek tüm image, container ve volume'leri yok eder; Docker bölümünden temizlemek daha güvenli.")
+                        Text(L10n.t("disk.basket.dockerWarning"))
                             .font(.system(size: 12)).lineSpacing(3).foregroundStyle(Theme.ink)
                             .padding(.horizontal, 11).padding(.vertical, 9)
                             .background(Theme.orangeSoft, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                             .padding(.top, 10).fixedSize(horizontal: false, vertical: true)
                     }
                     if disk.basket.cloudItems > 0 {   // §10: bulutta duranlar silinmeden önce uyarı
-                        Text("Seçimde yalnızca bulutta (iCloud vb.) duran \(Fmt.int(Double(disk.basket.cloudItems))) öğe var. Haritada yer kaplamıyorlar; silinirse tüm cihazlarından da gider.")
+                        Text(L10n.plural("disk.basket.cloud", disk.basket.cloudItems, ["n": Fmt.int(Double(disk.basket.cloudItems))]))
                             .font(.system(size: 12)).lineSpacing(3).foregroundStyle(Theme.ink)
                             .padding(.horizontal, 11).padding(.vertical, 9)
                             .background(Theme.orangeSoft, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                             .padding(.top, 10).fixedSize(horizontal: false, vertical: true)
                     }
                     HStack(spacing: 7) {
-                        Seg([(DeleteMode.permanent, "Kalıcı"), (DeleteMode.trash, "Çöp")], selection: $disk.mode).fixedSize()
+                        Seg([(DeleteMode.permanent, L10n.t("disk.mode.permanent")), (DeleteMode.trash, L10n.t("disk.mode.trash"))], selection: $disk.mode).fixedSize()
                         Btn(disk.basket.buttonTitle(mode: disk.mode), style: disk.mode == .permanent ? .dangerFill : .primary) {
                             state.confirm = disk.confirmDelete(tree: tree, source: source)
                         }

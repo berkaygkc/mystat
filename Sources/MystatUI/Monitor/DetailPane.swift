@@ -29,12 +29,12 @@ public struct DetailPane<Source: MetricsSource>: View {
                     .padding(.top, 12)
             }
             VStack(spacing: 0) { ForEach(facts(g), id: \.0) { fact($0.0, $0.1) } }.padding(.top, 10)
-            if g.isOrphan { note("Bu sunucuyu başlatan terminal kapanmış, sunucu tek başına çalışmaya devam ediyor.") }
-            if g.isDocker { note("Container'lar Docker'ın sanal makinesinde çalışıyor; ayrıntılar Docker bölümünde.") }
+            if g.isOrphan { note(L10n.t("detail.orphanNote")) }
+            if g.isDocker { note(L10n.t("detail.dockerNote")) }
             if let rel {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("AYNI PROJEDE").font(.system(size: 10, weight: .semibold)).tracking(1.4).foregroundStyle(Theme.ink3)
-                    Text("\(Text(rel.name).fontWeight(.semibold).foregroundColor(Theme.ink)) · \(rel.context) — \(Fmt.cores(rel.cpuCores)) çekirdek")
+                    Text(L10n.t("detail.sameProject")).font(.system(size: 10, weight: .semibold)).tracking(1.4).foregroundStyle(Theme.ink3)
+                    Text("\(Text(rel.name).fontWeight(.semibold).foregroundColor(Theme.ink)) · \(rel.context) — \(L10n.t("unit.coresValue", ["v": Fmt.cores(rel.cpuCores)]))")
                         .font(.system(size: 12.5)).foregroundStyle(Theme.ink).lineSpacing(2)
                 }
                 .padding(.horizontal, 12).padding(.vertical, 10)
@@ -46,15 +46,15 @@ public struct DetailPane<Source: MetricsSource>: View {
                 .onTapGesture { state.select(metric, rel.id) }
             }
             VStack(spacing: 7) {
-                Btn("Teşhisi kopyala", icon: "doc.on.doc", style: .primary) {
+                Btn(L10n.t("detail.copyDiagnosis"), icon: "doc.on.doc", style: .primary) {
                     state.copyDiagnosis(GroupPresentation.diagnosis(g, incident: s.incident))
                 }
                 if g.isDocker {
-                    Btn("Docker'da aç", trailing: "chevron.right") { state.go(.docker) }
+                    Btn(L10n.t("detail.openInDocker"), trailing: "chevron.right") { state.go(.docker) }
                 } else {
                     HStack(spacing: 7) {
-                        Btn("Durdur") { state.confirm = Actions.stop(g, force: false, source: source) }
-                        Btn("Zorla kapat", style: .danger) { state.confirm = Actions.stop(g, force: true, source: source) }
+                        Btn(L10n.t("common.stop")) { state.confirm = Actions.stop(g, force: false, source: source) }
+                        Btn(L10n.t("action.forceQuit"), style: .danger) { state.confirm = Actions.stop(g, force: true, source: source) }
                     }
                     .disabled(g.foreign)
                     .help(g.foreign ? StopOutcome.foreignReason : "")
@@ -67,10 +67,11 @@ public struct DetailPane<Source: MetricsSource>: View {
     }
 
     private func facts(_ g: ProcessGroup) -> [(String, String)] {
-        var f = [("İşlemci", "\(Fmt.cores(g.cpuCores)) çekirdek"), ("Bellek", Fmt.mem(g.memoryGB)), ("Açık kalma", g.uptime), ("Süreç sayısı", String(g.processCount))]
-        if let p = g.port { f.append(("Port", ":\(p)")) }
-        if let d = g.folder { f.append(("Klasör", d)) }
-        if let t = g.terminal { f.append(("Terminal", t)) }
+        var f = [(L10n.t("section.cpu"), L10n.t("unit.coresValue", ["v": Fmt.cores(g.cpuCores)])), (L10n.t("section.mem"), Fmt.mem(g.memoryGB)),
+                 (L10n.t("detail.uptime"), g.uptime), (L10n.t("detail.processCount"), String(g.processCount))]
+        if let p = g.port { f.append((L10n.t("detail.port"), ":\(p)")) }
+        if let d = g.folder { f.append((L10n.t("detail.folder"), d)) }
+        if let t = g.terminal { f.append((L10n.t("detail.terminal"), t)) }
         return f
     }
 
@@ -94,18 +95,17 @@ public enum Actions {
     public static func stop(_ g: ProcessGroup, force: Bool, source: any MetricsSource) -> ConfirmRequest {
         let who = g.name + (g.context.isEmpty ? "" : " · " + g.context)
         return ConfirmRequest(
-            title: "\(who) " + (force ? "zorla kapatılsın mı?" : "durdurulsun mu?"),
-            message: "\(g.processCount) süreç " + (force ? "hemen sonlandırılacak. Kaydedilmemiş iş varsa kaybolur."
-                                                         : "kapanması için uyarılacak. Cevap vermezse zorla kapatmayı seçebilirsin."),
-            confirm: force ? "Zorla kapat" : "Durdur", destructive: force,
+            title: L10n.t(force ? "action.forceQuit.title" : "action.stop.title", ["who": who]),
+            message: L10n.plural(force ? "action.forceQuit.message" : "action.stop.message", g.processCount),
+            confirm: L10n.t(force ? "action.forceQuit" : "common.stop"), destructive: force,
             onConfirm: { ToastCenter.shared.show(stopToast(g, force: force, source.stop(groupID: g.id, pids: g.pids, force: force))) })
     }
 
     static func stopToast(_ g: ProcessGroup, force: Bool, _ o: StopOutcome) -> String {
         switch o {
-        case .done: "\(g.name) " + (force ? "zorla kapatıldı" : "durduruldu")
+        case .done: L10n.t(force ? "action.toast.forceQuit" : "action.toast.stopped", ["name": g.name])
         case .notPermitted(let reason): reason
-        case .notFound: "\(g.name) zaten kapanmış"
+        case .notFound: L10n.t("action.toast.notFound", ["name": g.name])
         }
     }
 }

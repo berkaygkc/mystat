@@ -37,7 +37,7 @@ public struct PanelView<Source: MetricsSource>: View {
             suggestions(s).padding(.top, 14)
             footer.padding(.top, 14)
             HoverLink { on in
-                Text("Uygulamadan çık").font(.system(size: 12.5)).foregroundStyle(on ? Theme.ink : Theme.ink3).underline(on)
+                Text(UIText.quit).font(.system(size: 12.5)).foregroundStyle(on ? Theme.ink : Theme.ink3).underline(on)
             }
             .padding(.top, 10)
             .onTapGesture { NSApp.terminate(nil) }
@@ -101,7 +101,7 @@ public struct PanelView<Source: MetricsSource>: View {
 
     private func suggestions(_ s: Snapshot) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("BİR DE ŞUNLAR VAR").font(Theme.Fonts.kicker()).tracking(1.68).foregroundStyle(Theme.ink3).padding(.bottom, 4)
+            Text(L10n.t("panel.also")).font(Theme.Fonts.kicker()).tracking(1.68).foregroundStyle(Theme.ink3).padding(.bottom, 4)
             ForEach(Array(s.suggestions.prefix(2).enumerated()), id: \.offset) { _, sg in
                 HoverLink { on in
                     HStack(spacing: 8) {
@@ -119,7 +119,7 @@ public struct PanelView<Source: MetricsSource>: View {
         HStack {
             HoverLink { on in
                 HStack(spacing: 4) {
-                    Text("Monitörü aç").underline(on)
+                    Text(L10n.t("panel.openMonitor")).underline(on)
                     Text("→").offset(x: on ? 2 : 0)
                 }
                 .font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.ink)

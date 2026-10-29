@@ -12,7 +12,7 @@ public struct GroupList: View {
         self.groups = groups; self.metric = metric; self.state = state
     }
 
-    private var unit: String { metric == .cpu ? "çekirdek" : metric == .network ? "MB/s" : "" }
+    private var unit: String { metric == .cpu ? L10n.t("unit.cores") : metric == .network ? "MB/s" : "" }
 
     public var body: some View {
         let list = GroupPresentation.sorted(groups, by: metric)
@@ -20,9 +20,9 @@ public struct GroupList: View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 Color.clear.frame(width: 18)
-                Text(metric == .network ? "Uygulama" : "Uygulama / grup").frame(maxWidth: .infinity, alignment: .leading)
-                Text(metric == .cpu ? "İşlemci payı" : metric == .network ? "Trafik payı" : "Bellek payı").frame(width: 120, alignment: .leading)
-                Text(metric == .cpu ? "Çekirdek" : metric == .network ? "↓ İndirme" : "Bellek").frame(width: 92, alignment: .trailing)
+                Text(L10n.t(metric == .network ? "list.app" : "list.appGroup")).frame(maxWidth: .infinity, alignment: .leading)
+                Text(L10n.t(metric == .cpu ? "list.cpuShare" : metric == .network ? "list.trafficShare" : "list.memShare")).frame(width: 120, alignment: .leading)
+                Text(L10n.t(metric == .cpu ? "list.cores" : metric == .network ? "list.download" : "section.mem")).frame(width: 92, alignment: .trailing)
             }
             .font(.system(size: 11)).foregroundStyle(Theme.ink3).padding(.horizontal, 10).padding(.bottom, 6)
             ForEach(list) { g in
@@ -75,7 +75,7 @@ public struct GroupList: View {
             .padding(.leading, 38).padding(.trailing, 10).frame(height: 30)
         }
         if child.more > 0 {
-            Text("+ \(child.more) küçük süreç daha").font(.system(size: 12)).foregroundStyle(Theme.ink3)
+            Text(L10n.plural("list.moreChildren", child.more)).font(.system(size: 12)).foregroundStyle(Theme.ink3)
                 .frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 66).padding(.top, 4).padding(.bottom, 8)
         }
     }

@@ -527,7 +527,7 @@ private struct BubbleSelectButton: View {
         .shadow(color: shadow, radius: 6, y: 4)
         .brightness(hovering && button.state != .implied ? 0.04 : 0)
         .onHover { hovering = $0 }
-        .help(button.locked ?? (button.state == .selected ? "Seçimden çıkar" : button.state == .implied ? "Üst klasörle birlikte seçili" : "Seç"))
+        .help(button.locked ?? L10n.t(button.state == .selected ? "disk.help.deselect" : button.state == .implied ? "disk.help.implied" : "disk.help.select"))
         .opacity(button.alpha)
         .position(x: button.x, y: button.y)
     }

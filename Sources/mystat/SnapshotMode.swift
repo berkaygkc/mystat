@@ -71,11 +71,11 @@ enum SnapshotMode {
         root.frame = NSRect(origin: .zero, size: o.size)
         RunLoop.main.run(until: Date().addingTimeInterval(0.8))
         root.layoutSubtreeIfNeeded()
-        guard let rep = root.bitmapImageRepForCachingDisplay(in: root.bounds) else { fatalError("bitmap yok") }
+        guard let rep = root.bitmapImageRepForCachingDisplay(in: root.bounds) else { fatalError("no bitmap") }
         root.cacheDisplay(in: root.bounds, to: rep)
         // Ekran profiliyle yazılırsa profil okumayan araçlarda renkler kayıyor; karşılaştırma için sRGB.
         let srgb = rep.converting(to: .sRGB, renderingIntent: .default) ?? rep
-        guard let png = srgb.representation(using: .png, properties: [:]) else { fatalError("png yok") }
+        guard let png = srgb.representation(using: .png, properties: [:]) else { fatalError("no png") }
         try? png.write(to: URL(fileURLWithPath: o.out))
         print("saved \(o.out)")
         exit(0)
@@ -128,9 +128,9 @@ enum SnapshotMode {
             let red = source.snapshot.incident != nil
             return AnyView(Card {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Kullanım").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.ink)
-                    AreaChart(series: [ChartSeries(cpu, color: red ? Theme.red : Theme.chart, fill: true, name: "toplam"),
-                                       ChartSeries(sys, color: Theme.chart2, name: "sistem")],
+                    Text(L10n.t("cpu.chart.title")).font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.ink)
+                    AreaChart(series: [ChartSeries(cpu, color: red ? Theme.red : Theme.chart, fill: true, name: L10n.t("series.total")),
+                                       ChartSeries(sys, color: Theme.chart2, name: L10n.t("series.system"))],
                               max: 100, height: 190, range: .m10, format: Fmt.pct, formatY: Fmt.pct)
                     Sparkline(Array(cpu.suffix(60)), color: red ? Theme.red : Theme.chart, height: 30, max: 100)
                 }
