@@ -321,6 +321,23 @@ final class FakeProbe: SystemProbe {
         #expect(sys.gpuApps.isEmpty && sys.cpuWatts == nil && sys.gpuWatts == nil && sys.gpuTemp == 0 && sys.chipTemp == 57)
     }
 
+    /// İndirilenler'e yalnızca Tam Disk Erişimi varsa bakılır: yoksa macOS her seferinde izin penceresi açıyordu.
+    @Test func downloadsOnlyWithFullDiskAccess() async {
+        let t0 = Date()
+        let p = FakeProbe()
+        let without = Sampler(probe: p, history: nil, persistToday: false, fullDiskAccess: { false })
+        without.interest.withLock { $0 = true }
+        _ = await without.sample(at: t0); _ = await without.sample(at: t0.addingTimeInterval(601))
+        #expect(p.n("downloads") == 0)
+        let q = FakeProbe()
+        let with = Sampler(probe: q, history: nil, persistToday: false, fullDiskAccess: { true })
+        with.interest.withLock { $0 = true }
+        _ = await with.sample(at: t0); _ = await with.sample(at: t0.addingTimeInterval(2))
+        #expect(q.n("downloads") == 1)   // 10 dk'da bir
+        _ = await with.sample(at: t0.addingTimeInterval(601))
+        #expect(q.n("downloads") == 2)
+    }
+
     /// Silmeden sonra disk doluluğu 60 sn beklemeden bir sonraki örnekte okunur (§6.4).
     @Test func volumeReReadOnRequest() async {
         let p = FakeProbe()

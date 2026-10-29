@@ -18,6 +18,8 @@ public actor Sampler {
     private struct ProcKey: Hashable { let pid: Int32; let start: Date }
 
     private let probe: any SystemProbe
+    /// İndirilenler korumalı klasör: izin yokken okumak macOS'un izin penceresini açar. Öneri 10 dk'da bir denetlenirken sorulur.
+    private let fullDiskAccess: @Sendable () -> Bool
     private let history: HistoryStore?
     /// Docker kendi temposunda okunur; burada yalnızca son okuma alınır (Docker asılsa da tur beklemez).
     private let docker: DockerPoller?
@@ -57,8 +59,10 @@ public actor Sampler {
 
     static let todayKey = "mystat.net.today"
 
-    public init(probe: some SystemProbe, history: HistoryStore?, persistToday: Bool, docker: DockerPoller? = nil, net: NetDetailPoller? = nil) {
+    public init(probe: some SystemProbe, history: HistoryStore?, persistToday: Bool, docker: DockerPoller? = nil, net: NetDetailPoller? = nil,
+                fullDiskAccess: @escaping @Sendable () -> Bool = { DiskAccess.hasFullDiskAccess() }) {
         self.probe = probe
+        self.fullDiskAccess = fullDiskAccess
         self.net = net
         self.history = history
         self.docker = docker
@@ -123,7 +127,7 @@ public actor Sampler {
             lastSensors = now
         }
         if wantDetail, lastDownloads.map({ now.timeIntervalSince($0) >= 600 }) ?? true {
-            downloads = probe.largeOldDownloads(now: now)
+            downloads = fullDiskAccess() ? probe.largeOldDownloads(now: now) : []
             lastDownloads = now
         }
 
