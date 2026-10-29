@@ -17,6 +17,8 @@ public final class DirectoryScanner: Sendable {
     public let index: ScanIndex
     private let root: String
     private let workers: Int
+    /// Ev köküne göre yolu verilen klasör açılmaz (izin istemi çıkarabilecekler); okunamayan sayılır.
+    private let skip: @Sendable (String) -> Bool
     static let bufferSize = 256 * 1024
     static let progressInterval: UInt64 = 250_000_000   // ns; ≈ 4 kez/sn
 
@@ -31,9 +33,10 @@ public final class DirectoryScanner: Sendable {
     private let work: Mutex<Work>
     private let linked = Mutex(Set<UInt64>())   // birden çok bağlantısı olan dosyalar: ilk görülen sayılır
 
-    public init(root: String, workers: Int = 4) {
+    public init(root: String, workers: Int = 4, skip: @escaping @Sendable (String) -> Bool = { _ in false }) {
         self.root = root
         self.workers = max(1, workers)
+        self.skip = skip
         index = ScanIndex(rootName: "~")
         work = Mutex(Work(stack: [(0, root)]))
     }
@@ -67,11 +70,12 @@ public final class DirectoryScanner: Sendable {
                 usleep(500)   // başka bir iş parçacığı henüz alt klasör eklemedi
                 continue
             }
-            let listing = list(path, dev: dev, buf: buf)
+            let rel = path.count > root.count ? String(path.dropFirst(root.count + 1)) : ""
+            let listing = skip(rel) ? nil : list(path, dev: dev, buf: buf)
             var children: [(id: Int32, path: String)] = []
             if let l = listing {
                 for d in l.subdirs { children.append((index.addDirectory(parent: id, name: d.name, fileID: d.fileID), path + "/" + d.name)) }
-                index.addFiles(dir: id, big: l.big, smallBytes: l.smallBytes, smallCount: l.smallCount)
+                index.addFiles(dir: id, big: l.big, smallBytes: l.smallBytes, smallCount: l.smallCount, cloudCount: l.cloud)
             } else {
                 index.noteInaccessible()
             }
@@ -92,6 +96,8 @@ public final class DirectoryScanner: Sendable {
         var big: [(name: String, bytes: Int64, fileID: UInt64)] = []
         var smallBytes: Int64 = 0, smallCount = 0
         var bytes: Int64 = 0
+        /// Yalnızca bulutta duran (iCloud'a boşaltılmış) dosya ve klasörler: yer kaplamaz, silinirse buluttan da gider.
+        var cloud = 0
     }
 
     /// Bir klasörün doğrudan öğeleri; açılamazsa nil. Okuma yarıda hata verirse o ana kadar okunan döner.
@@ -124,9 +130,13 @@ public final class DirectoryScanner: Sendable {
                 let alloc = q.loadUnaligned(as: Int64.self)
                 p += len
 
+                let dataless = flags & UInt32(SF_DATALESS) != 0
                 if type == UInt32(VDIR.rawValue) {
-                    if entryDev == dev { out.subdirs.append((name, fileID)) }
-                } else if type == UInt32(VREG.rawValue), flags & UInt32(SF_DATALESS) == 0 {
+                    if dataless { out.cloud += 1 }   // açmak içeriği buluttan indirtebilir
+                    else if entryDev == dev { out.subdirs.append((name, fileID)) }
+                } else if type == UInt32(VREG.rawValue), dataless {
+                    out.cloud += 1
+                } else if type == UInt32(VREG.rawValue) {
                     if links > 1, !linked.withLock({ $0.insert(fileID).inserted }) { continue }
                     out.bytes += alloc
                     if alloc >= ScanIndex.smallFile { out.big.append((name, alloc, fileID)) }

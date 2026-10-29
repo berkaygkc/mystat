@@ -9,4 +9,12 @@ import Testing
         #expect(a == b)
         #expect(DiskAccess.settingsURL.scheme == "x-apple.systempreferences")
     }
+
+    @Test func promptFolders() {
+        for p in ["Desktop", "Documents", "Downloads", "Library/Containers", "Library/Group Containers", "Library/Mobile Documents",
+                  "Library/CloudStorage", "Library/Mail", "Library/Reminders", "Library/Calendars", "Pictures/Fotoğraflar.photoslibrary"] {
+            #expect(DiskAccess.promptsWithoutAccess(p), "\(p)")
+        }
+        for p in ["", "Library", "Library/Caches", "Documents/proje", "Pictures", ".npm"] { #expect(!DiskAccess.promptsWithoutAccess(p), "\(p)") }
+    }
 }

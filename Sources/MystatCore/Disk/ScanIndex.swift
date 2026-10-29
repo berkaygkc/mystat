@@ -7,18 +7,22 @@ public struct ScanChild: Sendable, Equatable {
     public let name: String
     public let bytes: Int64
     public let ref: Ref
+    /// Alt ağaçta yalnızca bulutta duran (iCloud'a boşaltılmış) öğe sayısı; boyuta katılmaz.
+    public let cloud: Int
 
-    public init(name: String, bytes: Int64, ref: Ref) { self.name = name; self.bytes = bytes; self.ref = ref }
+    public init(name: String, bytes: Int64, ref: Ref, cloud: Int = 0) { self.name = name; self.bytes = bytes; self.ref = ref; self.cloud = cloud }
 }
 
 /// Alt ağaç toplamları ve çocuk listeleri (CSR), dizinin bir anındaki tutarlı görüntüsü.
 public struct ScanTotals: Sendable {
     let bytes: [Int64]
+    let cloudItems: [Int32]                       // alt ağaçtaki yalnızca bulutta duran öğeler
     let childStart: [Int32], childDirs: [Int32]   // klasör → alt klasörler
     let fileStart: [Int32], files: [Int32]        // klasör → büyük dosyalar
 
     public var dirCount: Int { bytes.count }
     public subscript(dir: Int32) -> Int64 { Int(dir) < bytes.count ? bytes[Int(dir)] : 0 }
+    public func cloud(_ dir: Int32) -> Int { Int(dir) < cloudItems.count ? Int(cloudItems[Int(dir)]) : 0 }
 }
 
 /// Ev klasörü taramasının sıkı dizini (spec §6.4 "Hafıza tasarrufu"). 600 bin klasör düğüm nesnesiyle ≈ 100 MB
@@ -29,7 +33,9 @@ public final class ScanIndex: Sendable {
     public static let smallFile: Int64 = 10_000_000
     public static let otherName = "Diğer"
     static let magic: [UInt8] = Array("MYSI".utf8)
-    static let formatVersion: UInt32 = 1
+    static let formatVersion: UInt32 = 2   // 2: bulut sayısı sütunu
+    /// Önbellekte kabul edilen en büyük toplam (1 EB): bozuk ama yapısı geçerli veri toplarken taşmasın.
+    static let maxTotalBytes: Int64 = 1_000_000_000_000_000_000
 
     struct Storage {
         // Klasörler; numara = dizi sırası, kök 0. Üst klasör her zaman çocuğundan önce eklenir (parent < id).
@@ -38,6 +44,7 @@ public final class ScanIndex: Sendable {
         var nameLen: [UInt16] = []
         var ownSmall: [Int64] = []
         var smallCount: [Int32] = []
+        var cloud: [Int32] = []           // doğrudan içindeki yalnızca bulutta duran öğeler
         var fileID: [UInt64] = []
         // Büyük dosyalar.
         var fDir: [Int32] = []            // silinmiş -1
@@ -65,7 +72,7 @@ public final class ScanIndex: Sendable {
     public init(rootName: String) {
         var s = Storage()
         let (start, len) = s.appendName(rootName)
-        s.parent = [-1]; s.nameStart = [start]; s.nameLen = [len]; s.ownSmall = [0]; s.smallCount = [0]; s.fileID = [0]
+        s.parent = [-1]; s.nameStart = [start]; s.nameLen = [len]; s.ownSmall = [0]; s.smallCount = [0]; s.cloud = [0]; s.fileID = [0]
         state = Mutex(s)
     }
 
@@ -83,17 +90,17 @@ public final class ScanIndex: Sendable {
             precondition(parent >= 0 && Int(parent) < s.parent.count, "üst klasör önce eklenir")
             let (start, len) = s.appendName(name)
             s.parent.append(parent); s.nameStart.append(start); s.nameLen.append(len)
-            s.ownSmall.append(0); s.smallCount.append(0); s.fileID.append(fileID)
+            s.ownSmall.append(0); s.smallCount.append(0); s.cloud.append(0); s.fileID.append(fileID)
             s.version += 1
             return Int32(s.parent.count - 1)
         }
     }
 
-    /// Bir klasörün doğrudan dosyaları: büyükler ayrı, küçüklerin toplamı ve sayısı.
-    public func addFiles(dir: Int32, big: [(name: String, bytes: Int64, fileID: UInt64)], smallBytes: Int64, smallCount: Int) {
+    /// Bir klasörün doğrudan dosyaları: büyükler ayrı, küçüklerin toplamı ve sayısı; yalnızca bulutta duranların sayısı.
+    public func addFiles(dir: Int32, big: [(name: String, bytes: Int64, fileID: UInt64)], smallBytes: Int64, smallCount: Int, cloudCount: Int = 0) {
         state.withLock { s in
             let d = Int(dir)
-            s.ownSmall[d] += smallBytes; s.smallCount[d] += Int32(smallCount)
+            s.ownSmall[d] += smallBytes; s.smallCount[d] += Int32(smallCount); s.cloud[d] += Int32(cloudCount)
             for f in big {
                 let (start, len) = s.appendName(f.name)
                 s.fDir.append(dir); s.fNameStart.append(start); s.fNameLen.append(len); s.fBytes.append(f.bytes); s.fID.append(f.fileID)
@@ -124,7 +131,7 @@ public final class ScanIndex: Sendable {
         state.withLock { s in
             func fit<T>(_ a: inout [T]) { a = Array(unsafeUninitializedCapacity: a.count) { buf, n in
                 n = buf.initialize(fromContentsOf: a) } }
-            fit(&s.parent); fit(&s.nameStart); fit(&s.nameLen); fit(&s.ownSmall); fit(&s.smallCount); fit(&s.fileID)
+            fit(&s.parent); fit(&s.nameStart); fit(&s.nameLen); fit(&s.ownSmall); fit(&s.smallCount); fit(&s.cloud); fit(&s.fileID)
             fit(&s.fDir); fit(&s.fNameStart); fit(&s.fNameLen); fit(&s.fBytes); fit(&s.fID); fit(&s.names)
         }
     }
@@ -141,13 +148,13 @@ public final class ScanIndex: Sendable {
 
     private static func computeTotals(_ s: Storage) -> ScanTotals {
         let n = s.parent.count
-        var bytes = s.ownSmall
+        var bytes = s.ownSmall, cloud = s.cloud
         var childCount = [Int32](repeating: 0, count: n + 1), fileCount = [Int32](repeating: 0, count: n + 1)
         for j in s.fDir.indices where s.fDir[j] >= 0 {
             bytes[Int(s.fDir[j])] += s.fBytes[j]; fileCount[Int(s.fDir[j]) + 1] += 1
         }
         for i in stride(from: n - 1, to: 0, by: -1) where s.parent[i] >= 0 {
-            bytes[Int(s.parent[i])] += bytes[i]; childCount[Int(s.parent[i]) + 1] += 1
+            bytes[Int(s.parent[i])] += bytes[i]; cloud[Int(s.parent[i])] += cloud[i]; childCount[Int(s.parent[i]) + 1] += 1
         }
         for i in 0..<n { childCount[i + 1] += childCount[i]; fileCount[i + 1] += fileCount[i] }
         var childDirs = [Int32](repeating: 0, count: Int(childCount[n])), files = [Int32](repeating: 0, count: Int(fileCount[n]))
@@ -158,7 +165,7 @@ public final class ScanIndex: Sendable {
         for j in s.fDir.indices where s.fDir[j] >= 0 {
             let d = Int(s.fDir[j]); files[Int(fNext[d])] = Int32(j); fNext[d] += 1
         }
-        return ScanTotals(bytes: bytes, childStart: childCount, childDirs: childDirs, fileStart: fileCount, files: files)
+        return ScanTotals(bytes: bytes, cloudItems: cloud, childStart: childCount, childDirs: childDirs, fileStart: fileCount, files: files)
     }
 
     /// Bir klasörün çocukları: tüm alt klasörler ve büyük dosyalar (büyükten küçüğe), sonda küçük dosyaların "Diğer"i.
@@ -170,7 +177,7 @@ public final class ScanIndex: Sendable {
             var out: [ScanChild] = []
             for k in Int(t.childStart[d])..<Int(t.childStart[d + 1]) {
                 let c = t.childDirs[k], b = t.bytes[Int(c)]
-                if b > 0 { out.append(ScanChild(name: s.name(s.nameStart[Int(c)], s.nameLen[Int(c)]), bytes: b, ref: .dir(c))) }
+                if b > 0 { out.append(ScanChild(name: s.name(s.nameStart[Int(c)], s.nameLen[Int(c)]), bytes: b, ref: .dir(c), cloud: Int(t.cloudItems[Int(c)]))) }
             }
             for k in Int(t.fileStart[d])..<Int(t.fileStart[d + 1]) {
                 let j = Int(t.files[k])
@@ -193,11 +200,12 @@ public final class ScanIndex: Sendable {
         }
     }
 
-    /// Dizilerin ayırdığı bellek (kapasiteye göre).
+    /// Dizilerin kullandığı bellek. Kapasite değil: `malloc` büyük blokları yuvarlar (600 bin elemana ≈ 786 bin), yazılmayan
+    /// kuyruk yerleşik belleğe girmez ve yuvarlama süreçteki ayırma durumuna göre değişir. Gerçek ayak izi tools/disk-check.sh'de.
     var storageBytes: Int {
         state.withLock { s in
-            func b<T>(_ a: [T]) -> Int { a.capacity * MemoryLayout<T>.stride }
-            return b(s.parent) + b(s.nameStart) + b(s.nameLen) + b(s.ownSmall) + b(s.smallCount) + b(s.fileID)
+            func b<T>(_ a: [T]) -> Int { a.count * MemoryLayout<T>.stride }
+            return b(s.parent) + b(s.nameStart) + b(s.nameLen) + b(s.ownSmall) + b(s.smallCount) + b(s.cloud) + b(s.fileID)
                 + b(s.fDir) + b(s.fNameStart) + b(s.fNameLen) + b(s.fBytes) + b(s.fID) + b(s.names)
         }
     }
@@ -212,7 +220,7 @@ public final class ScanIndex: Sendable {
             func put<T: BitwiseCopyable>(_ a: [T]) { a.withUnsafeBytes { d.append(contentsOf: $0) } }
             put(Self.formatVersion)
             put(UInt32(s.parent.count)); put(UInt32(s.fDir.count)); put(UInt32(s.names.count)); put(UInt32(s.inaccessible))
-            put(s.parent); put(s.nameStart); put(s.nameLen); put(s.ownSmall); put(s.smallCount); put(s.fileID)
+            put(s.parent); put(s.nameStart); put(s.nameLen); put(s.ownSmall); put(s.smallCount); put(s.cloud); put(s.fileID)
             put(s.fDir); put(s.fNameStart); put(s.fNameLen); put(s.fBytes); put(s.fID); put(s.names)
             return d
         }
@@ -231,18 +239,31 @@ public final class ScanIndex: Sendable {
               let nb = r.value(UInt32.self).map(Int.init), let inacc = r.value(UInt32.self), n >= 1 else { return nil }
         var s = Storage()
         guard let parent = r.array(Int32.self, n), let nameStart = r.array(UInt32.self, n), let nameLen = r.array(UInt16.self, n),
-              let ownSmall = r.array(Int64.self, n), let smallCount = r.array(Int32.self, n), let fileID = r.array(UInt64.self, n),
+              let ownSmall = r.array(Int64.self, n), let smallCount = r.array(Int32.self, n), let cloud = r.array(Int32.self, n),
+              let fileID = r.array(UInt64.self, n),
               let fDir = r.array(Int32.self, f), let fNameStart = r.array(UInt32.self, f), let fNameLen = r.array(UInt16.self, f),
               let fBytes = r.array(Int64.self, f), let fID = r.array(UInt64.self, f), let names = r.array(UInt8.self, nb),
               r.atEnd else { return nil }
         // Yapı denetimi: üst klasör önce, adlar tamponun içinde, boyutlar eksi değil.
         guard parent[0] == -1 else { return nil }
         for i in 1..<n where !(parent[i] == -2 || (parent[i] >= 0 && Int(parent[i]) < i)) { return nil }
-        for i in 0..<n where Int(nameStart[i]) + Int(nameLen[i]) > nb || ownSmall[i] < 0 || smallCount[i] < 0 { return nil }
+        for i in 0..<n where Int(nameStart[i]) + Int(nameLen[i]) > nb || ownSmall[i] < 0 || smallCount[i] < 0 || cloud[i] < 0 { return nil }
         for j in 0..<f where !(fDir[j] >= -1 && Int(fDir[j]) < n) || Int(fNameStart[j]) + Int(fNameLen[j]) > nb || fBytes[j] < 0 {
             return nil
         }
-        s.parent = parent; s.nameStart = nameStart; s.nameLen = nameLen; s.ownSmall = ownSmall; s.smallCount = smallCount
+        // Toplamlar alt ağaç toplamlarının üst sınırı: burada taşmıyorsa `computeTotals` da taşmaz.
+        var total: Int64 = 0, cloudTotal: Int32 = 0
+        for v in ownSmall + fBytes {
+            let (sum, over) = total.addingReportingOverflow(v)
+            guard !over, sum <= maxTotalBytes else { return nil }
+            total = sum
+        }
+        for v in cloud {
+            let (sum, over) = cloudTotal.addingReportingOverflow(v)
+            guard !over else { return nil }
+            cloudTotal = sum
+        }
+        s.parent = parent; s.nameStart = nameStart; s.nameLen = nameLen; s.ownSmall = ownSmall; s.smallCount = smallCount; s.cloud = cloud
         s.fileID = fileID; s.fDir = fDir; s.fNameStart = fNameStart; s.fNameLen = fNameLen; s.fBytes = fBytes; s.fID = fID
         s.names = names; s.inaccessible = Int(inacc)
         return s

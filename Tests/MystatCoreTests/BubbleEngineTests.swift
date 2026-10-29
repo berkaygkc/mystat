@@ -99,11 +99,11 @@ import Testing
         idx.addFiles(dir: 0, big: [], smallBytes: 50_000_000, smallCount: 10)
         let e = BubbleEngine(tree: DiskTree.scanned(idx), path: [], viewSize: size)
         #expect(e.items.count == BubbleEngine.maxBubbles)
-        #expect(Set(e.items.map(\.name)) == Set((8...30).map { "d\($0)" } + ["Diğer"]))
-        let rest = try #require(e.items.first { $0.name == "Diğer" })
+        #expect(Set(e.items.filter { $0.kind != .other }.map(\.name)) == Set((8...30).map { "d\($0)" }))
+        let rest = try #require(e.items.first { $0.kind == .other })
         #expect(abs(rest.size - 2.85) < 1e-9)   // d1…d7 (2,8 GB) + küçük dosyalar 50 MB
-        #expect(rest.hasChildren == false); #expect(rest.kind == .other)
-        #expect(e.zoomIn("Diğer", at: 0) == false)
+        #expect(rest.hasChildren == false); #expect(DiskNode.display(rest.name) == "Diğer")
+        #expect(e.zoomIn(rest.name, at: 0) == false)
     }
 }
 

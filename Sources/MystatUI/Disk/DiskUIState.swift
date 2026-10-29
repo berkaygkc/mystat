@@ -32,11 +32,12 @@ public final class DiskUIState {
 
     /// Sepetteki her şeyi kaynağa sildirir; bulunduğun klasör silindiyse var olan en yakın üst klasöre çıkar.
     public func performDelete(tree: DiskTree, source: some MetricsSource) async {
+        if case .scanning = source.diskScan { ToastCenter.shared.show(Self.busyText); return }
         let items = basket.items, mode = mode
         basket.clear()
         ToastCenter.shared.show(mode == .trash ? "Çöpe taşınıyor…" : "Siliniyor…")
         let out = await source.delete(items, mode: mode)
-        freedGB += out.freedGB
+        if mode == .permanent { freedGB += out.freedGB }   // çöpe taşımak yer açmaz
         var p = path
         while !p.isEmpty, tree.node(at: p) == nil { p.removeLast() }
         path = p
@@ -44,8 +45,11 @@ public final class DiskUIState {
         ToastCenter.shared.show(out.toast(trash: mode == .trash))
     }
 
+    static let busyText = "Tarama sürerken silinemez; bitince silebilirsin."
+
     public func confirmDelete(tree: DiskTree, source: some MetricsSource) -> ConfirmRequest? {
         guard !basket.isEmpty else { return nil }
+        if case .scanning = source.diskScan { ToastCenter.shared.show(Self.busyText); return nil }
         let perm = mode == .permanent
         return ConfirmRequest(title: basket.confirmTitle(mode: mode), message: basket.confirmMessage(mode: mode),
                               confirm: perm ? "Kalıcı olarak sil" : "Çöpe taşı", destructive: perm,

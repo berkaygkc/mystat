@@ -91,8 +91,8 @@ import Testing
         let t = DiskTree.scanned(idx)
         #expect(abs(t.root.size - 0.155) < 1e-9)
         let na = try #require(t.node(at: ["a"]))
-        #expect(na.children?.map(\.name) == idx.children(of: a, totals: idx.totals()).map(\.name))
-        #expect(na.children?.map(\.name) == ["b", "Diğer"])
+        #expect(na.children?.map(\.displayName) == idx.children(of: a, totals: idx.totals()).map(\.name))
+        #expect(na.children?.map(\.displayName) == ["b", "Diğer"])
         #expect(t.root.children?.first { $0.name == "c" }?.children == nil)   // açılmayan dal
         #expect(t.node(at: ["a", "b", "x"])?.isFile == true)
         #expect(t.node(at: ["a", "b", "x"])?.fileID == 10)
@@ -111,15 +111,15 @@ import Testing
         #expect(abs(na.size - 0.12) < 1e-9)
         #expect(abs(t.root.size - 0.17) < 1e-9)
         #expect(t.root.children?.contains { $0.name == "d" } == true)
-        if case .other(let n)? = na.children?.first(where: { $0.name == "Diğer" })?.ref { #expect(n == 6) } else { Issue.record("Diğer yok") }
+        if case .other(let n)? = na.children?.first(where: { $0.kind == .other })?.ref { #expect(n == 6) } else { Issue.record("Diğer yok") }
     }
 
     @Test func otherIsNotEnterable() {
         let (idx, _, _, _) = Self.scanIndex()
         let t = DiskTree.scanned(idx); var b = SelectionBasket()
-        #expect(b.toggle(["a", "Diğer"], in: t) == .notSelectable)
-        #expect(t.node(at: ["a", "Diğer"])?.kind == .other)
-        #expect(t.node(at: ["a", "Diğer"])?.canHaveChildren == false)
+        #expect(b.toggle(["a", DiskNode.smallFilesName], in: t) == .notSelectable)
+        #expect(t.node(at: ["a", DiskNode.smallFilesName])?.kind == .other)
+        #expect(t.node(at: ["a", DiskNode.smallFilesName])?.canHaveChildren == false)
         #expect(b.toggle(["a", "b"], in: t) == .added)
     }
 
@@ -156,8 +156,8 @@ import Testing
         #expect(abs(t.root.size - 0.08) < 1e-9)
         let t2 = DiskTree.scanned(idx)
         #expect(abs(t2.root.size - 0.08) < 1e-9)
-        #expect(t2.node(at: ["a"])?.children?.map(\.name) == ["Diğer"])
-        #expect(t2.node(at: ["c"])?.children?.map(\.name) == ["Diğer"])
+        #expect(t2.node(at: ["a"])?.children?.map(\.displayName) == ["Diğer"])
+        #expect(t2.node(at: ["c"])?.children?.map(\.displayName) == ["Diğer"])
     }
 
     @Test func shrinkReducesNodeAndAncestors() throws {
@@ -169,5 +169,35 @@ import Testing
         #expect(abs((t.node(at: ["a"])?.size ?? 0) - 0.09) < 1e-9)
         #expect(abs(t.root.size - 0.135) < 1e-9)
     }
-}
 
+    /// Diskte "Diğer" adlı gerçek klasör ile küçük dosyaların yapay "Diğer"i karışmaz (yanlış öğe silinmesin).
+    @Test func realOtherFolderAndSmallFilesDoNotCollide() throws {
+        let idx = ScanIndex(rootName: "~")
+        let o = idx.addDirectory(parent: 0, name: "Diğer", fileID: 1)
+        idx.addFiles(dir: o, big: [], smallBytes: 2_000_000_000, smallCount: 1)
+        idx.addFiles(dir: 0, big: [], smallBytes: 3_000_000_000, smallCount: 7)
+        let t = DiskTree.scanned(idx)
+        let real = try #require(t.node(at: ["Diğer"]))
+        #expect(real.kind == .folder); #expect(abs(real.size - 2) < 1e-9)
+        let small = try #require(t.root.children?.first { $0.kind == .other })
+        #expect(small.name != "Diğer"); #expect(small.displayName == "Diğer")
+        #expect(t.node(at: [small.name]) === small)
+        var b = SelectionBasket()
+        #expect(b.toggle([small.name], in: t) == .notSelectable)
+        #expect(b.toggle(["Diğer"], in: t) == .added)
+        #expect(b.items.map(\.size) == [2])
+    }
+
+    @Test func confirmWarnsAboutCloudOnlyItems() throws {
+        let idx = ScanIndex(rootName: "~")
+        let a = idx.addDirectory(parent: 0, name: "a", fileID: 1)
+        idx.addFiles(dir: a, big: [], smallBytes: 1_000_000_000, smallCount: 1, cloudCount: 5)
+        let t = DiskTree.scanned(idx)
+        #expect(t.node(at: ["a"])?.cloudItems == 5)
+        var b = SelectionBasket()
+        #expect(b.toggle(["a"], in: t) == .added)
+        #expect(b.cloudItems == 5)
+        #expect(b.confirmMessage(mode: .permanent) == Fmt.size(1) + " yer hemen boşalacak. Bu işlem geri alınamaz. İçinde yalnızca bulutta (iCloud vb.) duran 5 öğe var; bunlar tüm cihazlarından da silinir.")
+        #expect(b.confirmMessage(mode: .trash).hasSuffix(" İçinde yalnızca bulutta (iCloud vb.) duran 5 öğe var; bunlar tüm cihazlarından da çöpe gider."))
+    }
+}

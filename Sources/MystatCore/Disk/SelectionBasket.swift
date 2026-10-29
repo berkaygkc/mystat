@@ -11,9 +11,11 @@ public struct BasketItem: Sendable, Equatable {
     public let kind: NodeKind
     /// Tarama ağacında dosya sistemi kimliği; silmeden önce öğenin değişmediği bununla denetlenir.
     public let fileID: UInt64?
+    /// İçinde yalnızca bulutta duran öğe sayısı (§10 uyarısı).
+    public let cloudItems: Int
 
-    public init(path: [String], name: String, size: Double, kind: NodeKind, fileID: UInt64? = nil) {
-        self.path = path; self.name = name; self.size = size; self.kind = kind; self.fileID = fileID
+    public init(path: [String], name: String, size: Double, kind: NodeKind, fileID: UInt64? = nil, cloudItems: Int = 0) {
+        self.path = path; self.name = name; self.size = size; self.kind = kind; self.fileID = fileID; self.cloudItems = cloudItems
     }
 }
 
@@ -33,7 +35,7 @@ public struct SelectionBasket: Sendable, Equatable {
         case .selected: map[k] = nil; return .removed
         case .none:
             for d in map.keys where d.hasPrefix(k + "/") { map[d] = nil }
-            map[k] = BasketItem(path: path, name: n.name, size: n.size, kind: n.kind, fileID: n.fileID)
+            map[k] = BasketItem(path: path, name: n.name, size: n.size, kind: n.kind, fileID: n.fileID, cloudItems: n.cloudItems)
             return .added
         }
     }
@@ -47,6 +49,7 @@ public struct SelectionBasket: Sendable, Equatable {
     public var items: [BasketItem] { map.values.sorted { $0.size > $1.size } }
     public var totalGB: Double { map.values.reduce(0) { $0 + $1.size } }
     public var isEmpty: Bool { map.isEmpty }
+    public var cloudItems: Int { map.values.reduce(0) { $0 + $1.cloudItems } }
     public mutating func clear() { map.removeAll() }
     public mutating func remove(_ path: [String]) { map[Self.key(path)] = nil }
 
@@ -63,7 +66,11 @@ public struct SelectionBasket: Sendable, Equatable {
             prefix = list.prefix(3).map(\.name).joined(separator: ", ") + (list.count > 3 ? " ve \(list.count - 3) öğe daha" : "") + ". "
         }
         let tail = mode == .permanent ? " yer hemen boşalacak. Bu işlem geri alınamaz." : " çöpe gidecek; çöpü boşaltana kadar geri alabilirsin."
-        return prefix + Fmt.size(totalGB) + tail
+        let cloud = cloudItems > 0
+            ? " İçinde yalnızca bulutta (iCloud vb.) duran \(Fmt.int(Double(cloudItems))) öğe var; bunlar tüm cihazlarından da "
+              + (mode == .permanent ? "silinir." : "çöpe gider.")
+            : ""
+        return prefix + Fmt.size(totalGB) + tail + cloud
     }
 
     public func confirmTitle(mode: DeleteMode) -> String {

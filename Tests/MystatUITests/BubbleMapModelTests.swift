@@ -239,4 +239,66 @@ import Testing
         await st.disk.performDelete(tree: src.diskTree, source: src)
         #expect(ToastCenter.shared.message == "4,2 GB boşaldı (örnek)")
     }
+
+    // MARK: Son inceleme
+
+    /// Gerçek bir "Diğer" klasörü varken küçük dosyaların balonunda Space hiçbir şey seçmez (yanlış klasör silinmesin).
+    @Test func spaceOnSmallFilesBesideRealOtherSelectsNothing() throws {
+        let src = SampleSource(seed: 1); src.diskScanSimulated = false
+        let idx = ScanIndex(rootName: "~")
+        let o = idx.addDirectory(parent: 0, name: "Diğer", fileID: 1)
+        idx.addFiles(dir: o, big: [], smallBytes: 2_000_000_000, smallCount: 1)
+        idx.addFiles(dir: 0, big: [], smallBytes: 3_000_000_000, smallCount: 7)
+        src.diskTree = DiskTree.scanned(idx); src.diskScan = .ready(scannedAt: Date())
+        let st = MonitorState(); st.go(.disk)
+        let m = BubbleMapModel(source: src, state: st)
+        let f = try #require(m.frame(at: 2, size: size))
+        let small = try #require(f.mains.first { $0.item.kind == .other }), real = try #require(f.mains.first { $0.item.kind == .folder })
+        _ = m.mouseMoved(CGPoint(x: small.x, y: small.y)); _ = m.key(key(49))
+        #expect(st.disk.basket.isEmpty)
+        _ = m.mouseMoved(CGPoint(x: real.x, y: real.y)); _ = m.key(key(49))
+        #expect(st.disk.basket.items.map(\.size) == [2])
+        #expect(Set(m.labels.compactMap(\.name)) == ["Diğer"])   // ikisi de ekranda "Diğer"
+    }
+
+    /// Bölüm değişip geri gelince ağaç önbellekten yüklenirken yol korunur (köke atlamaz).
+    @Test func placeholderTreeKeepsPath() throws {
+        let src = SampleSource(seed: 1); src.diskScanSimulated = false
+        let idx = ScanIndex(rootName: "~")
+        let a = idx.addDirectory(parent: 0, name: "a", fileID: 1)
+        let b = idx.addDirectory(parent: a, name: "b", fileID: 2)
+        idx.addFiles(dir: b, big: [], smallBytes: 2_000_000_000, smallCount: 1)
+        src.diskTree = DiskTree.scanned(idx); src.diskScan = .ready(scannedAt: Date())
+        let st = MonitorState(); st.go(.disk); st.disk.path = ["a"]
+        let m = BubbleMapModel(source: src, state: st)
+        _ = m.frame(at: 0.1, size: size)
+        src.diskTree = DiskTree(root: DiskNode("~", 0), provider: nil)   // yükleniyor
+        _ = m.frame(at: 0.2, size: size)
+        #expect(st.disk.path == ["a"])
+        src.diskTree = DiskTree.scanned(idx)
+        let f = try #require(m.frame(at: 0.3, size: size))
+        #expect(st.disk.path == ["a"])
+        #expect(f.mains.map(\.item.name) == ["b"])
+    }
+
+    /// Çöpe taşımak yer açmaz: "Bu oturumda X yer açtın"a eklenmez.
+    @Test func trashDoesNotCountAsFreed() async {
+        let (src, st, _) = make()
+        st.disk.mode = .trash
+        st.disk.toggle([".npm"], tree: src.diskTree)
+        await st.disk.performDelete(tree: src.diskTree, source: src)
+        #expect(st.disk.freedGB == 0)
+        #expect(src.snapshot.disk.freeGB == 175)
+        #expect(ToastCenter.shared.message == "4,2 GB çöpe taşındı (örnek)")
+    }
+
+    /// Tarama sürerken silme istenmez; seçim korunur, neden söylenir.
+    @Test func noDeleteWhileScanning() {
+        let (src, st, _) = make()
+        st.disk.toggle([".npm"], tree: src.diskTree)
+        src.diskScan = .scanning(progress: 0.4, scannedGB: 90, currentPath: "~/Library")
+        #expect(st.disk.confirmDelete(tree: src.diskTree, source: src) == nil)
+        #expect(st.disk.basket.items.count == 1)
+        #expect(ToastCenter.shared.message == "Tarama sürerken silinemez; bitince silebilirsin.")
+    }
 }

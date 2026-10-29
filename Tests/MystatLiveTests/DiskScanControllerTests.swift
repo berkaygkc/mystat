@@ -36,7 +36,7 @@ import Testing
         if case .scanning = c.phase {} else { Issue.record("tarama başlamadı: \(c.phase)") }
         await c.waitUntilIdle()
         #expect(c.phase == .ready(scannedAt: fx.clock.now))
-        #expect(c.tree.node(at: ["a"])?.children?.map(\.name) == ["büyük.bin", "Diğer"])
+        #expect(c.tree.node(at: ["a"])?.children?.map(\.displayName) == ["büyük.bin", "Diğer"])
         #expect(c.tree.root.size > 0.0149 && c.tree.root.size < 0.0160)
         #expect(fx.cacheExists)
     }
@@ -58,7 +58,7 @@ import Testing
         #expect(c2.phase == .ready(scannedAt: t0))   // açılışta yalnızca başlık okunur
         #expect(c2.tree.root.children == nil)
         c2.setVisible(true); await c2.waitUntilIdle()
-        #expect(c2.tree.node(at: ["a"])?.children?.map(\.name) == ["büyük.bin", "Diğer"])
+        #expect(c2.tree.node(at: ["a"])?.children?.map(\.displayName) == ["büyük.bin", "Diğer"])
         #expect(abs(c2.tree.root.size - c1.tree.root.size) < 1e-9)
     }
 
@@ -155,5 +155,51 @@ import Testing
         #expect(out.freedGB == 0); #expect(out.failed == ["Library", "ev"])
         #expect(FileManager.default.fileExists(atPath: fx.root.appendingPathComponent("Library/x/veri.bin").path))
     }
-}
 
+    // MARK: Son inceleme
+
+    /// Silme sürerken bölüm değişse de silinenler ağaçtan ve önbellekten düşer; geri dönünce görünmez.
+    @Test func deleteWhileHiddenStillUpdatesTreeAndCache() async throws {
+        let fx = try Fixture(), c = fx.controller()
+        c.setVisible(true); c.start(); await c.waitUntilIdle()
+        var basket = SelectionBasket()
+        #expect(basket.toggle(["a", "büyük.bin"], in: c.tree) == .added)
+        let items = basket.items
+        let task = Task { await c.delete(items, mode: .permanent) }
+        while !c.isDeleting { await Task.yield() }
+        c.setVisible(false)
+        let out = await task.value
+        #expect(abs(out.freedGB - 0.012) < 0.0005)
+        #expect(c.tree.root.children == nil)   // bölüm kapalı: silme bitince bırakıldı
+        c.setVisible(true); await c.waitUntilIdle()
+        #expect(c.tree.node(at: ["a"]) != nil)
+        #expect(c.tree.node(at: ["a", "büyük.bin"]) == nil)
+        let c2 = fx.controller(); c2.setVisible(true); await c2.waitUntilIdle()
+        #expect(c2.tree.node(at: ["a", "büyük.bin"]) == nil)
+    }
+
+    /// Önbellek yüklenirken başlatılıp durdurulan tarama: önceki sonuç ağacıyla geri gelir (boş harita kalmaz).
+    @Test func cancelledRescanDuringLoadRestoresTree() async throws {
+        let fx = try Fixture(), c = fx.controller()
+        c.setVisible(true); c.start(); await c.waitUntilIdle()
+        let ready = c.phase
+        c.setVisible(false); c.setVisible(true)   // yükleme başladı
+        c.start(); c.cancel(); await c.waitUntilIdle()
+        #expect(c.phase == ready)
+        #expect(c.tree.node(at: ["a"])?.children?.isEmpty == false)
+    }
+
+    /// Tam Disk Erişimi yokken izin istemi çıkarabilecek klasörler taranmaz (§10).
+    @Test func withoutFullDiskAccessPromptFoldersAreSkipped() async throws {
+        let fx = try Fixture()
+        try FileManager.default.createDirectory(at: fx.root.appendingPathComponent("Documents"), withIntermediateDirectories: true)
+        try Fixture.write(fx.root.appendingPathComponent("Documents/gizli.bin"), 12_000_000)
+        for access in [false, true] {
+            let c = DiskScanController(root: fx.root.path, cacheURL: fx.cache, now: { [clock = fx.clock] in clock.now },
+                                       usedBytes: { 100_000_000 }, fullDiskAccess: { access })
+            c.setVisible(true); c.start(); await c.waitUntilIdle()
+            #expect((c.tree.node(at: ["Documents"]) != nil) == access)
+            #expect((c.inaccessible > 0) == !access)
+        }
+    }
+}

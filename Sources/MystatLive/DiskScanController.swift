@@ -26,14 +26,18 @@ public final class DiskScanController {
     @ObservationIgnored private var cancelFlag: CancelFlag?
     /// Önceki taramanın toplamı: ilerleme tahmini için.
     @ObservationIgnored private var lastTotal: Int64?
+    @ObservationIgnored private let fullDiskAccess: () -> Bool
+    /// Silme sürüyor: bu sırada bölüm kapansa da ağaç bırakılmaz (silinenler ağaçtan ve önbellekten düşsün).
+    @ObservationIgnored private(set) var isDeleting = false
 
     public nonisolated static let defaultCacheURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("mystat/diskscan.cache")
     nonisolated static let tickInterval: Duration = .seconds(1)
 
     public init(root: String = NSHomeDirectory(), cacheURL: URL = DiskScanController.defaultCacheURL,
-                now: @escaping () -> Date = { Date() }, usedBytes: @escaping () -> Int64? = { DiskScanController.volumeUsed() }) {
-        self.root = root; self.cacheURL = cacheURL; self.now = now; self.usedBytes = usedBytes
+                now: @escaping () -> Date = { Date() }, usedBytes: @escaping () -> Int64? = { DiskScanController.volumeUsed() },
+                fullDiskAccess: @escaping () -> Bool = { DiskAccess.hasFullDiskAccess() }) {
+        self.root = root; self.cacheURL = cacheURL; self.now = now; self.usedBytes = usedBytes; self.fullDiskAccess = fullDiskAccess
         if let at = ScanCache.readDate(cacheURL) {
             phase = .ready(scannedAt: at)
             expireIfNeeded()
@@ -68,7 +72,9 @@ public final class DiskScanController {
         guard scanTask == nil else { return }
         loadGeneration += 1; loadTask?.cancel(); loadTask = nil
         let previous = (phase: phase, tree: tree, inaccessible: inaccessible)
-        let scanner = DirectoryScanner(root: root)
+        // İzinsizken istem çıkarabilecek klasörler açılmaz (§10); okunamayan sayılır, not bunu söyler.
+        let scanner = fullDiskAccess() ? DirectoryScanner(root: root)
+            : DirectoryScanner(root: root, skip: { DiskAccess.promptsWithoutAccess($0) })
         let live = DiskTree.scanned(scanner.index)
         _ = live.node(at: [])
         let estimate = lastTotal ?? usedBytes().map { Int64(Double($0) * 0.8) } ?? 0
@@ -108,8 +114,9 @@ public final class DiskScanController {
 
     private func finish(_ result: (index: ScanIndex, at: Date)?, previous: (phase: ScanPhase, tree: DiskTree, inaccessible: Int)) {
         scanTask = nil; cancelFlag = nil
-        guard let result else {   // iptal: önceki durum
+        guard let result else {   // iptal: önceki durum; önbellek o sırada yükleniyorduysa yeniden yüklenir
             phase = previous.phase; tree = previous.tree; inaccessible = previous.inaccessible
+            loadIfNeeded()
             return
         }
         tree.refresh()
@@ -127,6 +134,7 @@ public final class DiskScanController {
         guard scanTask == nil, treeLoaded, case .ready(let scannedAt) = phase else {
             return DeleteOutcome(freedGB: 0, failed: items.map(\.name), changed: [])
         }
+        isDeleting = true
         let base = URL(fileURLWithPath: root).standardizedFileURL
         var failed = Set<[String]>(), changed = Set<[String]>()
         var jobs: [(path: [String], url: URL, fileID: UInt64)] = []
@@ -153,6 +161,8 @@ public final class DiskScanController {
             let url = cacheURL
             _ = await Task.detached(priority: .utility) { ScanCache.write(index, scannedAt: scannedAt, to: url) }.value
         }
+        isDeleting = false
+        if !visible, scanTask == nil { tree = Self.emptyTree() }   // silme sürerken bölüm kapandı
         return DeleteOutcome(freedGB: Double(freed) / 1e9, failed: items.filter { failed.contains($0.path) }.map(\.name),
                              changed: items.filter { changed.contains($0.path) }.map(\.name))
     }
@@ -166,10 +176,15 @@ public final class DiskScanController {
         guard scanTask == nil else { return }
         guard v else {
             loadGeneration += 1; loadTask?.cancel(); loadTask = nil
-            tree = Self.emptyTree()
+            if !isDeleting { tree = Self.emptyTree() }   // silme bitince bırakılır
             return
         }
-        guard case .ready = phase, !treeLoaded, loadTask == nil else { return }
+        loadIfNeeded()
+    }
+
+    /// Bölüm açık, sonuç geçerli ama ağaç bellekte değilse önbellekten arka planda yüklenir.
+    private func loadIfNeeded() {
+        guard visible, scanTask == nil, case .ready = phase, !treeLoaded, loadTask == nil else { return }
         loadGeneration += 1
         let gen = loadGeneration, url = cacheURL
         loadTask = Task { [weak self] in

@@ -10,6 +10,8 @@ final class MonitorWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?
     /// Pencere görünür mü (örtülme ve kapanma dahil): canlı kaynağın süreç temposu buna göre.
     var onVisibilityChange: ((Bool) -> Void)?
+    /// Pencere kapandı (örtülme ya da küçültme değil): disk ağacı ancak o zaman bırakılır (§6.4 "Disk bölümü kapalıyken").
+    var onClose: (() -> Void)?
     private let source: any MetricsSource
 
     init(source: any MetricsSource) { self.source = source }
@@ -53,5 +55,5 @@ final class MonitorWindowController: NSObject, NSWindowDelegate {
         onVisibilityChange?(window?.occlusionState.contains(.visible) == true)
     }
 
-    func windowWillClose(_ notification: Notification) { onVisibilityChange?(false) }
+    func windowWillClose(_ notification: Notification) { onVisibilityChange?(false); onClose?() }
 }

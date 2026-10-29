@@ -171,9 +171,10 @@ final class BubbleMapModel {
         let tree = source.diskTree
         if let x = engine, x.tree === tree {
             e = x; e.resize(size)
-        } else {   // ağaç değişti (tarama başladı, önbellekten yüklendi, bırakıldı): yeni ağaçta var olan en yakın klasör
+        } else {   // ağaç değişti (tarama başladı, önbellekten yüklendi): yeni ağaçta var olan en yakın klasör
             var p = disk.path
-            while !p.isEmpty, tree.node(at: p) == nil { p.removeLast() }
+            let loading = tree.scanIndex == nil && tree.root.children == nil   // yer tutucu: yol korunur
+            while !loading, !p.isEmpty, tree.node(at: p) == nil { p.removeLast() }
             if p != disk.path { disk.path = p }
             e = BubbleEngine(tree: tree, path: p, viewSize: size); engine = e
             hover = nil; lastScannedGB = nil

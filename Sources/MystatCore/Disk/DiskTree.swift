@@ -13,6 +13,15 @@ public final class DiskNode {
     public var ref: ScanChild.Ref?
     /// Dosya sistemi kimliği (inode); silmeden önce öğenin değişmediği bununla denetlenir. Örnek veride nil.
     public let fileID: UInt64?
+    /// Alt ağaçta yalnızca bulutta duran (iCloud'a boşaltılmış) öğe sayısı; silmeden önce uyarılır (§10).
+    public var cloudItems = 0
+
+    /// Tarama ağacındaki yapay düğümlerin adları: NUL dosya adında olamaz, gerçek bir "Diğer" klasörüyle çakışmaz.
+    /// Ekranda "Diğer" yazar (`displayName`).
+    public static let smallFilesName = "\u{0}küçük"
+    public static let restName = "\u{0}kalan"
+    public static func display(_ name: String) -> String { name.first == "\u{0}" ? "Diğer" : name }
+    public var displayName: String { Self.display(name) }
 
     public init(_ name: String, _ size: Double, file: Bool = false, docker: Bool = false, _ children: [DiskNode]? = nil,
                 ref: ScanChild.Ref? = nil, fileID: UInt64? = nil) {
@@ -76,9 +85,12 @@ final class ScanProvider: DiskChildProvider {
         let docker = Self.dockerRoots.contains { path.count >= $0.count && Array(path.prefix($0.count)) == $0 }
         let gb = Double(c.bytes) / 1e9
         switch c.ref {
-        case .dir(let id): return DiskNode(c.name, gb, docker: docker, ref: c.ref, fileID: index.fileID(ofDir: id))
+        case .dir(let id):
+            let n = DiskNode(c.name, gb, docker: docker, ref: c.ref, fileID: index.fileID(ofDir: id))
+            n.cloudItems = c.cloud
+            return n
         case .file(let fid): return DiskNode(c.name, gb, file: true, docker: docker, ref: c.ref, fileID: fid)
-        case .other: return DiskNode(c.name, gb, docker: docker, ref: c.ref)
+        case .other: return DiskNode(DiskNode.smallFilesName, gb, docker: docker, ref: c.ref)
         }
     }
 }
@@ -92,7 +104,9 @@ public final class DiskTree {
     /// Tarama sonucu: düğümler gezildikçe dizinden üretilir.
     public static func scanned(_ index: ScanIndex) -> DiskTree {
         let p = ScanProvider(index: index)
-        return DiskTree(root: DiskNode(index.rootName, Double(p.totals[0]) / 1e9, ref: .dir(0), fileID: index.fileID(ofDir: 0)), provider: p)
+        let root = DiskNode(index.rootName, Double(p.totals[0]) / 1e9, ref: .dir(0), fileID: index.fileID(ofDir: 0))
+        root.cloudItems = p.totals.cloud(0)
+        return DiskTree(root: root, provider: p)
     }
 
     /// Tarama ağacının dizini; örnek veride nil.
@@ -120,19 +134,17 @@ public final class DiskTree {
     public func refresh() {
         guard let p = provider as? ScanProvider else { return }
         p.totals = p.index.totals()
-        root.size = Double(p.totals[0]) / 1e9
+        root.size = Double(p.totals[0]) / 1e9; root.cloudItems = p.totals.cloud(0)
         update(root, path: [], p)
     }
 
     private func update(_ n: DiskNode, path: [String], _ p: ScanProvider) {
         guard let kids = n.children, case .dir(let id)? = n.ref else { return }
-        func key(_ name: String, _ ref: ScanChild.Ref?) -> String {
-            if case .other? = ref { return "\u{0}" + name } else { return name }
-        }
-        let old = Dictionary(kids.map { (key($0.name, $0.ref), $0) }, uniquingKeysWith: { a, _ in a })
+        func key(_ c: ScanChild) -> String { if case .other = c.ref { DiskNode.smallFilesName } else { c.name } }
+        let old = Dictionary(kids.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
         n.children = p.index.children(of: id, totals: p.totals).map { c in
-            guard let o = old[key(c.name, c.ref)] else { return p.make(c, path: path + [c.name]) }
-            o.size = Double(c.bytes) / 1e9; o.ref = c.ref
+            guard let o = old[key(c)] else { return p.make(c, path: path + [key(c)]) }
+            o.size = Double(c.bytes) / 1e9; o.ref = c.ref; o.cloudItems = c.cloud
             update(o, path: path + [c.name], p)
             return o
         }

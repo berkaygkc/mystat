@@ -12,7 +12,8 @@ enum DiskCheck {
         let cache = FileManager.default.temporaryDirectory.appendingPathComponent("mystat-diskcheck-\(getpid()).cache")
         defer { try? FileManager.default.removeItem(at: cache) }
         let (rss0, fp0) = memory()
-        let c = DiskScanController(cacheURL: cache)
+        // Tarayıcının doğruluğu `du` ile ölçülür: izinsizken atlanan klasörler (§10) burada da taransın.
+        let c = DiskScanController(cacheURL: cache, fullDiskAccess: { true })
         c.setVisible(true)
         let t0 = Date(), cpu0 = cpuSeconds()
         var peak = rss0
@@ -32,7 +33,7 @@ enum DiskCheck {
         let (rssDropped, fpDropped) = memory()
         func mb(_ v: UInt64) -> String { String(format: "%.0f", Double(v) / 1_048_576) }
         print(String(format: "toplam_gb=%.2f sure_sn=%.1f cpu_sn=%.1f", root.size, secs, cpu)
-              + " erisilemeyen=\(c.inaccessible) rss_mb_once=\(mb(rss0)) rss_mb_tepe=\(mb(peak)) rss_mb_hazir=\(mb(rssReady)) rss_mb_birakinca=\(mb(rssDropped))"
+              + " erisilemeyen=\(c.inaccessible) bulutta=\(root.cloudItems) rss_mb_once=\(mb(rss0)) rss_mb_tepe=\(mb(peak)) rss_mb_hazir=\(mb(rssReady)) rss_mb_birakinca=\(mb(rssDropped))"
               + " dizin_birakildi=\(weakIndex == nil) ayak_izi_mb_once=\(mb(fp0)) ayak_izi_mb_hazir=\(mb(fpReady)) ayak_izi_mb_birakinca=\(mb(fpDropped))")
         for n in top { print("kalem\t\(n.name)\t\(Int64((n.size * 1e9).rounded()))") }
         exit(0)

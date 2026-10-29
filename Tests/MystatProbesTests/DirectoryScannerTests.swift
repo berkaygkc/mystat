@@ -124,4 +124,17 @@ final class ProgressLog: Sendable {
         print("ev: \(Double(total) / 1e9) GB, du \(Double(du) / 1e9) GB, \(idx.dirCount) klasör, \(idx.inaccessible) erişilemeyen, \(dt) sn")
         #expect(abs(Double(total - du)) <= Double(du) * 0.02)
     }
+
+    /// Tam Disk Erişimi yokken TCC istemi çıkarabilecek klasörler açılmaz, okunamayan sayılır (§10).
+    @Test func skippedFoldersAreNotOpened() throws {
+        let fx = try ScanFixture()
+        try fx.dir("Documents"); try fx.file("Documents/a.bin", bytes: 12 * Self.MB)
+        try fx.dir("x/Fotoğraflar.photoslibrary"); try fx.file("x/Fotoğraflar.photoslibrary/b.bin", bytes: 12 * Self.MB)
+        try fx.dir("y"); try fx.file("y/c.bin", bytes: 12 * Self.MB)
+        let idx = DirectoryScanner(root: fx.root.path, skip: { DiskAccess.promptsWithoutAccess($0) })
+            .scan(onProgress: { _ in }, isCancelled: { false })
+        let t = idx.totals()
+        #expect(idx.children(of: 0, totals: t).map(\.name) == ["y"])
+        #expect(idx.inaccessible == 2)
+    }
 }

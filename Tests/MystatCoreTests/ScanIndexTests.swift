@@ -93,4 +93,27 @@ import Testing
         #expect(idx.dirCount == 600_001)
         #expect(idx.storageBytes <= 40_000_000)
     }
+
+    /// iCloud'a boşaltılmış öğeler sayılmaz ama sayısı tutulur (§10 silme uyarısı); alt ağaçtan yukarı toplanır.
+    @Test func cloudOnlyItemsPropagate() throws {
+        let (idx, a, b, _) = Self.sample()
+        idx.addFiles(dir: b, big: [], smallBytes: 0, smallCount: 0, cloudCount: 3)
+        idx.addFiles(dir: a, big: [], smallBytes: 0, smallCount: 0, cloudCount: 1)
+        let t = idx.totals()
+        #expect(t.cloud(0) == 4); #expect(t.cloud(a) == 4); #expect(t.cloud(b) == 3)
+        #expect(idx.children(of: a, totals: t).first { $0.name == "b" }?.cloud == 3)
+        #expect(idx.totals()[0] == 35 * Self.MB)   // boyuta eklenmez
+        let d = try #require(ScanIndex(decoding: idx.encoded()))
+        #expect(d.totals().cloud(0) == 4)
+    }
+
+    /// Yapısı geçerli ama boyutları anlamsız önbellek (LZFSE sağlama toplamı yok) yüklenmez; toplarken taşıp çökmesin.
+    @Test func implausibleSizesRejected() {
+        let idx = ScanIndex(rootName: "~")
+        for i in 1...3 {
+            let d = idx.addDirectory(parent: 0, name: "d\(i)", fileID: UInt64(i))
+            idx.addFiles(dir: d, big: [], smallBytes: Int64.max / 2, smallCount: 1)
+        }
+        #expect(ScanIndex(decoding: idx.encoded()) == nil)
+    }
 }

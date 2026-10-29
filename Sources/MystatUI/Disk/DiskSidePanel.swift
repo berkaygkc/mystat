@@ -70,7 +70,7 @@ struct DiskSidePanel<Source: MetricsSource>: View {
         let other = c.kind == .other
         let folder = c.canHaveChildren
         let locked = DeletionGuard.reason(path: p)
-        var name = c.name
+        var name = c.displayName
         if case .other(let n)? = c.ref { name += " · \(Fmt.int(Double(n))) küçük dosya" }
         return HStack(spacing: 8) {
             Group {
@@ -136,6 +136,13 @@ struct DiskSidePanel<Source: MetricsSource>: View {
                     if items.count > 5 { ScrollView { list }.frame(height: 200) } else { list }
                     if hasDocker {
                         Text("Seçimde Docker'ın diski var. Bunu silmek tüm image, container ve volume'leri yok eder; Docker bölümünden temizlemek daha güvenli.")
+                            .font(.system(size: 12)).lineSpacing(3).foregroundStyle(Theme.ink)
+                            .padding(.horizontal, 11).padding(.vertical, 9)
+                            .background(Theme.orangeSoft, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .padding(.top, 10).fixedSize(horizontal: false, vertical: true)
+                    }
+                    if disk.basket.cloudItems > 0 {   // §10: bulutta duranlar silinmeden önce uyarı
+                        Text("Seçimde yalnızca bulutta (iCloud vb.) duran \(Fmt.int(Double(disk.basket.cloudItems))) öğe var. Haritada yer kaplamıyorlar; silinirse tüm cihazlarından da gider.")
                             .font(.system(size: 12)).lineSpacing(3).foregroundStyle(Theme.ink)
                             .padding(.horizontal, 11).padding(.vertical, 9)
                             .background(Theme.orangeSoft, in: RoundedRectangle(cornerRadius: 10, style: .continuous))

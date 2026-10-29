@@ -151,7 +151,7 @@ public final class BubbleEngine {
         if children.count > Self.maxBubbles {
             let sorted = children.sorted { $0.size > $1.size }
             children = Array(sorted.prefix(Self.maxBubbles - 1))
-            rest = DiskNode("Diğer", sorted.dropFirst(Self.maxBubbles - 1).reduce(0) { $0 + $1.size }, ref: .other(count: sorted.count - children.count))
+            rest = DiskNode(DiskNode.restName, sorted.dropFirst(Self.maxBubbles - 1).reduce(0) { $0 + $1.size }, ref: .other(count: sorted.count - children.count))
             children.append(rest!)
         }
         let kids = children.map { c -> (DiskNode, [DiskNode]) in
@@ -386,7 +386,8 @@ public final class BubbleEngine {
         let size = Fmt.size(item.size)
         guard radius >= 30 else { return (nil, size) }
         let maxc = max(4, Int(radius / 4.4))
-        let name = item.name.count > maxc ? String(item.name.prefix(maxc - 1)) + "…" : item.name
+        let shown = DiskNode.display(item.name)
+        let name = shown.count > maxc ? String(shown.prefix(maxc - 1)) + "…" : shown
         return (name, size)
     }
 }

@@ -47,7 +47,7 @@ public final class SampleSource: MetricsSource {
     /// Örnek silme: ağaçtan düşer, açılan alan doluluğa yansır; diske dokunulmaz.
     public func delete(_ items: [BasketItem], mode: DeleteMode) async -> DeleteOutcome {
         let total = items.sorted { $0.path.count > $1.path.count }.reduce(0) { $0 + diskTree.remove(at: $1.path) }
-        applyDeletion(gb: total)
+        if mode == .permanent { applyDeletion(gb: total) }   // çöp diskte yer açmaz
         return DeleteOutcome(freedGB: total, failed: [], changed: [], simulated: true)
     }
 
