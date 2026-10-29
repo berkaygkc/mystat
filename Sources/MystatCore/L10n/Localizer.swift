@@ -32,7 +32,7 @@ public final class Localizer: Sendable {
                   let meta = root["_meta"] as? [String: String],
                   let name = meta["name"], let locale = meta["locale"] else { continue }
             let code = file.deletingPathExtension().lastPathComponent
-            strings[code] = root.compactMapValues { $0 as? String }
+            strings[code] = root.compactMapValues { ($0 as? String).flatMap { $0.isEmpty ? nil : $0 } }   // boş = çevrilmemiş: İngilizcesi görünür
             metas[code] = meta
             languages.append(Language(code: code, name: name, locale: Locale(identifier: locale)))
         }

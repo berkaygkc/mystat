@@ -69,6 +69,7 @@ import Testing
         #expect(cpu.incident?.culpritUnit == "cores")
         let bat = SampleSource(seed: 1, incident: true, kind: .battery).snapshot
         #expect(MonitorPresentation.incidentSentence(bat) == "Battery dropped 25% in 30 minutes; at this rate it lasts 1 h 10 min.")
+        #expect(bat.incident?.facts.last.map { "\($0.label) \($0.value)" } == "Charger unplugged")
     }
 
     @Test func sampleSuggestionsAndGroups() {

@@ -95,13 +95,16 @@ public enum L10n {
         return AttributedString(parts[0]) + e + AttributedString(parts[1])
     }
 
-    /// Tercih edilen diller içinden desteklenen ilki: önce tam eşleşme ("pt-BR"), sonra dil kodu ("tr-TR" → "tr").
+    /// Tercih edilen diller içinden desteklenen ilki. Etiket sondan kırpılarak eşlenir: "zh-Hans-CN" → "zh-Hans" → "zh",
+    /// "tr-TR" → "tr".
     public static func detect(preferred: [String], available: [String]) -> String {
         for p in preferred {
-            let tag = p.replacingOccurrences(of: "_", with: "-").lowercased()
-            if let exact = available.first(where: { $0.lowercased() == tag }) { return exact }
-            let base = String(tag.split(separator: "-").first ?? "")
-            if let match = available.first(where: { $0.lowercased() == base }) { return match }
+            var parts = p.replacingOccurrences(of: "_", with: "-").lowercased().split(separator: "-")
+            while !parts.isEmpty {
+                let tag = parts.joined(separator: "-")
+                if let match = available.first(where: { $0.lowercased() == tag }) { return match }
+                parts.removeLast()
+            }
         }
         return "en"
     }

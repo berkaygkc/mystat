@@ -2,6 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>CFBundleDevelopmentRegion</key><string>en</string>
     <key>CFBundleIdentifier</key><string>com.berkaygokce.mystat</string>
     <key>CFBundleName</key><string>mystat</string>
     <key>CFBundleDisplayName</key><string>mystat</string>
@@ -12,9 +13,10 @@
     <key>LSUIElement</key><true/>
     <key>LSMinimumSystemVersion</key><string>26.0</string>
     <key>NSHighResolutionCapable</key><true/>
-    <!-- Wi‑Fi ağının adı (SSID) macOS'ta konum izni ister; yalnızca Ağ bölümündeki "İzin ver" ile sorulur (plan 2e). -->
-    <key>NSLocationUsageDescription</key><string>Wi‑Fi ağının adını göstermek için. Konumun kullanılmaz ve saklanmaz.</string>
-    <key>NSLocationWhenInUseUsageDescription</key><string>Wi‑Fi ağının adını göstermek için. Konumun kullanılmaz ve saklanmaz.</string>
+    <!-- Wi‑Fi ağının adı (SSID) macOS'ta konum izni ister; yalnızca Ağ bölümündeki "İzin ver" ile sorulur (plan 2e).
+         İzin penceresini macOS çizer: metin buradan (İngilizce) ya da sistem diline göre <dil>.lproj/InfoPlist.strings'ten. -->
+    <key>NSLocationUsageDescription</key><string>To show the Wi‑Fi network's name. Your location isn't used or stored.</string>
+    <key>NSLocationWhenInUseUsageDescription</key><string>To show the Wi‑Fi network's name. Your location isn't used or stored.</string>
     <!-- libmalloc serbest bırakılan büyük blokları önbellekte tutar ve ayak izinde sayar (disk taraması bittiğinde
          ~120 MB geri verilmiyordu). Kapalıyken bırakılan bellek hemen sisteme döner (plan 2d, Task 8). -->
     <key>LSEnvironment</key>

@@ -23,6 +23,8 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 ls Locales/*.json >/dev/null 2>&1 || { echo "Locales/*.json yok" >&2; exit 1; }
 mkdir -p "$APP/Contents/Resources/Locales"
 cp Locales/*.json "$APP/Contents/Resources/Locales/"
+# macOS'un kendi çizdiği metinler (konum izni penceresi) sistem diline göre.
+cp -R Resources/*.lproj "$APP/Contents/Resources/"
 # İmza: Developer ID (GitHub'dan dağıtım; Tam Disk Erişimi ve Konum izni kurulumlar arasında korunur), yoksa
 # Apple Development, o da yoksa geçici (ad-hoc). Developer ID'de güçlendirilmiş çalışma ortamı ve zaman damgası:
 # Apple onayının (notarization) şartı; zaman damgası sertifikanın süresi dolsa da imzayı geçerli tutar.

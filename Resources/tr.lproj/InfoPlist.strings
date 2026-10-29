@@ -1,0 +1,3 @@
+/* Konum izni penceresi (macOS çizer; sistem dili Türkçeyse). */
+"NSLocationUsageDescription" = "Wi‑Fi ağının adını göstermek için. Konumun kullanılmaz ve saklanmaz.";
+"NSLocationWhenInUseUsageDescription" = "Wi‑Fi ağının adını göstermek için. Konumun kullanılmaz ve saklanmaz.";

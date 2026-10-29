@@ -27,7 +27,7 @@ public enum PanelPresentation {
         let cpuLevel = Thresholds.cpuTotal(s.cpu.percent)
         let cpuSub: String
         if let inc, inc.kind == .cpu {   // toplam düşükse olay tek grubun yükü: yüzde iddiası yazılmaz
-            let dur = L10n.plural("dur.for", inc.minutes)
+            let dur = L10n.plural("dur.forShort", inc.minutes)   // hücre dar: kısa süre
             cpuSub = s.cpu.percent >= 70 ? L10n.t("panel.cpu.above", ["for": dur, "pct": Fmt.pct(Double(Int(s.cpu.percent / 10) * 10))])
                                          : L10n.t("panel.cpu.busy", ["for": dur])
         } else { cpuSub = L10n.t("panel.cpu.calm", ["n": String(s.cpu.cores.count)]) }
@@ -48,7 +48,8 @@ public enum PanelPresentation {
             PanelCell(section: "cpu", label: L10n.t("section.cpu"), big: Fmt.pct(s.cpu.percent), unit: nil, sub: cpuSub, level: cpuLevel),
             PanelCell(section: "mem", label: L10n.t("section.mem"), big: Fmt.pct(s.memory.percent), unit: nil,
                       sub: L10n.t("panel.mem.sub", ["used": Fmt.dec1(s.memory.usedGB), "total": Fmt.int(s.memory.totalGB),
-                                                    "pressure": pressureWord(s.memory.pressureLevel)]),
+                                                    "pressure": L10n.t(s.memory.pressureLevel == .crit ? "panel.mem.pressure.crit"
+                                                                       : s.memory.pressureLevel == .warn ? "panel.mem.pressure.warn" : "panel.mem.pressure.ok")]),
                       level: s.memory.pressureLevel),
             PanelCell(section: "disk", label: L10n.t("section.disk"), big: Fmt.pct(s.disk.percent), unit: nil,
                       sub: L10n.t("panel.disk.sub", ["free": Fmt.int(s.disk.freeGB)]), level: Thresholds.diskFree(s.disk.freeGB)),

@@ -86,6 +86,48 @@ import Testing
         }
     }
 
+    /// `Locales/` içindeki her dosya okunabilir olmalı: bozuk JSON ya da `_meta`sız dosya sessizce düşer, dil listede görünmez.
+    static func unloadable(in dir: URL) -> [String] {
+        let loaded = Set(Localizer(directory: dir).languages.map(\.code))
+        let files = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
+        return files.filter { $0.pathExtension == "json" }.compactMap { u in
+            let code = u.deletingPathExtension().lastPathComponent
+            guard loaded.contains(code), let data = try? Data(contentsOf: u),
+                  let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return code }
+            return root.contains { $0.key != "_meta" && !($0.value is String) } ? code : nil
+        }.sorted()
+    }
+
+    @Test func checkerFindsUnloadableFile() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("lf-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try #"{"_meta": {"name": "English", "locale": "en_US"}, "a": "A"}"#.write(to: dir.appendingPathComponent("en.json"), atomically: true, encoding: .utf8)
+        try #"{"_meta": {"name": "Deutsch", "locale": "de_DE"}, "a": "A""#.write(to: dir.appendingPathComponent("de.json"), atomically: true, encoding: .utf8)
+        try #"{"_meta": {"name": "Français", "locale": "fr_FR"}, "a": 1}"#.write(to: dir.appendingPathComponent("fr.json"), atomically: true, encoding: .utf8)
+        #expect(Self.unloadable(in: dir) == ["de", "fr"])
+    }
+
+    @Test func everyFileLoads() {
+        #expect(Self.unloadable(in: Self.repo.appendingPathComponent("Locales")).isEmpty)
+        for lang in Self.localizer.languages {
+            let empty = Self.keys(lang.code).filter { $0.value.isEmpty }.keys.sorted()
+            #expect(empty.isEmpty, "\(lang.code) boş değerler: \(empty)")
+        }
+    }
+
+    /// Konum izni penceresini macOS çizer: metni Info.plist'ten (İngilizce) ya da sistem diline göre `<dil>.lproj`'dan alır.
+    @Test func infoPlistIsEnglishAndLocalized() throws {
+        let keys = ["NSLocationUsageDescription", "NSLocationWhenInUseUsageDescription"]
+        let plist = try #require(NSDictionary(contentsOf: Self.repo.appendingPathComponent("Resources/Info.plist")) as? [String: Any])
+        #expect(plist["CFBundleDevelopmentRegion"] as? String == "en")
+        for k in keys {
+            let v = try #require(plist[k] as? String)
+            #expect(!v.contains(/[çğıöşüÇĞİÖŞÜ]/), "\(k): \(v)")
+        }
+        let tr = try #require(NSDictionary(contentsOf: Self.repo.appendingPathComponent("Resources/tr.lproj/InfoPlist.strings")) as? [String: String])
+        for k in keys { #expect(tr[k]?.contains("Wi") == true, "tr \(k)") }
+    }
+
     @Test func metaComplete() {
         #expect(Self.localizer.languages.count >= 2)
         for lang in Self.localizer.languages {

@@ -50,6 +50,17 @@ import Testing
         #expect(L10n.detect(preferred: ["pt-BR", "tr"], available: available) == "tr")
         #expect(L10n.detect(preferred: [], available: available) == "en")
         #expect(L10n.detect(preferred: ["pt-BR"], available: ["en", "pt-BR", "pt"]) == "pt-BR")
+        // Yazı alt etiketi: macOS "zh-Hans-CN" bildirir; sondan kırpılarak eşleşir.
+        #expect(L10n.detect(preferred: ["zh-Hans-CN"], available: ["en", "zh-Hans"]) == "zh-Hans")
+        #expect(L10n.detect(preferred: ["sr-Latn-RS"], available: ["en", "sr-Latn", "sr"]) == "sr-Latn")
+        #expect(L10n.detect(preferred: ["pt-PT"], available: ["en", "pt-BR", "pt"]) == "pt")
+    }
+
+    /// Boş bırakılmış çeviri eksik sayılır: İngilizcesi görünür, ekranda boş metin olmaz.
+    @Test func emptyValueFallsBack() throws {
+        let l = try Self.localizer(["en": Self.en, "tr": #"{"_meta": {"name": "Türkçe", "locale": "tr_TR", "plural": "none"}, "a": "", "n.other": ""}"#])
+        #expect(L10n.t("a", language: "tr", localizer: l) == "A")
+        #expect(L10n.plural("n", 3, language: "tr", localizer: l) == "3 processes")
     }
 
     @Test func brokenFileIgnored() throws {
