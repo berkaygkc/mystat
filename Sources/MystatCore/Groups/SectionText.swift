@@ -24,8 +24,10 @@ public enum SectionText {
         guard s.capabilities.netDetails else {   // Wi‑Fi adı ve uygulama bazında ağ 2e'de
             return "\(s.net.iface) arayüzü. Bugün \(Fmt.dec1(s.net.todayDownGB)) GB indirildi, \(Fmt.dec1(s.net.todayUpGB)) GB gönderildi."
         }
-        let top = GroupPresentation.sorted(s.groups, by: .network).first?.name ?? ""
-        return "\(s.net.iface) · \(s.net.ssid) ağı. Bugün \(Fmt.dec1(s.net.todayDownGB)) GB indirildi, \(Fmt.dec1(s.net.todayUpGB)) GB gönderildi. Şu an en çok \(top) indiriyor."
+        let name = s.net.ssid.isEmpty ? "\(s.net.iface) arayüzü." : "\(s.net.iface) · \(s.net.ssid) ağı."
+        let top = GroupPresentation.sorted(s.groups, by: .network).first.flatMap { $0.netMBps >= 0.05 ? $0.name : nil }
+        return name + " Bugün \(Fmt.dec1(s.net.todayDownGB)) GB indirildi, \(Fmt.dec1(s.net.todayUpGB)) GB gönderildi."
+            + (top.map { " Şu an en çok \($0) indiriyor." } ?? "")
     }
 
     public static func docker(_ s: Snapshot) -> Head {

@@ -122,6 +122,10 @@ public struct NetState: Sendable {
     public var iface: String
     public var ssid: String
     public var details: [Fact]
+    /// Ağın adı yoksa nedeni (konum izni, Wi‑Fi değil).
+    public var ssidAccess: SSIDAccess = .known
+    /// Uygulama bazında ağ okunabiliyor mu (`nettop`).
+    public var perAppAvailable = true
 }
 
 public struct DockerDisk: Sendable {
