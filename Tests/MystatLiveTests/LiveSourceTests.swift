@@ -337,10 +337,10 @@ final class FakeProbe: SystemProbe {
         #expect(s.diskTree.root.children == nil)
     }
 
-    /// Uygulama bazında ağ hızları 12 sn'den eskiyse gruplara yazılmaz (nettop ≈ 5 sn'de bir örnek verir).
+    /// Uygulama bazında ağ hızları 5 sn'den eskiyse gruplara yazılmaz (sayaçlar 2 sn'de bir okunur).
     @Test func staleNetRatesIgnored() async throws {
         let p = FakeProbe()
-        let net = NetDetailPoller(link: { nil }, ping: { _ in nil }, stream: { _ in nil }, autoTick: false)
+        let net = NetDetailPoller(link: { nil }, ping: { _ in nil }, sockets: { nil }, receiveFactor: { nil }, autoTick: false)
         let s = Sampler(probe: p, history: nil, persistToday: false, net: net)
         let t0 = Date()
         _ = await s.sample(at: t0)
@@ -351,8 +351,8 @@ final class FakeProbe: SystemProbe {
         let fresh = await s.sample(at: t0.addingTimeInterval(4))
         let g = try #require(fresh.snapshot.groups.first { $0.pids.contains(100) })
         #expect(g.netMBps == 3)
-        let older = await s.sample(at: t0.addingTimeInterval(11))   // 8 sn önceki örnek: nettop'un temposunda hâlâ geçerli
-        #expect(older.snapshot.groups.first { $0.pids.contains(100) }?.netMBps == 3)
+        let older = await s.sample(at: t0.addingTimeInterval(11))   // 8 sn önceki örnek: eski
+        #expect(older.snapshot.groups.first { $0.pids.contains(100) }?.netMBps == 0)
     }
 
     @Test func liveSourceNetDetails() async {
@@ -360,9 +360,8 @@ final class FakeProbe: SystemProbe {
         let s = LiveSource(probe: FakeProbe(), historyURL: nil, persistToday: false, autostart: false, dockerAPI: FakeDockerAPI(), net: poller)
         #expect(LiveSource.capabilities.netDetails)
         s.setVisibleSection("net"); await poller.sync()
-        #expect(f.startCount == 1); #expect(await poller.isVisible)
+        #expect(f.n(f.factorCalls) == 1); #expect(await poller.isVisible)
         s.setVisibleSection("docker"); await poller.sync()
         #expect(await poller.isVisible == false)
-        #expect(f.lastStream.withLock { $0?.stops.load(ordering: .relaxed) } == 1)
     }
 }

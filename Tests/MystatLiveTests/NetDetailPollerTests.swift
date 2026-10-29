@@ -5,20 +5,14 @@ import Synchronization
 import Testing
 @testable import MystatLive
 
-final class FakeNetStream: NetStream {
-    let running = Atomic<Bool>(true), stops = Atomic<Int>(0)
-    var isRunning: Bool { running.load(ordering: .relaxed) }
-    func stop() { stops.add(1, ordering: .relaxed); running.store(false, ordering: .relaxed) }
-}
-
-/// Sahte bağlantı, ping ve akış: çağrılar sayılır.
+/// Sahte bağlantı, ping, soket sayaçları ve loopback ölçümü: çağrılar sayılır, saat her okumada 2 sn ilerler.
 final class NetFakes: Sendable {
-    let starts = Atomic<Int>(0), pings = Atomic<Int>(0), links = Atomic<Int>(0)
+    let factorCalls = Atomic<Int>(0), pings = Atomic<Int>(0), links = Atomic<Int>(0), socketReads = Atomic<Int>(0)
     let pingValues = Mutex<[Double]>([30, 3, 4])
     let router = Mutex<String?>("192.168.1.1")
-    let failStream = Atomic<Bool>(false)
-    let lastStream = Mutex<FakeNetStream?>(nil)
-    let onSample = Mutex<(@Sendable ([Int32: NetBytes]) -> Void)?>(nil)
+    let factor = Mutex<Double?>(2)
+    let sockets = Mutex<[[SocketStat]?]>([])
+    let time = Mutex<TimeInterval>(100)
 
     func poller() -> NetDetailPoller {
         NetDetailPoller(
@@ -28,52 +22,48 @@ final class NetFakes: Sendable {
                                wifi: nil, linkMbps: nil)
             },
             ping: { [self] _ in pings.add(1, ordering: .relaxed); return pingValues.withLock { $0.isEmpty ? nil : $0.removeFirst() } },
-            stream: { [self] cb in
-                starts.add(1, ordering: .relaxed)
-                if failStream.load(ordering: .relaxed) { return nil }
-                let s = FakeNetStream()
-                lastStream.withLock { $0 = s }; onSample.withLock { $0 = cb }
-                return s
-            },
+            sockets: { [self] in socketReads.add(1, ordering: .relaxed); return sockets.withLock { $0.isEmpty ? [] : $0.removeFirst() } },
+            receiveFactor: { [self] in factorCalls.add(1, ordering: .relaxed); return factor.withLock { $0 } },
+            clock: { [self] in time.withLock { $0 += 2; return $0 } },
             autoTick: false)
     }
-    var startCount: Int { starts.load(ordering: .relaxed) }
-    var pingCount: Int { pings.load(ordering: .relaxed) }
+    func n(_ a: borrowing Atomic<Int>) -> Int { a.load(ordering: .relaxed) }
 }
 
 @Suite struct NetDetailPollerTests {
     @Test func hiddenRunsNothing() async {
         let f = NetFakes(), p = f.poller()
         for _ in 0..<3 { await p.tick() }
-        #expect(f.pingCount == 0); #expect(f.startCount == 0)
+        #expect(f.n(f.pings) == 0); #expect(f.n(f.socketReads) == 0); #expect(f.n(f.factorCalls) == 0)
     }
 
-    @Test func visibleStartsStreamAndPings() async {
+    @Test func visibleCalibratesAndPings() async {
         let f = NetFakes(), p = f.poller()
         p.setVisible(true); await p.sync()
         for _ in 0..<3 { await p.tick() }
-        #expect(f.startCount == 1); #expect(f.pingCount == 3)
+        #expect(f.n(f.factorCalls) == 1); #expect(f.n(f.pings) == 3); #expect(f.n(f.socketReads) == 3)
         #expect(p.latest.withLock { $0.latencyMs } == 4)   // 30, 3, 4 → ortanca
         #expect(p.latest.withLock { $0.link?.bsdName } == "en0")
     }
 
-    @Test func samplesBecomeRates() async {
+    /// 2 sn'de 8 MB sayaç farkı, çekirdek iki kez sayıyor → 2 MB/s.
+    @Test func socketsBecomeRates() async {
         let f = NetFakes(), p = f.poller()
+        f.sockets.withLock { $0 = [[SocketStat(handle: 1, pid: 7, rxBytes: 0)], [SocketStat(handle: 1, pid: 7, rxBytes: 8_000_000)]] }
         p.setVisible(true); await p.sync()
-        f.onSample.withLock { $0 }?([7: NetBytes(inBytes: 4_000_000, outBytes: 0)])
+        await p.tick(); await p.tick()
         #expect(p.latest.withLock { $0.rates } == [7: 2.0])
         #expect(p.latest.withLock { $0.ratesAt } != nil)
     }
 
     @Test func hiddenStopsAndClears() async {
         let f = NetFakes(), p = f.poller()
-        p.setVisible(true); await p.sync(); await p.tick()
-        f.onSample.withLock { $0 }?([7: NetBytes(inBytes: 1_000_000, outBytes: 0)])
+        f.sockets.withLock { $0 = [[SocketStat(handle: 1, pid: 7, rxBytes: 0)], [SocketStat(handle: 1, pid: 7, rxBytes: 4_000_000)]] }
+        p.setVisible(true); await p.sync(); await p.tick(); await p.tick()
         p.setVisible(false); await p.sync()
-        #expect(f.lastStream.withLock { $0?.stops.load(ordering: .relaxed) } == 1)
         #expect(p.latest.withLock { $0.rates.isEmpty && $0.latencyMs == nil && $0.link == nil })
         await p.tick()
-        #expect(f.pingCount == 1)   // gizliyken tur yok
+        #expect(f.n(f.socketReads) == 2); #expect(f.n(f.pings) == 2)   // gizliyken tur yok
     }
 
     @Test func noRouterNoPing() async {
@@ -81,27 +71,28 @@ final class NetFakes: Sendable {
         f.router.withLock { $0 = nil }
         p.setVisible(true); await p.sync()
         await p.tick(); await p.tick()
-        #expect(f.pingCount == 0); #expect(p.latest.withLock { $0.latencyMs } == nil)
+        #expect(f.n(f.pings) == 0); #expect(p.latest.withLock { $0.latencyMs } == nil)
     }
 
-    @Test func streamFailureMarksUnavailable() async {
+    /// Loopback ölçümü tutmadı (düzen değişmiş ya da oran tuhaf): liste "okunamadı", sayaçlar hiç okunmaz.
+    @Test func calibrationFailureMarksUnavailable() async {
         let f = NetFakes(), p = f.poller()
-        f.failStream.store(true, ordering: .relaxed)
-        p.setVisible(true); await p.sync()
+        f.factor.withLock { $0 = nil }
+        p.setVisible(true); await p.sync(); await p.tick()
         #expect(p.latest.withLock { $0.perAppAvailable } == false)
+        #expect(f.n(f.socketReads) == 0)
     }
 
-    /// nettop kendiliğinden biterse aynı görünürlükte yeniden başlatılmaz (döngü yok); bir sonraki açılışta başlar.
-    @Test func exitedStreamRestartsOnlyOnNextVisible() async {
+    /// Sayaçlar okunamadı: bu görünürlükte bir daha denenmez (her turda boşuna sysctl yok), bir sonraki açılışta yeniden.
+    @Test func socketReadFailureMarksUnavailable() async {
         let f = NetFakes(), p = f.poller()
+        f.sockets.withLock { $0 = [nil] }
         p.setVisible(true); await p.sync()
-        f.lastStream.withLock { $0?.running.store(false, ordering: .relaxed) }
-        for _ in 0..<3 { await p.tick() }
-        #expect(f.startCount == 1)
+        await p.tick(); await p.tick()
         #expect(p.latest.withLock { $0.perAppAvailable } == false)
+        #expect(f.n(f.socketReads) == 1)
         p.setVisible(false); await p.sync(); p.setVisible(true); await p.sync()
-        #expect(f.startCount == 2)
-        #expect(p.latest.withLock { $0.perAppAvailable })
+        #expect(f.n(f.factorCalls) == 2); #expect(p.latest.withLock { $0.perAppAvailable })
     }
 
     /// Görünürlük çağrıları sırasız işlense de son istenen durum geçerli olur.
@@ -110,6 +101,6 @@ final class NetFakes: Sendable {
         p.setVisible(true); p.setVisible(false)
         await p.sync(); await p.sync()
         #expect(await p.isVisible == false)
-        #expect(f.lastStream.withLock { $0?.isRunning } != true)
+        #expect(f.n(f.factorCalls) == 0)
     }
 }

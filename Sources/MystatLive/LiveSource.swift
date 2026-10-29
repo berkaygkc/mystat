@@ -88,7 +88,7 @@ public final class LiveSource: MetricsSource {
     }
 
     /// Uygulama kapanırken: geçmişin yarım kovaları yazılır.
-    public func flushHistory() { history?.flush(); net.shutdown() }
+    public func flushHistory() { history?.flush() }
 
     public func setDetailInterest(_ visible: Bool) {
         sampler.interest.withLock { $0 = visible }

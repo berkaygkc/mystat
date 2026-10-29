@@ -166,10 +166,10 @@ public actor Sampler {
             if let i = incident, recorded != "\(i.kind)\(i.startedAt)" { history?.recordIncident(i, at: now); recorded = "\(i.kind)\(i.startedAt)" }
         }
 
-        // Uygulama bazında ağ (Ağ bölümü açıkken): nettop ≈ 5 sn'de bir örnek verir; 12 sn'den eski hızlar yazılmaz.
+        // Uygulama bazında ağ (Ağ bölümü açıkken, 2 sn'de bir): 5 sn'den eski hızlar yazılmaz.
         let netReading = net?.latest.withLock { $0 }
         var shown = groups
-        if let r = netReading, let at = r.ratesAt, now.timeIntervalSince(at) <= 12 { NetRates.apply(r.rates, to: &shown) }
+        if let r = netReading, let at = r.ratesAt, now.timeIntervalSince(at) <= 5 { NetRates.apply(r.rates, to: &shown) }
         var m = LiveMeasurements(cpu: cpu, memory: memory, disk: disk, net: lastNet, iface: iface ?? "—", ip: ip, groups: shown,
                                  thermal: probe.thermal(), battery: battery, batteryDrain30m: drain, machine: machine,
                                  downloads: downloads, coreCount: max(1, ticks.count), docker: dockerState(), sensors: sensors)
