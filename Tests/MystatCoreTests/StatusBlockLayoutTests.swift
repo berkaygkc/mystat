@@ -16,7 +16,7 @@ import Testing
         let cal = Calendar.trTest; let now = cal.date(from: .init(year: 2026, month: 10, day: 28, hour: 8, minute: 45, second: 18))!
         let calm = StatusBlockLayout.model(SampleSource(seed: 1).snapshot, now: now, calendar: cal)
         #expect(calm.alert == nil); #expect(calm.metrics.map(\.label) == ["CPU", "RAM", "DİSK"])
-        #expect(calm.date == "28 Ekim 2026 Çarşamba"); #expect(calm.time == "08:45:18"); #expect(calm.down.hasPrefix("↓"))
+        #expect(calm.date == "28 Ekim 2026 Çarşamba"); #expect(calm.time == "08:45")   // menü çubuğunda saniye yok (kullanıcı kararı: boşta maliyet); #expect(calm.down.hasPrefix("↓"))
         let hot = StatusBlockLayout.model(SampleSource(seed: 1, incident: true).snapshot, now: now, calendar: cal)
         #expect(hot.alert == StatusMetric(label: "ISI", value: "91°", level: .warn)); #expect(hot.metrics[0].level == .crit)
         let mem = StatusBlockLayout.model(SampleSource(seed: 1, incident: true, kind: .memory).snapshot, now: now, calendar: cal)

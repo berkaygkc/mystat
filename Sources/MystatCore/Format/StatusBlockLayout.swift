@@ -33,7 +33,7 @@ public enum StatusBlockLayout {
     /// Genişliğin değerle oynamaması için ayrılan en geniş örnek metinler (Review Focus #1).
     /// CPU en oynak değer: %100'e kadar yer ayrılır. RAM ve DİSK nadiren üç haneye çıkar; sıkılık için iki hane.
     public static let cpuTemplate = "%100", valueTemplate = "%88", alertTemplate = "−%88", netTemplate = "↓88,8"
-    public static let dateTemplate = "28 Ağustos 2026 Cumartesi", timeTemplate = "88:88:88"
+    public static let dateTemplate = "28 Ağustos 2026 Cumartesi", timeTemplate = "88:88"
 
     public enum Part: Equatable { case alert, metric(Int), net, clock }
 
@@ -45,7 +45,7 @@ public enum StatusBlockLayout {
         ]
         return StatusBlockModel(alert: alert(s), metrics: metrics,
                                 down: "↓" + Fmt.rate(s.net.downMBps), up: "↑" + Fmt.rate(s.net.upMBps),
-                                date: Fmt.dateLine(now, calendar: calendar), time: Fmt.timeLine(now, calendar: calendar))
+                                date: Fmt.dateLine(now, calendar: calendar), time: String(Fmt.timeLine(now, calendar: calendar).prefix(5)))   // saniyesiz: her saniye yeniden çizim boşta maliyeti ikiye katlıyordu (kullanıcı kararı)
     }
 
     /// Isı, Pil ve Docker'ın kalıcı öğesi yok; olay anında bloğun içinde belirir (spec §4). Çip ılıksa her olayda
