@@ -32,8 +32,13 @@ public enum StatusBlockLayout {
 
     /// Genişliğin değerle oynamaması için ayrılan en geniş örnek metinler (Review Focus #1).
     /// CPU en oynak değer: %100'e kadar yer ayrılır. RAM ve DİSK nadiren üç haneye çıkar; sıkılık için iki hane.
-    public static let cpuTemplate = "%100", valueTemplate = "%88", alertTemplate = "−%88", netTemplate = "↓88,8"
-    public static let dateTemplate = "28 Ağustos 2026 Cumartesi", timeTemplate = "88:88"
+    /// Dile göre: yüzde işaretinin yeri, ondalık ayırıcı ve en geniş tarih (`_meta.dateTemplate`) değişir.
+    public static var cpuTemplate: String { Fmt.pct(100) }
+    public static var valueTemplate: String { Fmt.pct(88) }
+    public static var alertTemplate: String { "−" + Fmt.pct(88) }
+    public static var netTemplate: String { "↓" + Fmt.dec1(88.8) }
+    public static var dateTemplate: String { Localizer.shared.meta("dateTemplate", language: L10n.code) ?? "Wednesday, September 30, 2026" }
+    public static var timeTemplate: String { Localizer.shared.meta("timeTemplate", language: L10n.code) ?? "88:88" }
 
     public enum Part: Equatable { case alert, metric(Int), net, clock }
 

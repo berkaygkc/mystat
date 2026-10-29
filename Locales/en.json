@@ -7,5 +7,10 @@
     "dateLine": "EEEE, MMMM d, y",
     "dateTemplate": "Wednesday, September 30, 2026",
     "timeTemplate": "88:88"
-  }
+  },
+  "unit.minutes": "{m} min",
+  "unit.hours": "{h} h",
+  "unit.hoursMinutes": "{h} h {m} min",
+  "unit.days.one": "{n} day",
+  "unit.days.other": "{n} days"
 }

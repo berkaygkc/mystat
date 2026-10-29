@@ -49,7 +49,7 @@ public enum MonitorPresentation {
             }
         case .heat:
             return s.capabilities.sensors && s.system.fanCount > 0 && s.system.fanRPM > 0 ? "Çip \(m) dakikadır ısınıyor; fanlar \(Fmt.int(s.system.fanRPM)) dev/dk ile dönüyor."
-                                          : "Çip \(m) dakikadır ısınıyor; termal durum \(s.system.thermal.thermalWord.lowercased(with: Fmt.tr))."
+                                          : "Çip \(m) dakikadır ısınıyor; termal durum \(s.system.thermal.thermalWord.lowercased(with: Fmt.locale))."
         case .battery:
             let left = GroupPresentation.fact(inc, "Kalan").map { "; bu hızla \($0) yeter" } ?? ""
             return "Pil \(m) dakikada \(Fmt.pct(s.system.batteryDrain30m ?? 0)) eridi\(left)."

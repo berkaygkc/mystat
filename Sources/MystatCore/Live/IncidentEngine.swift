@@ -154,7 +154,7 @@ public struct IncidentEngine: Sendable {
         case .cpu:
             ids = byCPU.map(\.id); values = byCPU.map { Fmt.dec1($0.cpuCores) }; unit = "çekirdek"
             facts = [Fact("Başladı", started), Fact("Zirve", Fmt.pct(a.peak)), Fact("Şu an", Fmt.pct(i.cpu.percent)),
-                     Fact("Isı", i.thermal.thermalWord.lowercased(with: Fmt.tr), level: i.thermal)]
+                     Fact("Isı", i.thermal.thermalWord.lowercased(with: Fmt.locale), level: i.thermal)]
         case .memory:
             let t = top(i.memoryGrowthGB, 3, min: 0.1)
             ids = t.map(\.0); values = t.map { "+" + Fmt.dec1($0.1) }; unit = "GB"
@@ -179,7 +179,7 @@ public struct IncidentEngine: Sendable {
             if byWatts.isEmpty { ids = byCPU.map(\.id); values = byCPU.map { Fmt.dec1($0.cpuCores) }; unit = "çekirdek" }
             else { ids = byWatts.map(\.id); values = byWatts.map { Fmt.dec1($0.watts) }; unit = "W" }
             facts = k == .battery ? [Fact("Erime", "30 dk'da " + Fmt.pct(a.peak)), Fact("Şarj", "prizde değil")]
-                                  : [Fact("Durum", i.thermal.thermalWord.lowercased(with: Fmt.tr), level: i.thermal), Fact("Başladı", started)]
+                                  : [Fact("Durum", i.thermal.thermalWord.lowercased(with: Fmt.locale), level: i.thermal), Fact("Başladı", started)]
         }
         return Incident(kind: k, level: a.level, startedAt: started, minutes: Int(now.timeIntervalSince(a.start) / 60),
                         peakPercent: a.peak, culpritIDs: ids, culpritValues: values, culpritUnit: unit, facts: facts)

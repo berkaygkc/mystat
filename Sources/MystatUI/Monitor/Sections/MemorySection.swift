@@ -40,7 +40,7 @@ struct MemorySection<Source: MetricsSource>: View {
                     AreaChart(series: [ChartSeries(source.series(.memUsed, range: state.range), color: Theme.chart, fill: true, name: "dolu"),
                                        ChartSeries(source.series(.memPressure, range: state.range), color: Theme.c1, name: "baskı")],
                               max: 100, height: 170, range: state.range, format: Fmt.pct, formatY: Fmt.pct)
-                    StatsRow(items: [("Baskı", PanelPresentation.pressureWord(m.pressureLevel).capitalized(with: Locale(identifier: "tr_TR")), Fmt.pct(m.pressurePercent)),
+                    StatsRow(items: [("Baskı", PanelPresentation.pressureWord(m.pressureLevel).capitalized(with: Fmt.locale), Fmt.pct(m.pressurePercent)),
                                      ("Swap", Fmt.dec1(m.swapGB).replacingOccurrences(of: ",0", with: "") + " GB", nil),
                                      ("Sıkıştırılmış", Fmt.dec1(m.compressed) + " GB", nil),
                                      ("Uygulamaların istediği", "≈ " + Fmt.int(m.apps + m.wired + m.compressed * 2.08) + " GB", "sıkıştırma öncesi")])

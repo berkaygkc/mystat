@@ -7,5 +7,9 @@
     "dateLine": "d MMMM y EEEE",
     "dateTemplate": "28 Ağustos 2026 Cumartesi",
     "timeTemplate": "88:88"
-  }
+  },
+  "unit.minutes": "{m} dk",
+  "unit.hours": "{h} sa",
+  "unit.hoursMinutes": "{h} sa {m} dk",
+  "unit.days.other": "{n} gün"
 }

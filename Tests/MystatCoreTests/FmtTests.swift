@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import MystatTestSupport
 import Testing
@@ -38,5 +39,43 @@ import Testing
         let d = Date(timeIntervalSince1970: 1_793_166_318)   // 2026-10-28 08:45:18 +03
         #expect(Fmt.dateLine(d, calendar: Fmt.calendar) == "28 Ekim 2026 Çarşamba")
         #expect(Fmt.dateLine(d, calendar: buddhist) != "28 Ekim 2026 Çarşamba")   // neden gerektiğinin kanıtı
+    }
+}
+
+@Suite(.language("en")) struct FmtEnglishTests {
+    @Test func numbers() {
+        #expect(Fmt.pct(62) == "62%"); #expect(Fmt.int(1201) == "1,201"); #expect(Fmt.dec1(14.6) == "14.6")
+        #expect(Fmt.cores(4.2) == "4.2"); #expect(Fmt.cores(0.03) == "<0.1"); #expect(Fmt.size(9.5) == "9.5 GB")
+    }
+    @Test func clockLines() {
+        let cal = Calendar.trTest
+        let d = cal.date(from: DateComponents(year: 2026, month: 10, day: 29, hour: 14, minute: 2, second: 7))!
+        #expect(Fmt.dateLine(d, calendar: cal) == "Thursday, October 29, 2026")
+        #expect(Fmt.timeLine(d, calendar: cal) == "14:02:07")   // her dilde 24 saat
+    }
+    @Test func uptimeUnits() {
+        #expect(Fmt.uptime(14 * 60) == "14 min"); #expect(Fmt.uptime(134 * 60) == "2 h 14 min")
+        #expect(Fmt.uptime(45 * 3600) == "45 h"); #expect(Fmt.uptime(73 * 3600) == "3 days"); #expect(Fmt.uptime(24 * 3600 * 1 + 3600 * 50) == "3 days")
+    }
+    @Test func statusTemplatesFollowLanguage() {
+        #expect(StatusBlockLayout.dateTemplate == "Wednesday, September 30, 2026")
+        #expect(StatusBlockLayout.cpuTemplate == "100%"); #expect(StatusBlockLayout.alertTemplate == "−88%")
+        #expect(StatusBlockLayout.netTemplate == "↓88.8")
+    }
+    /// Saat sütunu en geniş İngilizce tarihe göre: daha kısa bir tarih bloğu daraltmaz.
+    @Test func templateWidthPerLanguage() {
+        let measure: (String, CGFloat, Bool) -> CGFloat = { s, size, _ in CGFloat(s.count) * size * 0.6 }
+        var a = StatusBlockModel.sample; a.date = "Friday, May 1, 2026"
+        let clock = StatusBlockLayout.parts(a, measure: measure).first { $0.0 == .clock }!.1
+        #expect(clock >= measure("Wednesday, September 30, 2026", StatusBlockLayout.dateSize, false))
+    }
+}
+
+@Suite(.language("tr")) struct FmtTurkishUnitsTests {
+    @Test func uptimeUnits() {
+        #expect(Fmt.uptime(14 * 60) == "14 dk"); #expect(Fmt.uptime(134 * 60) == "2 sa 14 dk")
+        #expect(Fmt.uptime(45 * 3600) == "45 sa"); #expect(Fmt.uptime(73 * 3600) == "3 gün")
+        #expect(StatusBlockLayout.dateTemplate == "28 Ağustos 2026 Cumartesi"); #expect(StatusBlockLayout.cpuTemplate == "%100")
+        #expect(StatusBlockLayout.netTemplate == "↓88,8")
     }
 }
