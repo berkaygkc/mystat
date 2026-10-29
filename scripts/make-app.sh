@@ -19,8 +19,17 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/mystat"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
-IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null | grep -m1 'Apple Development' | sed -E 's/.*"(.*)"/\1/' || true)"
-codesign --force --sign "${IDENTITY:--}" "$APP" >/dev/null
+# İmza: Developer ID (GitHub'dan dağıtım; Tam Disk Erişimi ve Konum izni kurulumlar arasında korunur), yoksa
+# Apple Development, o da yoksa geçici (ad-hoc). Developer ID'de güçlendirilmiş çalışma ortamı ve zaman damgası:
+# Apple onayının (notarization) şartı; zaman damgası sertifikanın süresi dolsa da imzayı geçerli tutar.
+find_identity() { security find-identity -v -p codesigning 2>/dev/null | grep -m1 "$1" | sed -E 's/.*"(.*)"/\1/' || true; }
+IDENTITY="$(find_identity 'Developer ID Application')"
+if [ -n "$IDENTITY" ]; then
+    codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP" >/dev/null
+else
+    IDENTITY="$(find_identity 'Apple Development')"
+    codesign --force --sign "${IDENTITY:--}" "$APP" >/dev/null
+fi
 echo "$APP ($CONFIG, imza: ${IDENTITY:-ad-hoc})"
 
 if [ "$MODE" = install ]; then
