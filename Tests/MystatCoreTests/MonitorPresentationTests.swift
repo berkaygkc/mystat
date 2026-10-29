@@ -1,8 +1,9 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-@MainActor @Suite struct MonitorPresentationTests {
+@MainActor @Suite(.language("tr")) struct MonitorPresentationTests {
     @Test func navValues() {
         let calm = SampleSource(seed: 1).snapshot
         #expect(MonitorPresentation.navValue("overview", calm).text == "")
@@ -34,7 +35,7 @@ import Testing
     }
 }
 
-@MainActor @Suite struct OverviewLedeTests {
+@MainActor @Suite(.language("tr")) struct OverviewLedeTests {
     @Test func ledes() {
         #expect(MonitorPresentation.overviewLede(SampleSource(seed: 1).snapshot)
                 == "Makine rahat. En yoğun uygulama Brave Browser, Docker 15 container ile sessizce ayakta. Diskte 175 GB boş yer var.")

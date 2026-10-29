@@ -1,9 +1,10 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
 /// Süreçler anlamına göre gruplanır (spec §8). Kurgusal ağaçlar bu makinedeki gerçek görünüme göre.
-@Suite struct ProcessGrouperTests {
+@Suite(.language("tr")) struct ProcessGrouperTests {
     let now = Date(timeIntervalSince1970: 1_793_166_318)
     let proj = "/Users/u/Documents/apps/acmecorp"
 

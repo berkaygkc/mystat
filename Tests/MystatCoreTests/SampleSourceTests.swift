@@ -1,8 +1,9 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-@MainActor @Suite struct SampleSourceTests {
+@MainActor @Suite(.language("tr")) struct SampleSourceTests {
     @Test func calmVsIncident() {
         let calm = SampleSource(seed: 7); let hot = SampleSource(seed: 7, incident: true)
         #expect(calm.snapshot.incident == nil); #expect(calm.snapshot.cpu.percent < 30)

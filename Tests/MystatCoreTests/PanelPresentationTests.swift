@@ -1,8 +1,9 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-@MainActor @Suite struct PanelPresentationTests {
+@MainActor @Suite(.language("tr")) struct PanelPresentationTests {
     @Test func calmCells() {
         let c = PanelPresentation.cells(SampleSource(seed: 1).snapshot)
         #expect(c.map(\.label) == ["İşlemci", "Bellek", "Disk", "Ağ", "Docker", "Sistem"])

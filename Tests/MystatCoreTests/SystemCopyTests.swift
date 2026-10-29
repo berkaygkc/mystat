@@ -1,9 +1,10 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
 /// Sistem metinleri veriden (§6.3): örnek verinin cümleleri aynı kalır; canlıda fan, güç ve GPU gerçek değerden.
-@MainActor @Suite struct SystemCopyTests {
+@MainActor @Suite(.language("tr")) struct SystemCopyTests {
     var calm: Snapshot { SampleSource(seed: 1).snapshot }
     var heat: Snapshot { SampleSource(seed: 1, incident: true, kind: .heat).snapshot }
 

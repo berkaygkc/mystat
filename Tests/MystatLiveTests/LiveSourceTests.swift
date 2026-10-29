@@ -2,6 +2,7 @@ import Foundation
 import MystatCore
 import MystatProbes
 import Synchronization
+import MystatTestSupport
 import Testing
 @testable import MystatLive
 
@@ -84,7 +85,7 @@ final class FakeProbe: SystemProbe {
     }
 }
 
-@MainActor @Suite struct LiveSourceTests {
+@MainActor @Suite(.language("tr")) struct LiveSourceTests {
     let t0 = Date(timeIntervalSince1970: 1_793_163_600)
 
     func source(_ p: FakeProbe) -> LiveSource { LiveSource(probe: p, historyURL: nil, persistToday: false, autostart: false, dockerAPI: FakeDockerAPI()) }

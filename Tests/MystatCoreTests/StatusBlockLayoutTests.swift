@@ -1,9 +1,10 @@
 import CoreGraphics
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-@MainActor @Suite struct StatusBlockLayoutTests {
+@MainActor @Suite(.language("tr")) struct StatusBlockLayoutTests {
     @Test func alertMetricPerKind() {
         let cal = Calendar.trTest; let now = Date()
         let a = { (k: IncidentKind) in StatusBlockLayout.model(SampleSource(seed: 1, incident: true, kind: k).snapshot, now: now, calendar: cal).alert }

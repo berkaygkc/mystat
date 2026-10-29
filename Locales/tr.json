@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "name": "Türkçe",
+    "locale": "tr_TR",
+    "plural": "none",
+    "percent": "%{value}",
+    "dateLine": "d MMMM y EEEE",
+    "dateTemplate": "28 Ağustos 2026 Cumartesi",
+    "timeTemplate": "88:88"
+  }
+}

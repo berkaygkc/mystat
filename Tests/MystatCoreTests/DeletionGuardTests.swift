@@ -1,8 +1,9 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-@Suite struct DeletionGuardTests {
+@Suite(.language("tr")) struct DeletionGuardTests {
     @Test func protectedPaths() {
         for p: [String] in [[], ["Library"], ["Documents"], ["Library", "Containers"], ["Library", "Mobile Documents"], ["Downloads"], ["Movies"]] {
             #expect(DeletionGuard.reason(path: p) != nil, "\(p)")

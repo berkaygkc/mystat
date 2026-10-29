@@ -1,9 +1,10 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
 /// Ölçümler → Snapshot (spec §5 sakin başlık, §7.3 öneriler).
-@MainActor @Suite struct SnapshotBuilderTests {
+@MainActor @Suite(.language("tr")) struct SnapshotBuilderTests {
     let now = Date(timeIntervalSince1970: 1_793_166_318)
 
     func group(_ id: String, _ name: String, ctx: String, cores: Double, orphan: Bool = false, uptime: String = "14 dk") -> ProcessGroup {

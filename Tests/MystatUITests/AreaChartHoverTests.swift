@@ -1,10 +1,11 @@
 import AppKit
 import SwiftUI
+import MystatTestSupport
 import Testing
 @testable import MystatUI
 
 /// Üzerine gelince yalnızca dikey çizgi, noktalar ve ipucu eklenir; grafiğin kendisi yerinden oynamamalı.
-@MainActor @Suite struct AreaChartHoverTests {
+@MainActor @Suite(.language("tr")) struct AreaChartHoverTests {
     func render(_ hover: CGFloat?) -> NSBitmapImageRep {
         let values = (0..<60).map { 30 + 20 * sin(Double($0) / 5) }
         let chart = AreaChart(series: [ChartSeries(values, color: .black, fill: true, name: "toplam")], max: 100, height: 180,

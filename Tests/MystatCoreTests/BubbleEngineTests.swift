@@ -1,9 +1,10 @@
 import CoreGraphics
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-@MainActor @Suite struct BubbleEngineTests {
+@MainActor @Suite(.language("tr")) struct BubbleEngineTests {
     let size = CGSize(width: 655, height: 560)
 
     @Test func layoutMatchesMockupGeometry() {

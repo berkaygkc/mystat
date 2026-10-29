@@ -1,10 +1,11 @@
 import Foundation
 import MystatCore
 import MystatProbes
+import MystatTestSupport
 import Testing
 
 /// Durdur / Zorla kapat gerçek sinyal gönderir (spec §7.4); yalnızca kullanıcının kendi süreçlerine.
-@Suite struct ProcessActionsTests {
+@Suite(.language("tr")) struct ProcessActionsTests {
     @Test func terminatesOwnChild() throws {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/bin/sleep")

@@ -10,9 +10,11 @@ let package = Package(
         .target(name: "MystatProbes", dependencies: ["MystatCore"]),
         .target(name: "MystatLive", dependencies: ["MystatCore", "MystatProbes"]),
         .executableTarget(name: "mystat", dependencies: ["MystatCore", "MystatUI", "MystatLive"]),
-        .testTarget(name: "MystatCoreTests", dependencies: ["MystatCore"]),
-        .testTarget(name: "MystatUITests", dependencies: ["MystatUI"]),
-        .testTarget(name: "MystatLiveTests", dependencies: ["MystatLive"]),
+        // Testlerin ortak yardımcıları (dil özelliği).
+        .target(name: "MystatTestSupport", dependencies: ["MystatCore"], path: "Tests/Support"),
+        .testTarget(name: "MystatCoreTests", dependencies: ["MystatCore", "MystatTestSupport"]),
+        .testTarget(name: "MystatUITests", dependencies: ["MystatUI", "MystatTestSupport"]),
+        .testTarget(name: "MystatLiveTests", dependencies: ["MystatLive", "MystatTestSupport"]),
         .testTarget(name: "MystatProbesTests", dependencies: ["MystatProbes"]),
     ]
 )

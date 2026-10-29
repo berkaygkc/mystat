@@ -1,9 +1,10 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
 /// Docker metinleri: örnek verinin cümleleri aynı kalır (karakterizasyon); Docker çalışmıyorsa sakin durum.
-@MainActor @Suite struct DockerCopyTests {
+@MainActor @Suite(.language("tr")) struct DockerCopyTests {
     var calm: Snapshot { SampleSource(seed: 1).snapshot }
     var busy: Snapshot { SampleSource(seed: 1, incident: true, kind: .docker).snapshot }
 

@@ -1,9 +1,10 @@
 import MystatCore
+import MystatTestSupport
 import Testing
 @testable import MystatLive
 
 /// Varsayılan canlı kaynak; `--sample` Faz 1'in örnek verisini açar (spec §3).
-@MainActor @Suite struct SourceFactoryTests {
+@MainActor @Suite(.language("tr")) struct SourceFactoryTests {
     @Test func sampleFlagSelectsSampleSource() {
         #expect(SourceFactory.make(arguments: ["mystat", "--sample"]) is SampleSource)
         #expect(SourceFactory.make(arguments: ["mystat"]) is LiveSource)

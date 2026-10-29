@@ -1,10 +1,11 @@
 import AppKit
 import MystatCore
+import MystatTestSupport
 import Testing
 @testable import MystatUI
 
 /// Haritanın canlı modeli: yol eşitleme, tıklama, tuşlar, silme sonrası yerleşim, tarama.
-@MainActor @Suite struct BubbleMapModelTests {
+@MainActor @Suite(.language("tr")) struct BubbleMapModelTests {
     let size = CGSize(width: 655, height: 560)
 
     func make() -> (SampleSource, MonitorState, BubbleMapModel) {

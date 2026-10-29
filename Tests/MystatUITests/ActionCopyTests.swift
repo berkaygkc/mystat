@@ -1,8 +1,9 @@
 import MystatCore
+import MystatTestSupport
 import Testing
 @testable import MystatUI
 
-@MainActor @Suite struct ActionCopyTests {
+@MainActor @Suite(.language("tr")) struct ActionCopyTests {
     @Test func stopTexts() {
         let src = SampleSource(seed: 1)
         let g = src.snapshot.groups.first { $0.id == "next-web" }!

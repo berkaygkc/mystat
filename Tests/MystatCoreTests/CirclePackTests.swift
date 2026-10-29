@@ -1,8 +1,9 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-@Suite struct CirclePackTests {
+@Suite(.language("tr")) struct CirclePackTests {
     @Test func siblingsDoNotOverlap() {
         let c = CirclePack.packSiblings([50, 40, 30, 20, 10, 5])
         for i in c.indices { for j in c.indices where j > i { #expect(hypot(c[i].x - c[j].x, c[i].y - c[j].y) >= c[i].r + c[j].r - 1e-6) } }

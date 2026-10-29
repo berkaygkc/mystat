@@ -1,10 +1,11 @@
 import CoreGraphics
 import MystatCore
+import MystatTestSupport
 import Testing
 @testable import MystatUI
 
 /// Shader tamponu mockup'taki `render()` ile aynı sırada ve cihaz pikselinde dolmalı.
-@MainActor @Suite struct BubbleUniformTests {
+@MainActor @Suite(.language("tr")) struct BubbleUniformTests {
     let size = CGSize(width: 655, height: 560)
 
     func close(_ a: SIMD4<Float>, _ b: SIMD4<Float>) -> Bool { (0..<4).allSatisfy { abs(a[$0] - b[$0]) < 1e-3 } }

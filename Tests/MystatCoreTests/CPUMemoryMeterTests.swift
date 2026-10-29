@@ -1,9 +1,10 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
 /// Ham sayaçlardan CPU ve bellek (spec §7.1; Activity Monitor ile aynı tanımlar).
-@Suite struct CPUMemoryMeterTests {
+@Suite(.language("tr")) struct CPUMemoryMeterTests {
     let t0 = Date(timeIntervalSince1970: 1_793_166_318)
 
     @Test func cpuPercentFromTickDeltas() {

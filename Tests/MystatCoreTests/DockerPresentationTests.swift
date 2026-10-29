@@ -1,9 +1,10 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
 /// Docker eylemlerinin onay ve bildirim metinleri (§7.4); volume temizliği kullanıcının kararıyla iki ayrı eylem.
-@MainActor @Suite struct DockerPresentationTests {
+@MainActor @Suite(.language("tr")) struct DockerPresentationTests {
     let disk = SampleSource(seed: 1).snapshot.docker.disk
 
     @Test func confirmTexts() {

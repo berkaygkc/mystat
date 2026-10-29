@@ -1,8 +1,9 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-@MainActor @Suite struct GroupPresentationTests {
+@MainActor @Suite(.language("tr")) struct GroupPresentationTests {
     @Test func diagnosisText() {
         let s = SampleSource(seed: 1, incident: true); let g = s.snapshot.groups.first { $0.id == "next-web" }!
         let t = GroupPresentation.diagnosis(g, incident: s.snapshot.incident)

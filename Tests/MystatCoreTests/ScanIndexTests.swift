@@ -1,8 +1,9 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-@Suite struct ScanIndexTests {
+@Suite(.language("tr")) struct ScanIndexTests {
     static let MB: Int64 = 1_000_000
 
     /// kök → a(5) → a/b(7 + x 20 MB), kök → c, kök küçük 3.

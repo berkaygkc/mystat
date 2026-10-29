@@ -1,9 +1,10 @@
 import Foundation
 import MystatCore
+import MystatTestSupport
 import Testing
 @testable import MystatLive
 
-@MainActor @Suite struct DiskScanControllerTests {
+@MainActor @Suite(.language("tr")) struct DiskScanControllerTests {
     final class Clock { var now = Date(timeIntervalSince1970: 1_800_000_000) }
 
     /// Geçici kök (a/: 12 MB + 1 MB, b/: 2 MB) ve önbellek yolu.

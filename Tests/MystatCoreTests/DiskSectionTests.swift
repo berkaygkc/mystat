@@ -1,8 +1,9 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-@MainActor @Suite struct DiskSectionTests {
+@MainActor @Suite(.language("tr")) struct DiskSectionTests {
     @Test func headText() {
         let src = SampleSource(seed: 1)
         let h = SectionText.disk(src.snapshot, home: src.diskTree.root, freedGB: 0)

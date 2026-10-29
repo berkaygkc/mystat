@@ -1,9 +1,10 @@
 import MystatCore
+import MystatTestSupport
 import Testing
 @testable import MystatUI
 
 /// Sorumluya tıklamak olayın kendi bölümüne gider (spec §7.2.1 "Detay hedefi"), hep İşlemci'ye değil.
-@MainActor @Suite struct MonitorNavigationTests {
+@MainActor @Suite(.language("tr")) struct MonitorNavigationTests {
     @Test func culpritOpensTheIncidentsSection() {
         let s = MonitorState()
         s.show(.mem, group: "docker")

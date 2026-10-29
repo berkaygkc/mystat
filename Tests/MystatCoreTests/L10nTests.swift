@@ -1,0 +1,85 @@
+import Foundation
+import MystatTestSupport
+import Testing
+@testable import MystatCore
+
+@Suite struct L10nTests {
+    /// Geçici klasörde dil dosyaları: `[kod: içerik]`.
+    static func localizer(_ files: [String: String]) throws -> Localizer {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("l10n-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        for (code, body) in files { try body.write(to: dir.appendingPathComponent("\(code).json"), atomically: true, encoding: .utf8) }
+        return Localizer(directory: dir)
+    }
+
+    static let en = #"{"_meta": {"name": "English", "locale": "en_US", "plural": "one"}, "a": "A", "only.en": "Only English", "used": "{used|poss3} used", "x": "{x} and {y}", "n.one": "{n} process", "n.other": "{n} processes"}"#
+    static let tr = #"{"_meta": {"name": "Türkçe", "locale": "tr_TR", "plural": "none"}, "a": "A tr", "used": "{used|poss3} dolu", "gen": "{v|gen} yarısı", "n.other": "{n} süreç"}"#
+
+    @Test func fallbackChain() throws {
+        let l = try Self.localizer(["en": Self.en, "tr": Self.tr])
+        #expect(L10n.t("a", language: "tr", localizer: l) == "A tr")
+        #expect(L10n.t("only.en", language: "tr", localizer: l) == "Only English")
+        #expect(L10n.t("missing.key", language: "tr", localizer: l) == "missing.key")
+        #expect(L10n.t("a", language: "xx", localizer: l) == "A")
+    }
+
+    @Test func placeholdersAndModifiers() throws {
+        let l = try Self.localizer(["en": Self.en, "tr": Self.tr])
+        #expect(L10n.t("used", ["used": "12,7"], language: "tr", localizer: l) == "12,7'si dolu")
+        #expect(L10n.t("used", ["used": "12,7"], language: "en", localizer: l) == "12,7 used")
+        #expect(L10n.t("gen", ["v": "90"], language: "tr", localizer: l) == "90'ın yarısı")
+        #expect(L10n.t("x", ["x": "1"], language: "en", localizer: l) == "1 and {y}")
+    }
+
+    @Test func pluralRules() throws {
+        let l = try Self.localizer(["en": Self.en, "tr": Self.tr])
+        #expect(L10n.plural("n", 1, language: "en", localizer: l) == "1 process")
+        #expect(L10n.plural("n", 2, language: "en", localizer: l) == "2 processes")
+        #expect(L10n.plural("n", 1, language: "tr", localizer: l) == "1 süreç")
+        #expect(L10n.plural("n", 1_201, ["n": "1.201"], language: "tr", localizer: l) == "1.201 süreç")
+        // "one" kuralı olan dilde .one yoksa .other.
+        let l2 = try Self.localizer(["en": #"{"_meta": {"name": "English", "locale": "en_US"}, "k.other": "{n} things"}"#])
+        #expect(L10n.plural("k", 1, language: "en", localizer: l2) == "1 things")
+    }
+
+    @Test func detectLanguage() {
+        let available = ["en", "tr"]
+        #expect(L10n.detect(preferred: ["tr-TR", "en-US"], available: available) == "tr")
+        #expect(L10n.detect(preferred: ["fr-FR", "de"], available: available) == "en")
+        #expect(L10n.detect(preferred: ["en-GB"], available: available) == "en")
+        #expect(L10n.detect(preferred: ["pt-BR", "tr"], available: available) == "tr")
+        #expect(L10n.detect(preferred: [], available: available) == "en")
+        #expect(L10n.detect(preferred: ["pt-BR"], available: ["en", "pt-BR", "pt"]) == "pt-BR")
+    }
+
+    @Test func brokenFileIgnored() throws {
+        let l = try Self.localizer(["en": Self.en, "tr": Self.tr, "xx": "{ not json", "yy": #"{"a": "no meta"}"#])
+        #expect(l.languages.map(\.code) == ["en", "tr"])
+        #expect(l.languages.first?.name == "English")
+        #expect(l.string("a", language: "xx") == nil)
+    }
+
+    @Test func overrideScopes() {
+        L10n.$override.withValue("tr") { #expect(L10n.code == "tr") }
+        L10n.$override.withValue("en") { #expect(L10n.code == "en") }
+    }
+
+    @Test(.language("tr")) func languageTraitScopes() async {
+        #expect(L10n.code == "tr")
+        await Task { #expect(L10n.code == "tr") }.value   // alt görevlere geçer
+    }
+
+    @Test func realFilesLoad() throws {
+        let dir = try #require(Localizer.locate())
+        let l = Localizer(directory: dir)
+        let codes = l.languages.map(\.code)
+        #expect(codes.first == "en")
+        #expect(codes.contains("tr"))
+        for code in codes {
+            for field in ["name", "locale", "percent", "dateLine", "dateTemplate", "timeTemplate"] {
+                #expect(!(l.meta(field, language: code) ?? "").isEmpty, "\(code) _meta.\(field)")
+            }
+        }
+        #expect(l.languages.first { $0.code == "tr" }?.locale.identifier == "tr_TR")
+    }
+}

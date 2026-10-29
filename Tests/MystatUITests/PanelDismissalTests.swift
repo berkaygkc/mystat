@@ -1,10 +1,11 @@
 import AppKit
+import MystatTestSupport
 import Testing
 @testable import MystatUI
 
 /// Panel, kendi uygulamamızın başka bir penceresine (ör. monitör) tıklanınca da kapanmalı; panelin içi ve
 /// durum öğesinin kendisi hariç (durum öğesi zaten aç/kapa yapar, iki kez kapanmasın).
-@MainActor @Suite struct PanelDismissalTests {
+@MainActor @Suite(.language("tr")) struct PanelDismissalTests {
     func window() -> NSWindow { NSWindow(contentRect: .init(x: 0, y: 0, width: 10, height: 10), styleMask: [.borderless], backing: .buffered, defer: true) }
 
     @Test func clickInAnotherOwnWindowCloses() {

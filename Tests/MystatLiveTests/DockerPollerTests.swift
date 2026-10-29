@@ -2,6 +2,7 @@ import Foundation
 import MystatCore
 import MystatProbes
 import Synchronization
+import MystatTestSupport
 import Testing
 @testable import MystatLive
 
@@ -56,7 +57,7 @@ final class FakeDockerAPI: DockerAPI {
     }
 }
 
-@Suite struct DockerPollerTests {
+@Suite(.language("tr")) struct DockerPollerTests {
     let t0 = Date(timeIntervalSince1970: 1_793_163_600)
 
     @Test func delayFollowsStateAndInterest() {

@@ -1,0 +1,11 @@
+{
+  "_meta": {
+    "name": "English",
+    "locale": "en_US",
+    "plural": "one",
+    "percent": "{value}%",
+    "dateLine": "EEEE, MMMM d, y",
+    "dateTemplate": "Wednesday, September 30, 2026",
+    "timeTemplate": "88:88"
+  }
+}

@@ -1,10 +1,11 @@
 import AppKit
+import MystatTestSupport
 import Testing
 @testable import MystatUI
 
 /// Etiket görüntüsü mockup `.bm-l` kutusunu izler: ad satırı 1,15·fs, 2 pt boşluk, boyut satırı doğal yükseklikte;
 /// hale gölgesi için her yanda pay; merkez kutunun merkezidir.
-@MainActor @Suite struct BubbleLabelImageTests {
+@MainActor @Suite(.language("tr")) struct BubbleLabelImageTests {
     @Test func boxMatchesCssLayout() {
         let fs = 19.0
         let img = BubbleLabelImage.make(name: "Library", size: "96 GB", fontSize: fs, dark: false, scale: 2)

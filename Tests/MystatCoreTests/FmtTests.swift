@@ -1,8 +1,9 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-@Suite struct FmtTests {
+@Suite(.language("tr")) struct FmtTests {
     @Test func percents() { #expect(Fmt.pct(14.4) == "%14"); #expect(Fmt.pct(100) == "%100") }
     @Test func decimals() { #expect(Fmt.dec1(4.2) == "4,2"); #expect(Fmt.int(4800) == "4.800") }
     @Test func cores() { #expect(Fmt.cores(0.03) == "<0,1"); #expect(Fmt.cores(0) == "0,0"); #expect(Fmt.cores(3.14) == "3,1") }

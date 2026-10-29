@@ -1,11 +1,12 @@
 import AppKit
 import CoreText
+import MystatTestSupport
 import Testing
 @testable import MystatUI
 
 /// Mockup'taki 650/550 gibi ara ağırlıklar adlandırılmış ağırlığa yuvarlanmamalı
 /// (`NSFont.systemFont(weight: 0.35)` sessizce Bold 700 veriyor).
-@Suite struct FontWeightTests {
+@Suite(.language("tr")) struct FontWeightTests {
     func wght(_ f: NSFont) -> Double? {
         let v = CTFontCopyVariation(f as CTFont) as? [NSNumber: NSNumber]
         return v?[NSNumber(value: 0x7767_6874)]?.doubleValue

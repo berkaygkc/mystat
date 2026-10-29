@@ -1,9 +1,10 @@
 import AppKit
 import MystatCore
+import MystatTestSupport
 import Testing
 @testable import MystatUI
 
-@MainActor @Suite struct PlainBreakTextTests {
+@MainActor @Suite(.language("tr")) struct PlainBreakTextTests {
     /// SwiftUI son satırı tek kelime bırakmamak için kelime itiyor ("Claude Code / işlemciyi zorluyor."); mockup
     /// "Claude Code işlemciyi / zorluyor." kırıyor. İtme kapalı metin mockup'taki gibi kırılmalı.
     @Test func breaksLikeMockup() {

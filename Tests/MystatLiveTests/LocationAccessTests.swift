@@ -1,6 +1,7 @@
 import CoreLocation
 import Foundation
 import MystatCore
+import MystatTestSupport
 import Testing
 @testable import MystatLive
 
@@ -11,7 +12,7 @@ final class FakeAuthorizer: LocationAuthorizer {
     func requestWhenInUseAuthorization() { requests += 1 }
 }
 
-@MainActor @Suite struct LocationAccessTests {
+@MainActor @Suite(.language("tr")) struct LocationAccessTests {
     @Test func statusMapping() {
         #expect(LocationAccess(manager: FakeAuthorizer(.notDetermined)).status == .needsPermission)
         #expect(LocationAccess(manager: FakeAuthorizer(.denied)).status == .denied)

@@ -1,8 +1,9 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-@MainActor @Suite struct NetPresentationTests {
+@MainActor @Suite(.language("tr")) struct NetPresentationTests {
     static let wifi = NetLink(bsdName: "en0", displayName: "Wi‑Fi", localIP: "192.168.1.42", router: "192.168.1.1",
                               dns: ["1.1.1.1", "8.8.8.8"],
                               wifi: WiFiReading(ssid: "Ev", rssi: -48, noise: -90, txRateMbps: 1201, channel: 44, bandGHz: 5), linkMbps: nil)

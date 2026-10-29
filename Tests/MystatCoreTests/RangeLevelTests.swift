@@ -1,8 +1,9 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-@Suite struct RangeLevelTests {
+@Suite(.language("tr")) struct RangeLevelTests {
     @Test func rangeShape() {
         #expect(TimeRange.allCases.map(\.pointCount) == [120, 120, 144, 168])
         #expect(TimeRange.m10.title == "10 dk")

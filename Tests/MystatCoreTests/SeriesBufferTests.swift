@@ -1,9 +1,10 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
 /// Bellek içi seriler (10 dk: 5 sn × 120, 1 sa: 30 sn × 120) ve grup halkaları (spec §9.4).
-@MainActor @Suite struct SeriesBufferTests {
+@MainActor @Suite(.language("tr")) struct SeriesBufferTests {
     let t0 = Date(timeIntervalSince1970: 1_793_163_600)   // 5 ve 30 sn'nin katı
 
     @Test func m10BucketsAverage() {

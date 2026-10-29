@@ -1,9 +1,10 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
 /// Süreç CPU süresi farkından çekirdek (spec §7.1: 1,0 = bir çekirdeğin tamamı).
-@Suite struct ProcessMeterTests {
+@Suite(.language("tr")) struct ProcessMeterTests {
     let t0 = Date(timeIntervalSince1970: 1_793_166_318)
     let start = Date(timeIntervalSince1970: 1_793_000_000)
 

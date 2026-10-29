@@ -1,10 +1,11 @@
 import Foundation
 import ServiceManagement
+import MystatTestSupport
 import Testing
 @testable import MystatLive
 
 /// Oturum açılışında başlama: ilk açılışta bir kez kaydolunur; kullanıcı kaldırdıysa ya da onay bekliyorsa dokunulmaz.
-@Suite struct LoginItemTests {
+@Suite(.language("tr")) struct LoginItemTests {
     @Test func registersOnlyOnceWhenNotRegistered() {
         #expect(LoginItem.shouldRegister(status: .notRegistered, alreadyAsked: false))
         #expect(!LoginItem.shouldRegister(status: .notRegistered, alreadyAsked: true))   // kullanıcı Giriş Öğeleri'nden kaldırmış

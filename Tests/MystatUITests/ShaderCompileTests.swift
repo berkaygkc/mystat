@@ -1,8 +1,9 @@
 import Metal
+import MystatTestSupport
 import Testing
 @testable import MystatUI
 
-@Suite struct ShaderCompileTests {
+@Suite(.language("tr")) struct ShaderCompileTests {
     @Test func shaderCompiles() throws {
         let d = try #require(MTLCreateSystemDefaultDevice())
         let lib = try d.makeLibrary(source: BubbleShaderSource.msl, options: nil)

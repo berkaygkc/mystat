@@ -1,10 +1,11 @@
 import Foundation
 import MystatCore
+import MystatTestSupport
 import Testing
 @testable import MystatLive
 
 /// SQLite geçmişi (spec §9.4): 10 dk ve 1 sa kovaları, 30 gün, < 50 MB.
-@Suite(.serialized) struct HistoryStoreTests {
+@Suite(.serialized, .language("tr")) struct HistoryStoreTests {
     let t0 = Date(timeIntervalSince1970: 1_793_163_600)   // saat başı
 
     func tempURL() -> URL {

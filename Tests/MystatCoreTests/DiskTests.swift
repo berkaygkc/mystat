@@ -1,8 +1,9 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-@MainActor @Suite struct DiskTests {
+@MainActor @Suite(.language("tr")) struct DiskTests {
     @Test func basketRules() {
         let t = SampleSource(seed: 1).diskTree; var b = SelectionBasket()
         #expect(b.toggle(["Documents", "apps", "acmecorp"], in: t) == .added)

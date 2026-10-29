@@ -1,8 +1,9 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-@MainActor @Suite struct SectionTextTests {
+@MainActor @Suite(.language("tr")) struct SectionTextTests {
     @Test func memory() {
         let h = SectionText.memory(SampleSource(seed: 1).snapshot)
         #expect(h.title == "%78 dolu,"); #expect(h.soft == "ama baskı düşük."); #expect(h.level == .ok)

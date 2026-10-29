@@ -1,9 +1,10 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
 /// SMC değer çözümü ve keşfedilen anahtarların sınıflanması (önek kuralı).
-@Suite struct SensorMapTests {
+@Suite(.language("tr")) struct SensorMapTests {
     @Test func decodesSMCTypes() {
         #expect(SMCValue.decode(type: "flt ", bytes: [0x9A, 0x99, 0xA9, 0x44]).map { abs($0 - 1356.8) < 0.01 } == true)
         #expect(SMCValue.decode(type: "ui8 ", bytes: [2]) == 2)

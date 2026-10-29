@@ -1,9 +1,10 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
 /// Ağ ve disk hızları, bugünkü toplamlar ve disk doluluğu (spec §7.1).
-@Suite struct NetDiskMeterTests {
+@Suite(.language("tr")) struct NetDiskMeterTests {
     var cal: Calendar { var c = Calendar(identifier: .gregorian); c.timeZone = TimeZone(identifier: "Europe/Istanbul")!; return c }
     let t0 = Date(timeIntervalSince1970: 1_793_166_318)   // 2026-10-28 08:45:18 +03
 

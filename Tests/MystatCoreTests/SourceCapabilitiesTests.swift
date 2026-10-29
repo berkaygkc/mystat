@@ -1,9 +1,10 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
 /// Henüz bağlanmamış alanlar sahte sayı göstermez; sakin "bağlı değil" metinleri (Faz 2a planı, Task 2).
-@MainActor @Suite struct SourceCapabilitiesTests {
+@MainActor @Suite(.language("tr")) struct SourceCapabilitiesTests {
     func live() -> Snapshot {
         var s = SampleSource(seed: 1).snapshot
         s.capabilities = SourceCapabilities(docker: false, sensors: false, diskScan: false, netDetails: false)

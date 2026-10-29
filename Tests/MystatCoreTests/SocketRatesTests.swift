@@ -1,8 +1,9 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-@Suite struct SocketRatesTests {
+@Suite(.language("tr")) struct SocketRatesTests {
     func s(_ generation: UInt64, _ pid: Int32, _ rx: UInt64) -> SocketStat { SocketStat(generation: generation, pid: pid, rxBytes: rx) }
     /// Network.framework akışı: çekirdek kaydında kuşak 0; kimliği bağlantı noktaları.
     func flow(_ pid: Int32, _ lport: UInt16, _ rx: UInt64) -> SocketStat {

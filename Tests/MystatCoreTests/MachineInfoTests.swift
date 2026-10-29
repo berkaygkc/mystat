@@ -1,9 +1,10 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
 /// Kenar menüsünün alt satırı ve pil olguları gerçek veriden (spec §6.1, §6.3 Sistem).
-@MainActor @Suite struct MachineInfoTests {
+@MainActor @Suite(.language("tr")) struct MachineInfoTests {
     let now = Date(timeIntervalSince1970: 1_793_166_318)
 
     @Test func footerFormat() {

@@ -1,8 +1,9 @@
 import CoreGraphics
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-@Suite struct ChartGeometryTests {
+@Suite(.language("tr")) struct ChartGeometryTests {
     @Test func autoMaxAddsHeadroom() {
         #expect(ChartGeometry.autoMax([[2, 4], [10]]) == 11.5)
         #expect(ChartGeometry.autoMax([[0, 0]]) == 1)

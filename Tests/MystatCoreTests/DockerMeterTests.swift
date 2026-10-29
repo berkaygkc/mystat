@@ -1,9 +1,10 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
 /// Engine API ham değerlerinden container CPU'su, bellek, durum ve Docker'ın diski (`docker stats` / `docker system df` tanımları).
-@Suite struct DockerMeterTests {
+@Suite(.language("tr")) struct DockerMeterTests {
     func raw(_ id: String, name: String = "/deploy-web-1", state: String = "running", status: String = "Up 2 days",
              project: String? = nil, service: String? = nil) -> DockerContainerRaw {
         DockerContainerRaw(id: id, name: name, image: "nginx:1.27", state: state, status: status, project: project, service: service)

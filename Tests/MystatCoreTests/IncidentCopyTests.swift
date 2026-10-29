@@ -1,10 +1,11 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
 /// Olay metinleri veriden üretilir: örnek verinin cümleleri olgularından (`Son 24 sa`, `Kalan`) gelir ve aynı kalır;
 /// canlı olayda o olgu yoksa sahte iddia yazılmaz.
-@MainActor @Suite struct IncidentCopyTests {
+@MainActor @Suite(.language("tr")) struct IncidentCopyTests {
     func sample(_ k: IncidentKind) -> Snapshot { SampleSource(seed: 1, incident: true, kind: k).snapshot }
     func lede(_ s: Snapshot) -> String { GroupPresentation.panelHeadline(s).lede }
 

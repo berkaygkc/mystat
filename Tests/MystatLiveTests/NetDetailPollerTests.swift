@@ -2,6 +2,7 @@ import Foundation
 import MystatCore
 import MystatProbes
 import Synchronization
+import MystatTestSupport
 import Testing
 @testable import MystatLive
 
@@ -30,7 +31,7 @@ final class NetFakes: Sendable {
     func n(_ a: borrowing Atomic<Int>) -> Int { a.load(ordering: .relaxed) }
 }
 
-@Suite struct NetDetailPollerTests {
+@Suite(.language("tr")) struct NetDetailPollerTests {
     @Test func hiddenRunsNothing() async {
         let f = NetFakes(), p = f.poller()
         for _ in 0..<3 { await p.tick() }

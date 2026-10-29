@@ -1,9 +1,10 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
 /// Sensör ve enerji hesapları: akla yatmayan değer atılır, boşluk ve sayaç geri gidişi watt göstermez.
-@Suite struct SensorMeterTests {
+@Suite(.language("tr")) struct SensorMeterTests {
     let t0 = Date(timeIntervalSince1970: 1_793_163_600)
 
     @Test func averageDropsImplausible() {

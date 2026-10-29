@@ -1,9 +1,10 @@
 import Foundation
+import MystatTestSupport
 import Testing
 @testable import MystatCore
 
 /// Süreklilik süreli olaylar (spec §7.2): anlık sıçrama sayılmaz, 30 sn sakinlikte biter, kritik öne çıkar.
-@MainActor @Suite struct IncidentEngineTests {
+@MainActor @Suite(.language("tr")) struct IncidentEngineTests {
     let t0 = Date(timeIntervalSince1970: 1_793_163_660)   // 2026-10-28 08:01:00 +03
     let base = SampleSource(seed: 1).snapshot
 
