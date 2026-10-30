@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Foundation
 import MystatTestSupport
@@ -17,7 +18,7 @@ import Testing
         let cal = Calendar.trTest; let now = cal.date(from: .init(year: 2026, month: 10, day: 28, hour: 8, minute: 45, second: 18))!
         let calm = StatusBlockLayout.model(SampleSource(seed: 1).snapshot, now: now, calendar: cal)
         #expect(calm.alert == nil); #expect(calm.metrics.map(\.label) == ["CPU", "RAM", "DİSK"])
-        #expect(calm.date == "28 Ekim 2026 Çarşamba"); #expect(calm.time == "08:45")   // no seconds in the menu bar (idle cost); #expect(calm.down.hasPrefix("↓"))
+        #expect(calm.date == "28 Eki 2026 Çar"); #expect(calm.time == "08:45")   // no seconds in the menu bar (idle cost); #expect(calm.down.hasPrefix("↓"))
         let hot = StatusBlockLayout.model(SampleSource(seed: 1, incident: true).snapshot, now: now, calendar: cal)
         #expect(hot.alert == StatusMetric(label: "ISI", value: "91°", level: .warn)); #expect(hot.metrics[0].level == .crit)
         let mem = StatusBlockLayout.model(SampleSource(seed: 1, incident: true, kind: .memory).snapshot, now: now, calendar: cal)
@@ -29,7 +30,7 @@ import Testing
         let measure: (String, CGFloat, Bool) -> CGFloat = { s, size, _ in CGFloat(s.count) * size * 0.6 }
         let a0 = StatusBlockModel.sample
         var a = a0; a.metrics[0].value = "%9"
-        var b = a0; b.metrics[0].value = "%100"; b.down = "↓12,4"; b.date = "1 Mayıs 2026 Cuma"
+        var b = a0; b.metrics[0].value = "%100"; b.down = "↓12,4"; b.date = "1 May 2026 Cum"
         #expect(StatusBlockLayout.width(a, measure: measure) == StatusBlockLayout.width(b, measure: measure))
         var c = a0; c.alert = StatusMetric(label: "ISI", value: "91°", level: .warn)
         #expect(StatusBlockLayout.width(c, measure: measure) > StatusBlockLayout.width(a0, measure: measure))
@@ -75,5 +76,28 @@ import Testing
         s.incident = Incident(kind: .heat, level: .warn, startedAt: "10:00", minutes: 2, peakPercent: 0, culpritIDs: [], culpritValues: [],
                               culpritUnit: "çekirdek", facts: [])
         #expect(StatusBlockLayout.alert(s) == StatusMetric(label: "ISI", value: "Ilık", level: .warn))
+    }
+}
+
+/// The menu bar reserves the width of `_meta.dateTemplate` so the block doesn't jump when the date changes. The template
+/// must be at least as wide as every real date, in every language, measured with the menu bar's own font.
+@Suite struct DateTemplateTests {
+    @Test func templateCoversEveryDate() {
+        let font = NSFont.monospacedDigitSystemFont(ofSize: StatusBlockLayout.dateSize, weight: .medium)   // StatusBlockView.dateFont
+        func width(_ s: String) -> CGFloat { (s as NSString).size(withAttributes: [.font: font]).width }
+        let cal = Calendar.trTest
+        for lang in Localizer.shared.languages {
+            L10n.$override.withValue(lang.code) {
+                let template = width(StatusBlockLayout.dateTemplate)
+                var day = cal.date(from: DateComponents(year: 2026, month: 1, day: 1))!
+                var widest = ("", CGFloat(0))
+                for _ in 0..<(366 * 3) {
+                    let s = Fmt.menubarDate(day, calendar: cal)
+                    if width(s) > widest.1 { widest = (s, width(s)) }
+                    day = cal.date(byAdding: .day, value: 1, to: day)!
+                }
+                #expect(widest.1 <= template + 0.5, "\(lang.code): \(widest.0) is wider than \(StatusBlockLayout.dateTemplate)")
+            }
+        }
     }
 }

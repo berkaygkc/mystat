@@ -30,8 +30,9 @@ Every piece of text mystat shows lives in this folder, one JSON file per languag
 | `locale` | `en_US` | Locale for number and date formatting. |
 | `plural` | `one` | Plural rule: `one` (1 → `.one`, else `.other`), `zero-one` (0 and 1 → `.one`), `none` (always `.other`). |
 | `percent` | `{value}%` | Where the percent sign goes. |
-| `dateLine` | `EEEE, MMMM d, y` | Menu bar date, as a [date format pattern](https://unicode.org/reports/tr35/tr35-dates.html#Date_Field_Symbol_Table). |
-| `dateTemplate` | `Wednesday, September 30, 2026` | The widest date in your language; the menu bar reserves this much room so it doesn't jump. |
+| `dateLine` | `EEEE, MMMM d, y` | Long date in the monitor window, as a [date format pattern](https://unicode.org/reports/tr35/tr35-dates.html#Date_Field_Symbol_Table). |
+| `menubarDate` | `EEE, MMM d, y` | Short date in the menu bar, with three-letter month and weekday names. |
+| `dateTemplate` | `Wed, May 13, 2026` | The widest `menubarDate` in your language; the menu bar reserves this much room so it doesn't jump. The tests check it against every date of three years. |
 | `timeTemplate` | `88:88` | Same for the clock. |
 
 ## Placeholders

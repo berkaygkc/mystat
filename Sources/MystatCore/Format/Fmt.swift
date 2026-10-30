@@ -65,8 +65,17 @@ public enum Fmt {
 
     /// Full date line, e.g. "Thursday, October 29, 2026" (`_meta.dateLine`); other languages use their own pattern.
     public static func dateLine(_ d: Date, calendar: Calendar = Fmt.calendar) -> String {
+        formatted(d, pattern: "dateLine", fallback: "EEEE, MMMM d, y", calendar: calendar)
+    }
+
+    /// The menu bar's shorter date with three-letter month and weekday names, e.g. "Wed, Oct 28, 2026" (`_meta.menubarDate`).
+    public static func menubarDate(_ d: Date, calendar: Calendar = Fmt.calendar) -> String {
+        formatted(d, pattern: "menubarDate", fallback: "EEE, MMM d, y", calendar: calendar)
+    }
+
+    private static func formatted(_ d: Date, pattern field: String, fallback: String, calendar: Calendar) -> String {
         let code = L10n.code
-        let pattern = Localizer.shared.meta("dateLine", language: code) ?? "EEEE, MMMM d, y"
+        let pattern = Localizer.shared.meta(field, language: code) ?? fallback
         let key = "\(code)|\(pattern)|\(calendar.identifier)|\(calendar.timeZone.identifier)"
         return dateFormatters.withLock { cache in
             let f = cache[key] ?? {

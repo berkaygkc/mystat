@@ -5,7 +5,8 @@
     "plural": "none",
     "percent": "%{value}",
     "dateLine": "d MMMM y EEEE",
-    "dateTemplate": "28 Ağustos 2026 Cumartesi",
+    "menubarDate": "d MMM y EEE",
+    "dateTemplate": "10 Tem 2026 Cum",
     "timeTemplate": "88:88"
   },
   "action.forceQuit": "Zorla kapat",

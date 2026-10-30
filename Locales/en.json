@@ -5,7 +5,8 @@
     "plural": "one",
     "percent": "{value}%",
     "dateLine": "EEEE, MMMM d, y",
-    "dateTemplate": "Wednesday, September 30, 2026",
+    "menubarDate": "EEE, MMM d, y",
+    "dateTemplate": "Wed, May 13, 2026",
     "timeTemplate": "88:88"
   },
   "action.forceQuit": "Force Quit",

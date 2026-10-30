@@ -20,6 +20,9 @@ import Testing
         #expect(Fmt.dateLine(d(2026, 11, 1, 0, 0, 5), calendar: cal) == "1 Kasım 2026 Pazar")
         #expect(Fmt.dateLine(d(2026, 12, 31, 23, 59, 59), calendar: cal) == "31 Aralık 2026 Perşembe")
         #expect(Fmt.timeLine(d(2026, 11, 1, 0, 0, 5), calendar: cal) == "00:00:05")
+        // The menu bar uses three-letter month and weekday names.
+        #expect(Fmt.menubarDate(d(2026, 10, 28, 8, 45, 18), calendar: cal) == "28 Eki 2026 Çar")
+        #expect(Fmt.menubarDate(d(2026, 11, 1, 0, 0, 5), calendar: cal) == "1 Kas 2026 Paz")
     }
     @Test func suffixes() {
         #expect(TurkishSuffix.possessive3(after: "12,7") == "'si"); #expect(TurkishSuffix.possessive3(after: "3") == "'ü")
@@ -51,14 +54,15 @@ import Testing
         let cal = Calendar.trTest
         let d = cal.date(from: DateComponents(year: 2026, month: 10, day: 29, hour: 14, minute: 2, second: 7))!
         #expect(Fmt.dateLine(d, calendar: cal) == "Thursday, October 29, 2026")
-        #expect(Fmt.timeLine(d, calendar: cal) == "14:02:07")   // 24-hour in every language
+        #expect(Fmt.timeLine(d, calendar: cal) == "14:02:07")
+        #expect(Fmt.menubarDate(d, calendar: cal) == "Thu, Oct 29, 2026")   // 24-hour in every language
     }
     @Test func uptimeUnits() {
         #expect(Fmt.uptime(14 * 60) == "14 min"); #expect(Fmt.uptime(134 * 60) == "2 h 14 min")
         #expect(Fmt.uptime(45 * 3600) == "45 h"); #expect(Fmt.uptime(73 * 3600) == "3 days"); #expect(Fmt.uptime(24 * 3600 * 1 + 3600 * 50) == "3 days")
     }
     @Test func statusTemplatesFollowLanguage() {
-        #expect(StatusBlockLayout.dateTemplate == "Wednesday, September 30, 2026")
+        #expect(StatusBlockLayout.dateTemplate == "Wed, May 13, 2026")
         #expect(StatusBlockLayout.cpuTemplate == "100%"); #expect(StatusBlockLayout.alertTemplate == "−88%")
         #expect(StatusBlockLayout.netTemplate == "↓88.8")
     }
@@ -67,7 +71,7 @@ import Testing
         let measure: (String, CGFloat, Bool) -> CGFloat = { s, size, _ in CGFloat(s.count) * size * 0.6 }
         var a = StatusBlockModel.sample; a.date = "Friday, May 1, 2026"
         let clock = StatusBlockLayout.parts(a, measure: measure).first { $0.0 == .clock }!.1
-        #expect(clock >= measure("Wednesday, September 30, 2026", StatusBlockLayout.dateSize, false))
+        #expect(clock >= measure("Wed, May 13, 2026", StatusBlockLayout.dateSize, false))
     }
 }
 
@@ -75,7 +79,7 @@ import Testing
     @Test func uptimeUnits() {
         #expect(Fmt.uptime(14 * 60) == "14 dk"); #expect(Fmt.uptime(134 * 60) == "2 sa 14 dk")
         #expect(Fmt.uptime(45 * 3600) == "45 sa"); #expect(Fmt.uptime(73 * 3600) == "3 gün")
-        #expect(StatusBlockLayout.dateTemplate == "28 Ağustos 2026 Cumartesi"); #expect(StatusBlockLayout.cpuTemplate == "%100")
+        #expect(StatusBlockLayout.dateTemplate == "10 Tem 2026 Cum"); #expect(StatusBlockLayout.cpuTemplate == "%100")
         #expect(StatusBlockLayout.netTemplate == "↓88,8")
     }
 }

@@ -98,7 +98,7 @@ import Testing
         #expect(codes.first == "en")
         #expect(codes.contains("tr"))
         for code in codes {
-            for field in ["name", "locale", "percent", "dateLine", "dateTemplate", "timeTemplate"] {
+            for field in ["name", "locale", "percent", "dateLine", "menubarDate", "dateTemplate", "timeTemplate"] {
                 #expect(!(l.meta(field, language: code) ?? "").isEmpty, "\(code) _meta.\(field)")
             }
         }

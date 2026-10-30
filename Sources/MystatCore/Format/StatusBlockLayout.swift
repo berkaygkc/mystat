@@ -26,7 +26,7 @@ public enum StatusBlockLayout {
     public static let blockPadding: CGFloat = 5
     public static let gap: CGFloat = 1
     public static let metricPadding: CGFloat = 3
-    public static let clockGap: CGFloat = 5
+    public static let clockGap: CGFloat = 2
     public static let labelSize: CGFloat = 8.5, valueSize: CGFloat = 12, netSize: CGFloat = 10.5
     public static let dateSize: CGFloat = 10, timeSize: CGFloat = 12.5
 
@@ -37,7 +37,7 @@ public enum StatusBlockLayout {
     public static var valueTemplate: String { Fmt.pct(88) }
     public static var alertTemplate: String { "−" + Fmt.pct(88) }
     public static var netTemplate: String { "↓" + Fmt.dec1(88.8) }
-    public static var dateTemplate: String { Localizer.shared.meta("dateTemplate", language: L10n.code) ?? "Wednesday, September 30, 2026" }
+    public static var dateTemplate: String { Localizer.shared.meta("dateTemplate", language: L10n.code) ?? "Wed, May 13, 2026" }
     public static var timeTemplate: String { Localizer.shared.meta("timeTemplate", language: L10n.code) ?? "88:88" }
 
     public enum Part: Equatable { case alert, metric(Int), net, clock }
@@ -50,7 +50,7 @@ public enum StatusBlockLayout {
         ]
         return StatusBlockModel(alert: alert(s), metrics: metrics,
                                 down: "↓" + Fmt.rate(s.net.downMBps), up: "↑" + Fmt.rate(s.net.upMBps),
-                                date: Fmt.dateLine(now, calendar: calendar), time: String(Fmt.timeLine(now, calendar: calendar).prefix(5)))   // no seconds: redrawing every second doubled the idle cost
+                                date: Fmt.menubarDate(now, calendar: calendar), time: String(Fmt.timeLine(now, calendar: calendar).prefix(5)))   // no seconds: redrawing every second doubled the idle cost
     }
 
     /// Heat, Battery and Docker have no permanent item; they appear inside the block when an incident occurs. If the chip is warm, heat shows

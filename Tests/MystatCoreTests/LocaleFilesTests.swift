@@ -131,7 +131,7 @@ import Testing
     @Test func metaComplete() {
         #expect(Self.localizer.languages.count >= 2)
         for lang in Self.localizer.languages {
-            for field in ["name", "locale", "percent", "dateLine", "dateTemplate", "timeTemplate"] {
+            for field in ["name", "locale", "percent", "dateLine", "menubarDate", "dateTemplate", "timeTemplate"] {
                 #expect(!(Self.localizer.meta(field, language: lang.code) ?? "").isEmpty, "\(lang.code) _meta.\(field)")
             }
             #expect(Self.localizer.meta("percent", language: lang.code)?.contains("{value}") == true)
