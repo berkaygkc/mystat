@@ -1,6 +1,7 @@
 .build/
 build/
 .superpowers/
-docs/review/
+# Internal design notes, plans and reviews stay local.
+docs/
 /*.png
 .DS_Store
