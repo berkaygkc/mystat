@@ -1,7 +1,7 @@
 import Foundation
 
-/// Süreç enerjisi (`ri_energy_nj`) farkı → watt; "En çok enerji harcayanlar" ve ısı/pil olaylarının sorumluları (§7.2.1).
-/// `ProcessMeter`'la aynı kurallar: anahtar (pid, başlangıç), aralıkta doğan süreç tam sayılır, kısıtlı süreç ölçülmez.
+/// Process energy (`ri_energy_nj`) delta → watts; culprits for "Top energy users" and for heat/battery incidents.
+/// Same rules as `ProcessMeter`: key (pid, start time), a process born within the interval counts in full, restricted processes are not measured.
 public struct EnergyMeter: Sendable {
     private struct Key: Hashable { let pid: Int32; let start: Date }
     private var last: (energy: [Key: UInt64], at: Date)?

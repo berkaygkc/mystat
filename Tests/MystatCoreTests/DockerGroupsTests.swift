@@ -3,7 +3,7 @@ import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-/// §8/3: VM süreci compose projelerine, "diğer container'lar"a ve sanal makinenin kendi ek yüküne bölünür.
+/// The VM process is split into compose projects, "other containers" and the virtual machine's own overhead.
 @Suite(.language("tr")) struct DockerGroupsTests {
     let vm = ProcessGroup(id: "docker:vm", name: "Docker", context: "sanal makine", cpuCores: 3.0, memoryGB: 10, netMBps: 0, uptime: "45 sa",
                           processCount: 1, folder: nil, terminal: nil, port: nil, isOrphan: false, relatedID: nil, isDocker: true,

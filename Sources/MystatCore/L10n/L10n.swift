@@ -1,17 +1,17 @@
 import Foundation
 import Synchronization
 
-/// Seçili dil ve metin araması. Metinler `Locales/<dil>.json`'dan gelir; seçili dilde yoksa İngilizceden,
-/// o da yoksa anahtarın kendisi döner (ekranda hiçbir zaman boş metin olmaz).
+/// Selected language and text lookup. Texts come from `Locales/<language>.json`; if missing in the selected language, English is used,
+/// and if that is missing too, the key itself is returned (the screen never shows empty text).
 ///
-/// Yer tutucular `{ad}`; değiştiriciyle `{ad|poss3}` (Türkçe iyelik eki), `{ad|gen}` (Türkçe ilgi eki).
-/// Değiştirici yalnızca tanımlı olduğu dilde uygulanır, diğer dillerde değer olduğu gibi yazılır.
+/// Placeholders are `{name}`; with a modifier, `{name|poss3}` (Turkish possessive suffix) or `{name|gen}` (Turkish genitive suffix).
+/// A modifier is applied only in the language that defines it; in other languages the value is written as is.
 public enum L10n {
-    /// Testler ve görüntü modu dili görev başına sabitler; genel seçimin önüne geçer.
+    /// Tests and the screenshot mode pin the language per task; this overrides the global selection.
     @TaskLocal public static var override: String?
     private static let selected = Mutex<String?>(nil)
 
-    /// Uygulama genelinde seçili dil (dil menüsü ve açılış).
+    /// The language selected app-wide (language menu and launch).
     public static func setLanguage(_ code: String) { selected.withLock { $0 = code } }
 
     public static var code: String { override ?? selected.withLock { $0 } ?? "en" }
@@ -28,8 +28,8 @@ public enum L10n {
         t(key, args, language: code, localizer: .shared)
     }
 
-    /// `key.one` / `key.other`; hangisi olduğu dilin `_meta.plural` kuralına bağlı. `{n}` sayıdır; biçimli sayı
-    /// gerekiyorsa `args["n"]` ile verilir.
+    /// `key.one` / `key.other`; which one applies depends on the language's `_meta.plural` rule. `{n}` is the count; if a formatted
+    /// number is needed, it is passed via `args["n"]`.
     public static func plural(_ key: String, _ n: Int, _ args: [String: String] = [:]) -> String {
         plural(key, n, args, language: code, localizer: .shared)
     }
@@ -52,7 +52,7 @@ public enum L10n {
         return "\(key).other"
     }
 
-    /// `_meta.plural`: "one" (1 → one; varsayılan), "zero-one" (0 ve 1 → one), "none" (hep other).
+    /// `_meta.plural`: "one" (1 → one; default), "zero-one" (0 and 1 → one), "none" (always other).
     static func pluralForm(_ n: Int, rule: String?) -> String {
         switch rule {
         case "none": "other"
@@ -61,7 +61,7 @@ public enum L10n {
         }
     }
 
-    /// Dile özel yer tutucu değiştiricileri: değer → değer + ek.
+    /// Language-specific placeholder modifiers: value → value + suffix.
     static let modifiers: [String: [String: @Sendable (String) -> String]] = [
         "tr": ["poss3": { $0 + TurkishSuffix.possessive3(after: $0) },
                "gen": { $0 + TurkishSuffix.genitive(after: $0) }],
@@ -85,7 +85,7 @@ public enum L10n {
         return out + rest
     }
 
-    /// Başlık şablonu; `{emph}` vurgulu (`.emphasized`) yazılır, arayüz onu seviye rengine boyar. Sözcük sırası dile göre.
+    /// Headline template; `{emph}` is written emphasized (`.emphasized`) and the UI colors it by level. Word order depends on the language.
     public static func emphasized(_ key: String, emph: String, _ args: [String: String] = [:]) -> AttributedString {
         let marker = "\u{E000}"
         let parts = t(key, args.merging(["emph": marker]) { a, _ in a }).components(separatedBy: marker)
@@ -95,7 +95,7 @@ public enum L10n {
         return AttributedString(parts[0]) + e + AttributedString(parts[1])
     }
 
-    /// Tercih edilen diller içinden desteklenen ilki. Etiket sondan kırpılarak eşlenir: "zh-Hans-CN" → "zh-Hans" → "zh",
+    /// The first supported language among the preferred ones. The tag is matched by trimming from the end: "zh-Hans-CN" → "zh-Hans" → "zh",
     /// "tr-TR" → "tr".
     public static func detect(preferred: [String], available: [String]) -> String {
         for p in preferred {

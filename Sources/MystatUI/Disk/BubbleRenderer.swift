@@ -4,7 +4,7 @@ import MetalKit
 import MystatCore
 import QuartzCore
 
-/// Cam balon shader'ını çizer: canlıda `MTKView` temsilcisi, anlık görüntüde ekran dışı doku.
+/// Draws the glass bubble shader: an `MTKView` delegate when live, an offscreen texture for snapshots.
 @MainActor
 final class BubbleRenderer: NSObject, MTKViewDelegate {
     static let pixelFormat = MTLPixelFormat.bgra8Unorm
@@ -13,16 +13,16 @@ final class BubbleRenderer: NSObject, MTKViewDelegate {
     private let queue: MTLCommandQueue
     private let pipeline: MTLRenderPipelineState
 
-    /// Canlı kare: renderer saatindeki zaman (sn) → kare. `nil` dönerse (boyut henüz yok) çizilmez.
+    /// Live frame: time on the renderer clock (s) → frame. Nothing is drawn if it returns `nil` (no size yet).
     var frameProvider: ((Double) -> BubbleFrame?)?
     var isDark = false
-    /// Işık kaynağının hedefi (nokta, sol üstten); çizimde 0,12 yumuşatmayla izlenir (mockup `mouse`←`mt`).
-    /// `nil`: imleç harita dışında, ışık sol üst dışında durur (mockup `mouseleave`).
+    /// Target of the light source (a point, from the top left); followed with 0.12 smoothing while drawing.
+    /// `nil`: the pointer is outside the map and the light rests at the top left.
     var mouse: CGPoint?
     private var smoothed: CGPoint?
     private let start = CACurrentMediaTime()
 
-    /// Motorun ve shader'ın ortak saati.
+    /// Shared clock of the engine and the shader.
     var now: Double { CACurrentMediaTime() - start }
 
     init?(device: MTLDevice) {
@@ -43,7 +43,7 @@ final class BubbleRenderer: NSObject, MTKViewDelegate {
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
 
     func draw(in view: MTKView) {
-        // Kaydırılıp görünmez olduysa GPU'yu yorma.
+        // Don't tax the GPU when scrolled out of view.
         let t = now
         guard let provider = frameProvider, !view.visibleRect.isEmpty, view.bounds.width > 0, let f = provider(t),
               let rpd = view.currentRenderPassDescriptor, let drawable = view.currentDrawable,
@@ -58,7 +58,7 @@ final class BubbleRenderer: NSObject, MTKViewDelegate {
         smoothed = m
         let u = BubbleShaderSource.pack(f, size: size, scale: scale, time: t, dark: isDark, mouse: m)
         encode(u, pass: rpd, into: cb)
-        // Etiketler (SwiftUI) ile aynı karede görünsün diye CA işlemiyle sunulur.
+        // Presented within the CA transaction so it appears in the same frame as the (SwiftUI) labels.
         cb.commit()
         cb.waitUntilScheduled()
         drawable.present()
@@ -76,7 +76,7 @@ final class BubbleRenderer: NSObject, MTKViewDelegate {
         enc.endEncoding()
     }
 
-    /// Anlık görüntü modu: kareyi ekran dışı dokuya çizip sRGB `CGImage` döndürür. `mouse` yumuşatılmadan kullanılır.
+    /// Snapshot mode: draws the frame to an offscreen texture and returns an sRGB `CGImage`. `mouse` is used unsmoothed.
     func renderToImage(frame: BubbleFrame, size: CGSize, scale: CGFloat, time: Double) -> CGImage? {
         let w = Int((size.width * scale).rounded()), h = Int((size.height * scale).rounded())
         guard w > 0, h > 0 else { return nil }

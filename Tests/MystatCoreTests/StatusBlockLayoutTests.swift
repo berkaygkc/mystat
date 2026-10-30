@@ -11,13 +11,13 @@ import Testing
         #expect(a(.battery) == StatusMetric(label: "PİL", value: "−%25", level: .warn))
         #expect(a(.docker) == StatusMetric(label: "DOCKER", value: "%62", level: .warn))
         #expect(a(.heat) == StatusMetric(label: "ISI", value: "91°", level: .warn))
-        #expect(a(.memory) == nil)   // bellek olayında yeni öğe çıkmaz, RAM metriği renklenir
+        #expect(a(.memory) == nil)   // a memory incident adds no new item; the RAM metric is tinted instead
     }
     @Test func modelCalmAndIncident() {
         let cal = Calendar.trTest; let now = cal.date(from: .init(year: 2026, month: 10, day: 28, hour: 8, minute: 45, second: 18))!
         let calm = StatusBlockLayout.model(SampleSource(seed: 1).snapshot, now: now, calendar: cal)
         #expect(calm.alert == nil); #expect(calm.metrics.map(\.label) == ["CPU", "RAM", "DİSK"])
-        #expect(calm.date == "28 Ekim 2026 Çarşamba"); #expect(calm.time == "08:45")   // menü çubuğunda saniye yok (kullanıcı kararı: boşta maliyet); #expect(calm.down.hasPrefix("↓"))
+        #expect(calm.date == "28 Ekim 2026 Çarşamba"); #expect(calm.time == "08:45")   // no seconds in the menu bar (idle cost); #expect(calm.down.hasPrefix("↓"))
         let hot = StatusBlockLayout.model(SampleSource(seed: 1, incident: true).snapshot, now: now, calendar: cal)
         #expect(hot.alert == StatusMetric(label: "ISI", value: "91°", level: .warn)); #expect(hot.metrics[0].level == .crit)
         let mem = StatusBlockLayout.model(SampleSource(seed: 1, incident: true, kind: .memory).snapshot, now: now, calendar: cal)
@@ -34,8 +34,8 @@ import Testing
         var c = a0; c.alert = StatusMetric(label: "ISI", value: "91°", level: .warn)
         #expect(StatusBlockLayout.width(c, measure: measure) > StatusBlockLayout.width(a0, measure: measure))
     }
-    /// Değer şablonunu aşarsa (RAM %100, ↓123,4) öğe uzunluğu güncellenmeli; yoksa saat sağdan kırpılır.
-    /// Normalde şablonlar sayesinde uzunluk değişmez ve dokunulmaz.
+    /// If a value exceeds its template (RAM 100%, ↓123.4) the item length must be updated; otherwise the clock is clipped on the right.
+    /// Normally the templates keep the length constant and it is left alone.
     @Test func lengthFollowsOverflowingValues() {
         let measure: (String, CGFloat, Bool) -> CGFloat = { s, size, _ in CGFloat(s.count) * size * 0.6 }
         let a = StatusBlockModel.sample
@@ -46,10 +46,10 @@ import Testing
         #expect(grown != nil && grown! > w)
         var fast = a; fast.down = "↓123,4"
         #expect(StatusBlockLayout.newLength(fast, current: w, measure: measure) != nil)
-        #expect(StatusBlockLayout.newLength(a, current: grown!, measure: measure) == w)   // geri daralır
+        #expect(StatusBlockLayout.newLength(a, current: grown!, measure: measure) == w)   // narrows back
     }
-    /// Uyarı öğesi mockup `popin` ile belirir (0,45 sn, cubic-bezier(.2,.9,.3,1.2), 8 px sağdan, ölçek 0,9),
-    /// tersiyle 0,3 sn'de kaybolur (spec §4 "Belirme ve kaybolma yumuşak bir geçişle olur").
+    /// The alert item appears with a pop-in (0.45 s, cubic-bezier(.2,.9,.3,1.2), 8 px from the right, scale 0.9)
+    /// and disappears with the reverse in 0.3 s, so appearing and disappearing both use a soft transition.
     @Test func alertPopInAndOut() {
         let a0 = StatusBlockLayout.alertAppearance(.appear, elapsed: 0)
         #expect(a0.opacity == 0 && a0.dx == 8 && abs(a0.scale - 0.9) < 1e-9)
@@ -60,12 +60,12 @@ import Testing
         #expect(StatusBlockLayout.alertAppearance(.disappear, elapsed: 0).opacity == 1)
         #expect(StatusBlockLayout.alertAppearance(.disappear, elapsed: 0.3).opacity == 0)
         #expect(StatusBlockLayout.alertAnimationDone(.appear, elapsed: 0.45) && !StatusBlockLayout.alertAnimationDone(.disappear, elapsed: 0.2))
-        // cubic-bezier(.2,.9,.3,1.2) aşar: ortalarda ölçek 1'in biraz üstüne çıkar
+        // cubic-bezier(.2,.9,.3,1.2) overshoots: mid-way the scale rises slightly above 1
         let peak = stride(from: 0.0, through: 0.45, by: 0.01).map { StatusBlockLayout.alertAppearance(.appear, elapsed: $0).scale }.max()!
         #expect(peak > 1 && peak < 1.03)
     }
 
-    /// Canlı veride sensör yok: ılık termal durum tek başına öğe açmaz; olay varken derece yerine durum yazılır.
+    /// No sensors in live data: a warm thermal state alone does not open an item; during an incident the state is written instead of a temperature.
     @Test func liveAlertFollowsIncidentWithoutSensors() {
         var s = SampleSource(seed: 1).snapshot
         s.capabilities = SourceCapabilities(docker: false, sensors: false, diskScan: false, netDetails: false)

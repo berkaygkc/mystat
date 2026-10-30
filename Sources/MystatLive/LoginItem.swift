@@ -1,8 +1,8 @@
 import Foundation
 import ServiceManagement
 
-/// Oturum açılışında başlama (spec §2): ilk açılışta bir kez kaydolunur. Reddedilirse ya da kullanıcı sonradan
-/// Giriş Öğeleri'nden kaldırırsa sessizce geçilir; bildirim gösterilmez.
+/// Launch at login: registers once on first launch. If denied, or if the user later removes it from
+/// Login Items, it is skipped silently; no notification is shown.
 public enum LoginItem {
     static let askedKey = "mystat.loginItem.asked"
 
@@ -17,12 +17,12 @@ public enum LoginItem {
         return app.status
     }
 
-    /// Hiç kaydolmamış uygulamada macOS `.notRegistered` yerine `.notFound` da döndürebilir.
+    /// For an app that was never registered, macOS may return `.notFound` instead of `.notRegistered`.
     static func shouldRegister(status: SMAppService.Status, alreadyAsked: Bool) -> Bool {
         (status == .notRegistered || status == .notFound) && !alreadyAsked
     }
 
-    /// `~/Applications` ya da `/Applications` altındaki paket; giriş öğesinin yolu sabit kalır.
+    /// The bundle under `~/Applications` or `/Applications`; keeps the login item's path stable.
     static func isInstalled(_ bundle: URL) -> Bool {
         bundle.pathExtension == "app" && bundle.deletingLastPathComponent().lastPathComponent == "Applications"
     }

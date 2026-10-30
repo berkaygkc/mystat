@@ -3,7 +3,7 @@ import MystatTestSupport
 import Testing
 @testable import MystatUI
 
-/// Sorumluya tıklamak olayın kendi bölümüne gider (spec §7.2.1 "Detay hedefi"), hep İşlemci'ye değil.
+/// Clicking a culprit goes to the incident's own section (the "detail target"), not always to CPU.
 @MainActor @Suite(.language("tr")) struct MonitorNavigationTests {
     @Test func culpritOpensTheIncidentsSection() {
         let s = MonitorState()

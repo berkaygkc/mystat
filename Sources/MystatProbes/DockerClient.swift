@@ -3,26 +3,26 @@ import Foundation
 import MystatCore
 
 public enum DockerError: Error, Equatable {
-    /// Soket yok ya da bağlantı reddedildi: Docker Desktop kapalı.
+    /// No socket or connection refused: Docker Desktop is not running.
     case notRunning
     case timeout
     case http(Int)
     case decode
 }
 
-/// Docker Engine API (spec §9.1). Yalnızca kullanıcının soketi üzerinden (§10); testler sahtesini kullanır.
+/// Docker Engine API. Only over the user's socket; tests use a fake.
 public protocol DockerAPI: Sendable {
-    /// Çalışan (ve yeniden başlayan) container'lar.
+    /// Running (and restarting) containers.
     func containers() throws -> [DockerContainerRaw]
     func stats(_ id: String) throws -> DockerStatsRaw
     func diskUsage() throws -> DockerDFRaw
     func info() throws -> DockerInfoRaw
-    /// Eylemler; 2xx dışı yanıt hata sayılmaz, çağıran yorumlar.
+    /// Actions; a non-2xx response is not treated as an error, the caller interprets it.
     func post(_ pathAndQuery: String, timeout: TimeInterval) throws -> (status: Int, body: Data)
 }
 
-/// Unix soketi üzerinde HTTP/1.0: her istek ayrı bağlantı, sunucu yanıttan sonra kapatır (gövde EOF'a kadar).
-/// Okuma ve yazma zaman aşımlıdır; Docker asılsa da çağıran beklemede kalmaz.
+/// HTTP/1.0 over a Unix socket: each request is a separate connection, and the server closes it after the response (body until EOF).
+/// Reads and writes have timeouts; the caller does not stay blocked even if Docker hangs.
 public struct DockerClient: DockerAPI {
     public static let defaultPaths = [NSHomeDirectory() + "/.docker/run/docker.sock", "/var/run/docker.sock"]
     static let maxBody = 32 << 20
@@ -65,7 +65,7 @@ public struct DockerClient: DockerAPI {
         try HTTPWire.parse(exchange(HTTPWire.request(method: "POST", path: pathAndQuery), timeout: timeout))
     }
 
-    // MARK: - Taşıma
+    // MARK: - Transport
 
     private func get(_ path: String, timeout: TimeInterval = 3) throws -> Data {
         let r = try HTTPWire.parse(exchange(HTTPWire.request(method: "GET", path: path), timeout: timeout))
@@ -115,7 +115,7 @@ public struct DockerClient: DockerAPI {
     }
 }
 
-/// En küçük HTTP/1.0 istek ve yanıt çözümü (chunked gövde de).
+/// Minimal HTTP/1.0 request and response parsing (chunked bodies too).
 enum HTTPWire {
     static func request(method: String, path: String) -> Data {
         Data("\(method) \(path) HTTP/1.0\r\nHost: docker\r\nContent-Length: 0\r\n\r\n".utf8)
@@ -150,7 +150,7 @@ enum HTTPWire {
     }
 }
 
-// MARK: - JSON (yalnızca kullanılan alanlar; eksikler 0)
+// MARK: - JSON (only the fields used; missing ones are 0)
 
 private struct ContainerJSON: Decodable {
     let Id: String

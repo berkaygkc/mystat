@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 
 public struct BubbleItem: Sendable {
-    public let id: String          // yol, "a/b"
+    public let id: String          // path, "a/b"
     public let name: String
     public let kind: NodeKind
     public let size: Double
@@ -16,7 +16,7 @@ public struct MainBubble: Sendable {
     public let item: BubbleItem
     public let x: Double, y: Double, r: Double
     public let alpha: Double, hover: Double, amp: Double
-    /// 0 yok, 0,5 üst klasörle seçili, 1 seçili.
+    /// 0 none, 0.5 selected via the parent folder, 1 selected.
     public let selection: Double
 }
 
@@ -41,18 +41,18 @@ public struct BubbleFrame: Sendable {
     public let membrane: Membrane?
     public let ripple: Ripple?
     public let zoomLog: Double
-    /// Arka planın girilen klasör türüne göre renklenmesi; `from`→`to` arası `t`.
+    /// Background tinted by the type of the folder entered; `t` goes from `from` to `to`.
     public let bgFrom: BgTint, bgTo: BgTint, bgT: Double
 }
 
-/// Disk haritasının çizimden bağımsız durum makinesi (mockup'taki `BubbleMap`): yerleşim, süzülme,
-/// hover itmesi, içine girme/çıkma kamerası, zar, dalga, silme sonrası yeniden yerleşim.
+/// State machine of the disk map, independent of drawing: layout, drifting,
+/// hover push, camera for entering/leaving, membrane, ripple, re-layout after deletion.
 @MainActor
 public final class BubbleEngine {
     public private(set) var path: [String]
     public private(set) var items: [BubbleItem] = []
     public var isAnimating: Bool { anim != nil }
-    /// Tarama sürerken 0…1: balonlar yerinde büyür (spec §6.4). `nil` = tarama yok.
+    /// 0…1 while the scan runs: bubbles grow in place. `nil` = no scan.
     public var scanProgress: Double?
 
     public let tree: DiskTree
@@ -95,7 +95,7 @@ public final class BubbleEngine {
         bg = tint(for: path)
     }
 
-    // MARK: - Geometri ve yerleşim
+    // MARK: - Geometry and layout
 
     private func computeGeometry() {
         R0 = min(size.width, size.height - 46) / 2 - 22
@@ -110,18 +110,18 @@ public final class BubbleEngine {
         items = layout(path)
     }
 
-    /// Taramanın `progress` anında bir balonun ulaştığı boyut oranı; evreye göre farklı hızda, sonunda 1.
+    /// The size ratio a bubble has reached at scan `progress`; different speeds by phase, 1 at the end.
     public static func scanGrowth(phase: Double, progress: Double) -> Double {
         min(1, max(0.04, progress * 1.3 - phase * 0.3))
     }
 
-    /// Tarama sürerken bir öğenin o ana kadar biriken boyutu (haritadaki balonla aynı büyüme); tarama yoksa kendisi.
+    /// The size an item has accumulated so far during the scan (same growth as the bubble on the map); itself when there is no scan.
     public static func scannedSize(_ size: Double, path: [String], progress: Double?) -> Double {
         guard let p = progress else { return size }
         return size * scanGrowth(phase: hash01(path.joined(separator: "/")), progress: p)
     }
 
-    /// Taramanın o ana kadar ev klasöründe biriktirdiği toplam (kökteki satırların toplamı).
+    /// The total the scan has accumulated in the home folder so far (sum of the root rows).
     @MainActor
     public static func scannedTotal(_ tree: DiskTree, progress: Double) -> Double {
         (tree.root.children ?? []).reduce(0) { $0 + scannedSize($1.size, path: [$1.name], progress: progress) }
@@ -130,14 +130,14 @@ public final class BubbleEngine {
     public static let maxBubbles = 24
     static let previewKids = 12
 
-    /// Önizleme damlacıkları için bir balonun en büyük çocukları; kalanlar toplamı bozulmasın diye tek parça.
+    /// A bubble's largest children for preview droplets; the rest as a single piece so the total is not distorted.
     static func preview(_ sorted: [DiskNode]) -> [DiskNode] {
         guard sorted.count > previewKids else { return sorted }
         let head = Array(sorted.prefix(previewKids - 1))
         return head + [DiskNode("", sorted.dropFirst(previewKids - 1).reduce(0) { $0 + $1.size })]
     }
 
-    /// Mockup'taki `hash01`: FNV-1a, 1000'e göre.
+    /// FNV-1a, modulo 1000.
     static func hash01(_ s: String) -> Double {
         var h: UInt32 = 2_166_136_261
         for u in s.utf16 { h ^= UInt32(u); h = h &* 16_777_619 }
@@ -146,7 +146,7 @@ public final class BubbleEngine {
 
     private func layout(_ p: [String]) -> [BubbleItem] {
         guard let node = tree.node(at: p), var children = node.children else { return [] }
-        // Shader seviye başına en fazla 24 ana balon çizer: en büyük 23'ü ayrı, kalanlar tek bir "Diğer" balonu.
+        // The shader draws at most 24 main bubbles per level: the largest 23 separately, the rest as a single "Other" bubble.
         var rest: DiskNode?
         if children.count > Self.maxBubbles {
             let sorted = children.sorted { $0.size > $1.size }
@@ -155,7 +155,7 @@ public final class BubbleEngine {
             children.append(rest!)
         }
         let kids = children.map { c -> (DiskNode, [DiskNode]) in
-            if c !== rest { _ = tree.node(at: p + [c.name]) }   // önizleme için bir seviye öte üretilsin
+            if c !== rest { _ = tree.node(at: p + [c.name]) }   // generate one level further for the preview
             return (c, Self.preview((c.children ?? []).sorted { $0.size > $1.size }))
         }
         .map { c, g -> (DiskNode, [DiskNode], Double) in (c, g, g.isEmpty ? c.size : g.reduce(0) { $0 + $1.size }) }
@@ -187,7 +187,7 @@ public final class BubbleEngine {
         }
     }
 
-    // MARK: - Gezinme
+    // MARK: - Navigation
 
     @discardableResult
     public func zoomIn(_ name: String, at t: Double) -> Bool {
@@ -215,7 +215,7 @@ public final class BubbleEngine {
                     next: prev, mapped: mapInto(items, B), targetPath: ppath, z0: zoomLog, zs: log2(R0 / B.r), tint0: bg, tint1: tint(for: ppath))
     }
 
-    /// Animasyonsuz konum değişikliği (ilgisiz bir yola atlama).
+    /// Position change without animation (jumping to an unrelated path).
     public func setPath(_ p: [String]) {
         anim = nil
         path = p
@@ -224,7 +224,7 @@ public final class BubbleEngine {
         off.removeAll(); hovW.removeAll()
     }
 
-    /// Silme sonrası; animasyon sürüyorsa bitince uygulanır (Review Focus #4).
+    /// After a deletion; applied when the animation finishes if one is running.
     public func relayout(at t: Double) {
         guard anim == nil else { pendingRelayout = true; return }
         let next = layout(path)
@@ -237,7 +237,7 @@ public final class BubbleEngine {
         if let big = gone.max(by: { $0.r < $1.r }) { rip = (big.x, big.y, t, 0.8) }
     }
 
-    // MARK: - Kare
+    // MARK: - Frame
 
     private static func sstep(_ a: Double, _ b: Double, _ x: Double) -> Double {
         let t = max(0, min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t)
@@ -371,16 +371,16 @@ public final class BubbleEngine {
         off.removeAll(); hovW.removeAll()
     }
 
-    // MARK: - Etkileşim
+    // MARK: - Interaction
 
-    /// Mevcut hover'ı 1,18r içinde korur (＋ düğmesine giderken titremesin).
+    /// Keeps the current hover within 1.18r (so it does not jitter while moving toward the + button).
     public func hitTest(_ p: CGPoint, current hover: String?) -> BubbleItem? {
         guard anim == nil else { return nil }
         if let h = hover, let m = lastMains.first(where: { $0.item.name == h }), hypot(p.x - m.x, p.y - m.y) < m.r * 1.18 { return m.item }
         return lastMains.first { $0.alpha > 0.6 && hypot(p.x - $0.x, p.y - $0.y) < $0.r }?.item
     }
 
-    /// Etiket: r ≥ 30 ad + boyut, 17 ≤ r < 30 yalnızca boyut, daha küçükse yok.
+    /// Label: r ≥ 30 name + size, 17 ≤ r < 30 size only, smaller none.
     public func labelText(for item: BubbleItem, radius: Double) -> (name: String?, size: String)? {
         guard radius >= 17 else { return nil }
         let size = Fmt.size(item.size)

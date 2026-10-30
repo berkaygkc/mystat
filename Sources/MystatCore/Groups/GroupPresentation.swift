@@ -2,7 +2,7 @@ import Foundation
 
 public enum GroupMetric: Hashable, Sendable { case cpu, memory, network }
 
-/// Grup listeleri, başlık cümleleri ve "Teşhisi kopyala" metni.
+/// Group lists, headline sentences, and the "Copy Diagnosis" text.
 public enum GroupPresentation {
     public static func value(_ g: ProcessGroup, _ m: GroupMetric) -> Double {
         switch m { case .cpu: g.cpuCores; case .memory: g.memoryGB; case .network: g.netMBps }
@@ -12,8 +12,8 @@ public enum GroupPresentation {
         groups.sorted { value($0, m) > value($1, m) }
     }
 
-    /// "Kim kullanıyor" (Ağ): büyükten küçüğe, en çok 12. Gerçek veride onlarca grup var; 12'yi aşınca trafiksizler
-    /// düşer (boşta liste boş kalır). Az gruplu örnek veri mockup'taki gibi tümüyle gösterilir.
+    /// "Who's using it" (Network): largest first, at most 12. Real data has dozens of groups; past 12, those with no traffic
+    /// are dropped (when idle the list is empty). Sample data with few groups is shown in full.
     public static func networkUsers(_ groups: [ProcessGroup]) -> [ProcessGroup] {
         Array(sorted(groups.count > 12 ? groups.filter { $0.netMBps > 0 } : groups, by: .network).prefix(12))
     }
@@ -22,7 +22,7 @@ public enum GroupPresentation {
         g.relatedID.flatMap { id in all.first { $0.id == id } }
     }
 
-    /// Panoya kopyalanan teşhis. Saatten sonra ek kullanılmaz (sesli uyumu rakama bağlı).
+    /// Diagnosis copied to the clipboard. No grammatical suffix follows the time, because Turkish suffix harmony depends on how the digits are pronounced.
     public static func diagnosis(_ g: ProcessGroup, incident: Incident?) -> String {
         var lines = [L10n.t("diag.using", ["name": g.name, "context": g.context.isEmpty ? "" : " (\(g.context))",
                                            "cores": Fmt.cores(g.cpuCores), "mem": Fmt.mem(g.memoryGB)])]
@@ -40,7 +40,7 @@ public enum GroupPresentation {
         return lines.joined(separator: "\n")
     }
 
-    /// Panel ve Genel Bakış başlığı. Vurgulu kısım `.emphasized` ile işaretlenir; arayüz onu kırmızı/turuncu boyar.
+    /// Headline for the panel and Overview. The emphasized part is marked with `.emphasized`; the UI colors it red/orange.
     public static func panelHeadline(_ s: Snapshot) -> (kicker: String, title: AttributedString, lede: String) {
         guard let inc = s.incident else {
             return (L10n.t("headline.kicker"), AttributedString(L10n.t("headline.calm.title")),
@@ -55,7 +55,7 @@ public enum GroupPresentation {
         case .memory:
             let grew = zip(inc.culpritIDs, inc.culpritValues).prefix(2).map { L10n.t("headline.memory.item", ["name": name($0), "gb": String($1.dropFirst())]) }
             let swap = L10n.t("headline.memory.swap", ["gb": Fmt.dec1(s.memory.swapGB)])
-            guard let top = inc.culpritIDs.first else { return (kicker, AttributedString(L10n.t("headline.memory.title")), swap) }   // büyüyen grup yok
+            guard let top = inc.culpritIDs.first else { return (kicker, AttributedString(L10n.t("headline.memory.title")), swap) }   // no growing group
             return (kicker, title("headline.memory.titleTop", emph: name(top)),
                     L10n.plural("headline.memory.lede", inc.minutes, ["list": grew.joined(separator: ", ")]) + swap)
         case .disk:
@@ -98,11 +98,11 @@ public enum GroupPresentation {
         }
     }
 
-    /// Olayın adı verilen olgusu (örnek veride "Son 24 sa", "Kalan" gibi; canlıda yalnızca ölçülebilenler).
+    /// The named fact of an incident (in sample data e.g. "Last 24 h", "Remaining"; in live data only what can be measured).
     static func fact(_ inc: Incident, _ label: String) -> String? { inc.facts.first { $0.label == label }?.value }
 
-    /// CPU olayı açıklaması: projeli grupta proje, değilse grubun adı; aynı projedeki ikinci sorumlu varsa eşlik cümlesi.
-    /// `joined`: eşlik cümlesi ana cümleye noktalı virgülle bağlanır (Genel Bakış).
+    /// CPU incident description: the project for a group with a project, otherwise the group's name; plus an accompanying sentence if a second culprit is in the same project.
+    /// `joined`: the accompanying sentence is attached to the main sentence with a semicolon (Overview).
     static func cpuLede(_ lead: ProcessGroup, _ s: Snapshot, _ inc: Incident, joined: Bool = false) -> String {
         let cores = Fmt.dec1(lead.cpuCores)
         let out = lead.folder != nil ? L10n.t("cpu.lede.project", ["project": lead.context, "cores": cores])
@@ -115,13 +115,13 @@ public enum GroupPresentation {
         return out + "."
     }
 
-    /// Grup detayındaki alt süreç satırları: CPU'ya göre en yoğun 5; kalanlar "+ N küçük süreç daha".
+    /// Child process rows in the group detail: the top 5 by CPU; the rest as "+ N more small processes".
     public static func childRows(_ g: ProcessGroup) -> (rows: [ChildProcess], more: Int) {
         let rows = Array(g.children.sorted { $0.cpuCores > $1.cpuCores }.prefix(5))
         return (rows, max(0, g.processCount - rows.count))
     }
 
-    /// İşlemci bölümü başlığı: ("%91", " · 14 çekirdeğin 12,7'si dolu") ya da ("İşlemci rahat.", "%14").
+    /// CPU section headline: ("91%", " · 12.7 of 14 cores busy") or ("CPU is relaxed.", "14%").
     public static func cpuHeadline(_ s: Snapshot) -> (title: String, soft: String) {
         let pct = Fmt.pct(s.cpu.percent)
         guard s.cpu.percent >= 70 else { return (L10n.t("cpu.headline.calm"), pct) }

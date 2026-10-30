@@ -14,12 +14,12 @@
     <key>LSUIElement</key><true/>
     <key>LSMinimumSystemVersion</key><string>26.0</string>
     <key>NSHighResolutionCapable</key><true/>
-    <!-- Wi‑Fi ağının adı (SSID) macOS'ta konum izni ister; yalnızca Ağ bölümündeki "İzin ver" ile sorulur (plan 2e).
-         İzin penceresini macOS çizer: metin buradan (İngilizce) ya da sistem diline göre <dil>.lproj/InfoPlist.strings'ten. -->
+    <!-- Reading the Wi‑Fi network name (SSID) requires Location permission on macOS; it is only requested via "Allow" in the Network section.
+         macOS draws the permission dialog: the text comes from here (English) or, per system language, from <lang>.lproj/InfoPlist.strings. -->
     <key>NSLocationUsageDescription</key><string>To show the Wi‑Fi network's name. Your location isn't used or stored.</string>
     <key>NSLocationWhenInUseUsageDescription</key><string>To show the Wi‑Fi network's name. Your location isn't used or stored.</string>
-    <!-- libmalloc serbest bırakılan büyük blokları önbellekte tutar ve ayak izinde sayar (disk taraması bittiğinde
-         ~120 MB geri verilmiyordu). Kapalıyken bırakılan bellek hemen sisteme döner (plan 2d, Task 8). -->
+    <!-- libmalloc caches freed large blocks and counts them in the memory footprint (after a disk scan finished,
+         ~120 MB was not returned). With the cache disabled, freed memory goes back to the system immediately. -->
     <key>LSEnvironment</key>
     <dict>
         <key>MallocLargeCache</key><string>0</string>

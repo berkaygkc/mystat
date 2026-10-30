@@ -1,8 +1,8 @@
 import MystatCore
 import SwiftUI
 
-/// Görünümler genel (`<Source: MetricsSource>`); uygulama kaynağı `any MetricsSource` olarak tutar.
-/// Varoluşsal tip burada açılıp görünüm `AnyView` olarak döner.
+/// The views are generic (`<Source: MetricsSource>`); the app holds the source as `any MetricsSource`.
+/// The existential type is opened here and the view is returned as `AnyView`.
 @MainActor
 public enum SourceViews {
     public static func panel(source: some MetricsSource, openMonitor: @escaping (MonitorSection?, String?) -> Void) -> AnyView {

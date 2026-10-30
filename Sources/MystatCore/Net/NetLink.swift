@@ -1,6 +1,6 @@
 import Foundation
 
-/// Wi‑Fi okuması (CoreWLAN). Ağın adı yalnızca konum izni varsa gelir.
+/// Wi-Fi reading (CoreWLAN). The network name is only available with location permission.
 public struct WiFiReading: Sendable, Equatable {
     public var ssid: String?
     public var rssi: Int, noise: Int   // dBm
@@ -13,14 +13,14 @@ public struct WiFiReading: Sendable, Equatable {
     }
 }
 
-/// Birincil arayüzün bağlantısı (spec §6.3 "Bağlantı" kartı).
+/// Connection of the primary interface (the "Connection" card).
 public struct NetLink: Sendable, Equatable {
     public var bsdName: String         // "en0"
     public var displayName: String     // "Wi‑Fi", "Ethernet"
     public var localIP: String?, router: String?
     public var dns: [String]
     public var wifi: WiFiReading?
-    /// Kablolu arayüzün hızı (ifi_baudrate); bilinmiyorsa nil.
+    /// Speed of a wired interface (ifi_baudrate); nil if unknown.
     public var linkMbps: Double?
 
     public init(bsdName: String, displayName: String, localIP: String?, router: String?, dns: [String], wifi: WiFiReading?, linkMbps: Double?) {
@@ -29,10 +29,10 @@ public struct NetLink: Sendable, Equatable {
     }
 }
 
-/// Wi‑Fi ağının adı neden yok: konum izni bekleniyor, reddedildi ya da arayüz Wi‑Fi değil.
+/// Why the Wi-Fi network name is missing: location permission pending, denied, or the interface is not Wi-Fi.
 public enum SSIDAccess: Sendable, Equatable { case known, needsPermission, denied, notWiFi }
 
-/// Ağ bölümünün "Bağlantı" kartı metinleri (mockup `secNet`).
+/// Texts for the "Connection" card of the Network section.
 public enum NetPresentation {
     public static func facts(_ l: NetLink) -> [Fact] {
         var out: [Fact] = []
@@ -55,20 +55,20 @@ public enum NetPresentation {
         L10n.t(rssi >= -55 ? "net.signal.veryGood" : rssi >= -67 ? "net.signal.good" : rssi >= -75 ? "net.signal.fair" : "net.signal.weak")
     }
 
-    /// "Kim kullanıyor" listesinin yerine geçen not; nil: liste gösterilir.
+    /// Note that replaces the "Who's using it" list; nil: the list is shown.
     public static func perAppNote(available: Bool, ready: Bool, empty: Bool) -> String? {
         if !available { return L10n.t("net.perApp.unavailable") }
         if !ready { return L10n.t("net.perApp.measuring") }
         return empty ? L10n.t("net.perApp.empty") : nil
     }
 
-    /// Yönlendirici gecikmesi; ölçülmediyse "—".
+    /// Router latency; "—" if not measured.
     public static func latencyText(_ ms: Double) -> String { ms.isFinite ? Fmt.int(ms) + " ms" : Fmt.missing }
 
-    /// Sistem Ayarları → Gizlilik ve Güvenlik → Konum Servisleri.
+    /// System Settings → Privacy & Security → Location Services.
     public static let locationSettingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_LocationServices")!
 
-    /// Ağın adı yoksa Bağlantı kartındaki satır: açıklama ve düğme.
+    /// Row in the Connection card when the network name is missing: explanation and button.
     public static func accessLine(_ a: SSIDAccess) -> (text: String, action: String)? {
         switch a {
         case .needsPermission: (L10n.t("net.ssid.needs"), L10n.t("net.ssid.allow"))
@@ -77,7 +77,7 @@ public enum NetPresentation {
         }
     }
 
-    /// Sistem adı ("Wi-Fi") → satırda kırılmayan tire (U+2011), mockup'taki gibi.
+    /// System name ("Wi-Fi") → non-breaking hyphen (U+2011) so the row does not wrap.
     public static func displayName(_ systemName: String) -> String {
         systemName.replacingOccurrences(of: "-", with: "\u{2011}")
     }

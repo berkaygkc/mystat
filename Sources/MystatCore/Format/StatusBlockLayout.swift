@@ -8,7 +8,7 @@ public struct StatusMetric: Equatable, Sendable {
     public init(label: String, value: String, level: Level) { self.label = label; self.value = value; self.level = level }
 }
 
-/// Menü çubuğu bloğunun içeriği. Değişmediyse yeniden çizilmez.
+/// Content of the menu bar block. Not redrawn if unchanged.
 public struct StatusBlockModel: Equatable, Sendable {
     public var alert: StatusMetric?
     public var metrics: [StatusMetric]
@@ -21,7 +21,7 @@ public struct StatusBlockModel: Equatable, Sendable {
     }
 }
 
-/// Bloğun ölçüleri (mockup menubar.html → `.blk`, `.m`).
+/// Dimensions of the block.
 public enum StatusBlockLayout {
     public static let blockPadding: CGFloat = 5
     public static let gap: CGFloat = 1
@@ -30,9 +30,9 @@ public enum StatusBlockLayout {
     public static let labelSize: CGFloat = 8.5, valueSize: CGFloat = 12, netSize: CGFloat = 10.5
     public static let dateSize: CGFloat = 10, timeSize: CGFloat = 12.5
 
-    /// Genişliğin değerle oynamaması için ayrılan en geniş örnek metinler (Review Focus #1).
-    /// CPU en oynak değer: %100'e kadar yer ayrılır. RAM ve DİSK nadiren üç haneye çıkar; sıkılık için iki hane.
-    /// Dile göre: yüzde işaretinin yeri, ondalık ayırıcı ve en geniş tarih (`_meta.dateTemplate`) değişir.
+    /// Widest sample texts reserved so the width does not fluctuate with the value.
+    /// CPU is the most volatile value: room is reserved up to 100%. RAM and DISK rarely reach three digits; two digits keep the block compact.
+    /// Depends on the language: the percent sign position, decimal separator and widest date (`_meta.dateTemplate`) vary.
     public static var cpuTemplate: String { Fmt.pct(100) }
     public static var valueTemplate: String { Fmt.pct(88) }
     public static var alertTemplate: String { "−" + Fmt.pct(88) }
@@ -50,11 +50,11 @@ public enum StatusBlockLayout {
         ]
         return StatusBlockModel(alert: alert(s), metrics: metrics,
                                 down: "↓" + Fmt.rate(s.net.downMBps), up: "↑" + Fmt.rate(s.net.upMBps),
-                                date: Fmt.dateLine(now, calendar: calendar), time: String(Fmt.timeLine(now, calendar: calendar).prefix(5)))   // saniyesiz: her saniye yeniden çizim boşta maliyeti ikiye katlıyordu (kullanıcı kararı)
+                                date: Fmt.dateLine(now, calendar: calendar), time: String(Fmt.timeLine(now, calendar: calendar).prefix(5)))   // no seconds: redrawing every second doubled the idle cost
     }
 
-    /// Isı, Pil ve Docker'ın kalıcı öğesi yok; olay anında bloğun içinde belirir (spec §4). Çip ılıksa her olayda
-    /// görünür (mockup'taki işlemci olayı). Sensör yoksa derece yerine termal durum yazılır.
+    /// Heat, Battery and Docker have no permanent item; they appear inside the block when an incident occurs. If the chip is warm, heat shows
+    /// on every incident (e.g. a CPU incident). Without sensors, the thermal state is shown instead of degrees.
     static func alert(_ s: Snapshot) -> StatusMetric? {
         guard let inc = s.incident else { return nil }
         if inc.kind == .heat || s.system.thermal != .ok {
@@ -62,14 +62,14 @@ public enum StatusBlockLayout {
             return StatusMetric(label: L10n.t("menubar.temp"), value: value, level: s.system.thermal == .ok ? inc.level : s.system.thermal)
         }
         if inc.kind == .battery, let drain = s.system.batteryDrain30m { return StatusMetric(label: L10n.t("menubar.battery"), value: "−" + Fmt.pct(drain), level: .warn) }
-        if inc.kind == .docker {   // yüzde değilse (yeniden başlama, sağlıksız) kısa durum; yüzde işaretinin yeri dile bağlı
+        if inc.kind == .docker {   // if not a percentage (restarting, unhealthy) a short status; the percent sign position depends on the language
             let v = inc.culpritValues.first ?? ""
             return StatusMetric(label: L10n.t("menubar.docker"), value: v.contains("%") || inc.level != .crit ? v : L10n.t("menubar.error"), level: inc.level)
         }
         return nil
     }
 
-    /// Her parçanın genişliği, soldan sağa. `measure(metin, punto, kalın)`.
+    /// Width of each part, left to right. `measure(text, pointSize, bold)`.
     public static func parts(_ m: StatusBlockModel, measure: (String, CGFloat, Bool) -> CGFloat) -> [(Part, CGFloat)] {
         func metric(_ x: StatusMetric, template: String) -> CGFloat {
             max(measure(x.label, labelSize, true), measure(x.value, valueSize, true), measure(template, valueSize, true)) + metricPadding * 2
@@ -85,8 +85,8 @@ public enum StatusBlockLayout {
 
     public enum AlertTransition: Sendable { case appear, disappear }
 
-    /// Uyarı öğesinin belirme/kaybolma görünümü (mockup `popin`: 0,45 sn, cubic-bezier(.2,.9,.3,1.2),
-    /// 8 px sağdan, ölçek 0,9). Kaybolma tersidir: 0,3 sn, ease-in.
+    /// Appearance of an alert item appearing/disappearing (0.45 s, cubic-bezier(.2,.9,.3,1.2),
+    /// 8 px from the right, scale 0.9). Disappearing is the reverse: 0.3 s, ease-in.
     public static func alertAppearance(_ kind: AlertTransition, elapsed: Double) -> (opacity: Double, dx: Double, scale: Double) {
         switch kind {
         case .appear:
@@ -102,7 +102,7 @@ public enum StatusBlockLayout {
         elapsed >= (kind == .appear ? 0.45 : 0.3)
     }
 
-    /// CSS `cubic-bezier(x1, y1, x2, y2)` zamanlama eğrisi; `x` ilerleme (0…1).
+    /// CSS `cubic-bezier(x1, y1, x2, y2)` timing curve; `x` is progress (0…1).
     static func cubicBezier(_ x1: Double, _ y1: Double, _ x2: Double, _ y2: Double, _ x: Double) -> Double {
         if x <= 0 { return 0 }
         if x >= 1 { return 1 }
@@ -116,8 +116,8 @@ public enum StatusBlockLayout {
         return by(t)
     }
 
-    /// Durum öğesinin uzunluğu değişmeli mi: değişmesi gerekiyorsa yeni uzunluk, gerekmiyorsa `nil`.
-    /// Şablonlar sayesinde normalde `nil`; uyarı belirince/kalkınca ya da bir değer şablonunu aşınca değişir.
+    /// Whether the status item's length should change: the new length if it must, `nil` if not.
+    /// Thanks to the templates it is normally `nil`; it changes when an alert appears/disappears or a value exceeds its template.
     public static func newLength(_ m: StatusBlockModel, current: CGFloat, measure: (String, CGFloat, Bool) -> CGFloat) -> CGFloat? {
         let w = ceil(width(m, measure: measure))
         return w == current ? nil : w

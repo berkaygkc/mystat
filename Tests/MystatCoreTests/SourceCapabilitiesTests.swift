@@ -3,7 +3,7 @@ import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-/// Henüz bağlanmamış alanlar sahte sayı göstermez; sakin "bağlı değil" metinleri (Faz 2a planı, Task 2).
+/// Fields that are not wired up yet show no fake numbers; they show calm "not connected" text.
 @MainActor @Suite(.language("tr")) struct SourceCapabilitiesTests {
     func live() -> Snapshot {
         var s = SampleSource(seed: 1).snapshot
@@ -37,9 +37,9 @@ import Testing
         var s = live()
         s.net.iface = "en0"; s.net.ssid = ""
         #expect(SectionText.networkLede(s).hasPrefix("en0 arayüzü. Bugün"))
-        #expect(!SectionText.networkLede(s).contains("indiriyor"))   // uygulama bazında ağ 2e'de
+        #expect(!SectionText.networkLede(s).contains("indiriyor"))   // no network details: no "top downloader" sentence
     }
-    /// Sensör yokken sıcaklık ve fan sayısı uydurulmaz; termal durum ve pil söylenir.
+    /// With no sensor, temperature and fan counts are not invented; thermal state and battery are reported.
     @Test func systemTextWithoutSensors() {
         var s = live()
         let calm = SectionText.system(s)
@@ -50,7 +50,7 @@ import Testing
         #expect(!SectionText.system(s).lede.contains("°"))
     }
 
-    /// Tarama yokken harita kalemleri (Library, Docker'ın diski) anlatılmaz.
+    /// With no scan, map items (Library, Docker's disk) are not described.
     @Test func diskTextWithoutScan() {
         let h = SectionText.disk(live(), home: nil, freedGB: 0)
         #expect(h.lede == "Sistem gerektiğinde 12 GB'ı kendiliğinden boşaltabilir.")

@@ -3,8 +3,8 @@ import MystatTestSupport
 import Testing
 @testable import MystatUI
 
-/// Etiket görüntüsü mockup `.bm-l` kutusunu izler: ad satırı 1,15·fs, 2 pt boşluk, boyut satırı doğal yükseklikte;
-/// hale gölgesi için her yanda pay; merkez kutunun merkezidir.
+/// The label image follows the bubble label box: name line 1.15·fs, 2 pt gap, size line at natural height;
+/// a margin on every side for the halo shadow; the center is the box's center.
 @MainActor @Suite(.language("tr")) struct BubbleLabelImageTests {
     @Test func boxMatchesCssLayout() {
         let fs = 19.0
@@ -26,7 +26,7 @@ import Testing
     @Test func textIsDrawnInTheMiddle() {
         let img = BubbleLabelImage.make(name: "Documents", size: "52 GB", fontSize: 19, dark: false, scale: 1)
         let rep = NSBitmapImageRep(cgImage: img.image)
-        // Merkez satırında koyu (metin) piksel olmalı; köşe yalnızca hale (açık) ya da boş.
+        // The center row must have dark (text) pixels; the corner only halo (light) or empty.
         var dark = 0
         for x in 0..<rep.pixelsWide { if let c = rep.colorAt(x: x, y: rep.pixelsHigh / 2 - 6), c.alphaComponent > 0.5, c.brightnessComponent < 0.4 { dark += 1 } }
         #expect(dark > 10)

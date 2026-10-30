@@ -26,7 +26,7 @@ final class FakeAuthorizer: LocationAuthorizer {
         #expect(denied.requests == 0); #expect(open.requests == 1)
     }
 
-    /// İstem yalnızca "İzin ver"e basınca: kaynak oluşturulup Ağ bölümü açılınca sorulmaz.
+    /// The prompt appears only when "Allow" is pressed: it is not asked merely because the source is created and the Network section opens.
     @Test func noPromptWithoutAction() async {
         let auth = FakeAuthorizer(.notDetermined), f = NetFakes()
         let s = LiveSource(probe: FakeProbe(), historyURL: nil, persistToday: false, autostart: false, dockerAPI: FakeDockerAPI(),
@@ -37,7 +37,7 @@ final class FakeAuthorizer: LocationAuthorizer {
         #expect(auth.requests == 1)
     }
 
-    /// İzin verilince ağ adı bir sonraki tura kalmadan gelsin: bağlantı hemen yeniden okunur.
+    /// Once permission is granted the network name arrives without waiting for the next round: the connection is re-read immediately.
     @Test func grantRefreshesLink() async throws {
         let auth = FakeAuthorizer(.notDetermined), f = NetFakes(), poller = f.poller()
         let loc = LocationAccess(manager: auth)

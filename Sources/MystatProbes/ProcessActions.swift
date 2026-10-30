@@ -1,13 +1,13 @@
 import Darwin
 import MystatCore
 
-/// Durdur = SIGTERM, Zorla kapat = SIGKILL (spec §7.4). Yalnızca kullanıcının kendi süreçleri: gruptan tek bir
-/// süreç bile başkasınınsa hiçbirine sinyal gönderilmez. uid, her süreç için sinyalden hemen önce yeniden okunur.
+/// Stop = SIGTERM (lets apps save their state), Force Quit = SIGKILL. Only the user's own processes: if even a single process in the group
+/// belongs to someone else, no signal is sent to any. The uid is re-read for each process right before signalling.
 public enum ProcessActions {
     public static func signal(_ pids: [Int32], force: Bool, ownerUID: uid_t = getuid()) -> StopOutcome {
         var alive: [Int32] = []
         for pid in pids where pid > 0 {
-            guard let uid = uid(of: pid) else { continue }               // bitmiş
+            guard let uid = uid(of: pid) else { continue }               // already exited
             guard uid == ownerUID else { return .notPermitted(reason: StopOutcome.foreignReason) }
             alive.append(pid)
         }
@@ -15,7 +15,7 @@ public enum ProcessActions {
         return sent == 0 ? .notFound : .done(count: sent)
     }
 
-    /// `kern.proc.pid`: her sürecin sahibini root olmadan verir. Süreç yoksa nil.
+    /// `kern.proc.pid`: gives each process's owner without root. nil if the process does not exist.
     static func uid(of pid: Int32) -> uid_t? {
         var info = kinfo_proc()
         var size = MemoryLayout<kinfo_proc>.stride

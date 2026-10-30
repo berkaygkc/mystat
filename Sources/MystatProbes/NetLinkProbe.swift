@@ -4,10 +4,10 @@ import Foundation
 import MystatCore
 import SystemConfiguration
 
-/// Birincil arayüzün bağlantısı (spec §9.1: Wi‑Fi için CoreWLAN, IP/DNS için SystemConfiguration). Ağın adı (SSID)
-/// macOS'ta yalnızca konum izni olan uygulamaya verilir; izin yoksa `ssid` nil.
+/// Link of the primary interface (CoreWLAN for Wi‑Fi, SystemConfiguration for IP/DNS). macOS gives the network name (SSID)
+/// only to apps with location permission; without it `ssid` is nil.
 public enum NetLinkProbe {
-    /// Birincil arayüz yoksa (bağlantı yok) nil.
+    /// nil if there is no primary interface (no connection).
     public static func read() -> NetLink? {
         guard let store = SCDynamicStoreCreate(nil, "mystat" as CFString, nil, nil),
               let ipv4 = SCDynamicStoreCopyValue(store, "State:/Network/Global/IPv4" as CFString) as? [String: Any],
@@ -32,7 +32,7 @@ public enum NetLinkProbe {
                            channel: i.wlanChannel()?.channelNumber ?? 0, bandGHz: band)
     }
 
-    /// Kablolu arayüzün hızı (`ifi_baudrate`, bit/sn); bilinmiyorsa nil.
+    /// Speed of a wired interface (`ifi_baudrate`, bit/s); nil if unknown.
     static func baudMbps(_ bsd: String) -> Double? {
         let index = if_nametoindex(bsd)
         guard index != 0 else { return nil }

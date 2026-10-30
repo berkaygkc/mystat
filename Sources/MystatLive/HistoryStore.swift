@@ -3,9 +3,9 @@ import MystatCore
 import SQLite3
 import Synchronization
 
-/// Uzun aralık geçmişi (spec §9.4): `~/Library/Application Support/mystat/history.sqlite`.
-/// 2 sn'lik örnekler bellekte 10 dk ve 1 sa kovalarına toplanır; kova kapanınca tek satır yazılır.
-/// 10 dk ve 1 sa aralıkları `SeriesBuffer`'dadır (bellek). Saklama: 10 dk kovası 7 gün, 1 sa kovası 30 gün.
+/// Long-range history: `~/Library/Application Support/mystat/history.sqlite`.
+/// 2 s samples are aggregated in memory into 10 min and 1 h buckets; a single row is written when a bucket closes.
+/// The 10 min and 1 h ranges live in `SeriesBuffer` (memory). Retention: 10 min buckets 7 days, 1 h buckets 30 days.
 public final class HistoryStore: Sendable {
     static let tiers: [Int64] = [600, 3600]
     static let keep: [Int64: TimeInterval] = [600: 7 * 86_400, 3600: 30 * 86_400]
@@ -46,7 +46,7 @@ public final class HistoryStore: Sendable {
         }
     }
 
-    /// Saklanan anahtarlar; grup ve sensör anahtarları burada yok.
+    /// Stored keys; group and sensor keys are not included.
     static func name(_ k: SeriesKey) -> String? {
         switch k {
         case .cpu: "cpu"; case .cpuSystem: "cpuSystem"; case .memUsed: "memUsed"; case .memPressure: "memPressure"
@@ -96,8 +96,8 @@ public final class HistoryStore: Sendable {
         sqlite3_exec(db, "COMMIT", nil, nil, nil)
     }
 
-    /// `.h24`: 10 dk × 144, `.d7`: 1 sa × 168. Aralıktaki ilk veriden "şimdi"ye kadar kova başına bir nokta;
-    /// uyku ya da kapalı kalınan kovalar NaN döner (grafik orada boşluk bırakır, düz çizgiyle köprülemez).
+    /// `.h24`: 10 min × 144, `.d7`: 1 h × 168. One point per bucket from the first data in the range up to "now";
+    /// buckets spanning sleep or power-off return NaN (the chart leaves a gap there instead of bridging it with a straight line).
     public func series(_ key: SeriesKey, _ range: TimeRange, now: Date) -> [Double] {
         guard let k = Self.name(key), range == .h24 || range == .d7 else { return [] }
         let tier: Int64 = range == .h24 ? 600 : 3600
@@ -123,8 +123,8 @@ public final class HistoryStore: Sendable {
         }
     }
 
-    /// Günlük gidişat (Docker'ın verisi, §9.4): 1 sa kovalarından yerel gün ortalaması. Aralıktaki ilk veri gününden
-    /// bugüne en fazla `days` nokta; veri olmayan gün NaN (grafikte boşluk).
+    /// Daily trend (Docker's data): local-day average from the 1 h buckets. At most `days` points, from the first day with data in the range
+    /// up to today; a day without data is NaN (a gap in the chart).
     public func daily(_ key: SeriesKey, days: Int, now: Date, calendar: Calendar) -> [Double] {
         guard let k = Self.name(key) else { return [] }
         let today = calendar.startOfDay(for: now)
@@ -160,7 +160,7 @@ public final class HistoryStore: Sendable {
         return out
     }
 
-    /// Gidişatın farkı: son sonlu gün eksi ilk sonlu gün; 2'den az sonlu gün varsa nil.
+    /// Trend delta: last finite day minus first finite day; nil if there are fewer than 2 finite days.
     public static func trend(_ daily: [Double]) -> Double? {
         let f = daily.filter(\.isFinite)
         guard f.count >= 2, let a = f.first, let b = f.last else { return nil }
@@ -183,7 +183,7 @@ public final class HistoryStore: Sendable {
         }
     }
 
-    /// Eski kovaları ve olayları siler; WAL dosyasını küçültür.
+    /// Deletes old buckets and events; shrinks the WAL file.
     public func prune(now: Date) {
         let t = Int64(now.timeIntervalSince1970)
         state.withLock { s in
@@ -196,7 +196,7 @@ public final class HistoryStore: Sendable {
         }
     }
 
-    /// Yarım kovaları o ana kadarki ortalamayla yazar (uygulama kapanırken): yeniden başlatmada son dilim kaybolmaz.
+    /// Writes partial buckets with the average so far (on app quit), so the last slice is not lost on restart.
     public func flush() {
         state.withLock { s in
             guard let db = s.db else { return }
@@ -205,7 +205,7 @@ public final class HistoryStore: Sendable {
         }
     }
 
-    // MARK: - Test yardımcıları
+    // MARK: - Test helpers
 
     func oldest(tier: Int64) -> Date? {
         state.withLock { s -> Date? in

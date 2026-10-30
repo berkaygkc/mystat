@@ -1,7 +1,7 @@
 import MystatCore
 import SwiftUI
 
-/// Genel Bakış (mockup `secOverview`).
+/// Overview section.
 struct OverviewSection<Source: MetricsSource>: View {
     let source: Source
     @Bindable var state: MonitorState

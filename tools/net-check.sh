@@ -1,10 +1,10 @@
 #!/bin/bash
-# Ağ ayrıntılarını sistem araçlarıyla karşılaştırır (plan 2e, Task 8). Salt okunur; ağda yalnızca yönlendiriciye ping.
-# Kullanım: tools/net-check.sh [tur=3] [aralık_sn=6]
-#   DEBUG mystat'ı --log-values --section net ile başlatır (monitör Ağ bölümünde açılır: nettop akışı, ping, bağlantı).
-#   Her turda mystat'ın yönlendiricisi, gecikmesi ve en çok indireni; yanında `route -n get default`, `ping -c 3`
-#   ortalaması ve aynı anda başvuru olarak `nettop -P -L 2 -d` ile en çok bayt alan süreç. Sonda Ağ bölümü açıkken
-#   mystat'ın 30 sn'lik işlemci zamanı ve alt süreci olmadığı (uygulama bazında ağ çekirdek soket sayaçlarından).
+# Compares network details with system tools. Read-only; the only network traffic is a ping to the router.
+# Usage: tools/net-check.sh [rounds=3] [interval_secs=6]
+#   Starts the DEBUG mystat with --log-values --section net (the monitor opens on the Network section: nettop stream, ping, connection).
+#   Each round prints mystat's router, latency and top downloader, next to `route -n get default`, the `ping -c 3`
+#   average and, as a reference, the process receiving the most bytes according to `nettop -P -L 2 -d`. At the end, with the
+#   Network section open, mystat's CPU time over 30 s and a check that it has no child processes (per-app network comes from kernel socket counters).
 set -euo pipefail
 export LC_ALL=C
 cd "$(dirname "$0")/.."
@@ -17,11 +17,11 @@ PID=$!
 disown "$PID"
 cleanup() { kill "$PID" 2>/dev/null || true; rm -f "$LOG"; }
 trap cleanup EXIT
-sleep 10   # nettop'un ilk örneği ve birkaç ping
+sleep 10   # nettop's first sample and a few pings
 
 field() { sed -E "s/.* $1=([^ ]+).*/\1/" <<< "$2"; }
 secs() { ps -o time= -p "$1" 2>/dev/null | awk -F'[:.]' '{ if (NF == 3) print $1 * 60 + $2 + $3 / 100; else print 0 }'; }
-printf "%-8s | %-13s %-13s | %-6s %-6s | %-22s %s\n" saat mystat_rtr route_gw lat ping top nettop_top
+printf "%-8s | %-13s %-13s | %-6s %-6s | %-22s %s\n" time mystat_rtr route_gw lat ping top nettop_top
 for i in $(seq 1 "$ROUNDS"); do
     M=$(tail -1 "$LOG")
     GW=$(route -n get default 2>/dev/null | awk '/gateway:/ { print $2 }')
@@ -32,7 +32,7 @@ for i in $(seq 1 "$ROUNDS"); do
     [ "$i" -lt "$ROUNDS" ] && sleep "$GAP"
 done
 
-# Uygulama bazında ağ çekirdek soket sayaçlarından (alt süreç yok): Ağ bölümü açıkken 30 sn'lik işlemci zamanı.
-echo "alt süreçler: $(pgrep -P "$PID" | tr '\n' ' ')(boş olmalı)"
+# Per-app network comes from kernel socket counters (no child processes): CPU time over 30 s with the Network section open.
+echo "child processes: $(pgrep -P "$PID" | tr '\n' ' ')(should be empty)"
 A0=$(secs "$PID"); sleep 30; A1=$(secs "$PID")
-awk -v a="$A0" -v A="$A1" 'BEGIN { printf "Ağ bölümü açık, 30 sn işlemci: mystat %.2f sn (dakikaya %.2f sn)\n", A - a, (A - a) * 2 }'
+awk -v a="$A0" -v A="$A1" 'BEGIN { printf "Network section open, 30 s CPU: mystat %.2f s (%.2f s per minute)\n", A - a, (A - a) * 2 }'

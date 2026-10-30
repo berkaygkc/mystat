@@ -1,8 +1,8 @@
 import Foundation
 
-/// 10 dk (5 sn × 120) ve 1 sa (30 sn × 120) bellek içi seriler; 2 sn'lik örnekler kova ortalamasıyla.
-/// Uzun aralıkta (uyku) seriler sıfırlanır: boşluk düz çizgiyle doldurulmaz (Review Focus #1).
-/// 24 sa ve 7 gün `HistoryStore`'dadır.
+/// In-memory series of 10 min (5 s × 120) and 1 h (30 s × 120); 2 s samples are averaged into buckets.
+/// Series are reset after a long interval (sleep): the gap is not filled with a straight line.
+/// 24 h and 7 days live in `HistoryStore`.
 public struct SeriesBuffer: Sendable {
     private struct Key: Hashable { let key: SeriesKey; let range: TimeRange }
     private struct Bucket: Sendable { var index: Int64; var sum: Double; var n: Int }
@@ -32,28 +32,28 @@ public struct SeriesBuffer: Sendable {
         }
     }
 
-    /// En fazla `pointCount` nokta, eskiden yeniye; son nokta henüz kapanmamış kova.
+    /// At most `pointCount` points, oldest to newest; the last point is a bucket that has not closed yet.
     public func series(_ key: SeriesKey, _ range: TimeRange) -> [Double] {
         guard let r = rings[Key(key: key, range: range)] else { return [] }
         return r.done + (r.open.map { [$0.sum / Double($0.n)] } ?? [])
     }
 }
 
-/// Grup başına kısa geçmiş: 10 dk çekirdek ve ayak izi (2 sn), 1 sa disk yazımı (dakikalık kovalar).
-/// Detay paneli grafiği, bellek olayının "en çok büyüyen" ve disk olayının "en çok yazan" sorumluları buradan çıkar.
+/// Short history per group: 10 min of cores and footprint (2 s), 1 h of disk writes (per-minute buckets).
+/// The detail panel chart, the "fastest growing" culprits of a memory incident and the "top writers" of a disk incident come from here.
 public struct GroupHistory: Sendable {
     static let window: TimeInterval = 600, diskWindow: TimeInterval = 3600
-    /// Süreçler kapalı panelde 5 sn'de bir okunur; boşluk eşiği 3 tempo.
+    /// Processes are read every 5 s while the panel is closed; the gap threshold is 3 ticks.
     public static let gap: TimeInterval = 15
 
     private struct Point: Sendable { let t: Date; let cores: Double; let mem: Double; let watts: Double }
     private var points: [String: [Point]] = [:]
-    private var writes: [String: [Int64: UInt64]] = [:]   // dakika → bayt
+    private var writes: [String: [Int64: UInt64]] = [:]   // minute → bytes
     private var last: Date?
 
     public init() {}
 
-    /// `writtenBytes`: bu aralıkta grubun diske yazdığı bayt (fark).
+    /// `writtenBytes`: bytes the group wrote to disk in this interval (delta).
     public mutating func add(_ groups: [ProcessGroup], writtenBytes: [String: UInt64], at: Date) {
         if let l = last, at.timeIntervalSince(l) > Self.gap { points.removeAll(); writes.removeAll() }
         last = at
@@ -74,17 +74,17 @@ public struct GroupHistory: Sendable {
 
     public func cores(_ id: String) -> [Double] { points[id]?.map(\.cores) ?? [] }
 
-    /// Pencerenin başından bu yana ayak izi değişimi (GB).
+    /// Footprint change since the start of the window (GB).
     public func memoryGrowthGB() -> [String: Double] {
         points.compactMapValues { ps in ps.count > 1 ? ps.last!.mem - ps.first!.mem : nil }
     }
 
-    /// Pencere (10 dk) boyunca ortalama watt: "En çok enerji harcayanlar · son 10 dk".
+    /// Average watts over the window (10 min): "Top energy users · last 10 min".
     public func wattsAverage() -> [String: Double] {
         points.mapValues { ps in ps.reduce(0) { $0 + $1.watts } / Double(ps.count) }
     }
 
-    /// Son 1 saatte yazılan (GB, ondalık).
+    /// Written in the last hour (GB, decimal).
     public func diskWrittenGB1h() -> [String: Double] {
         writes.mapValues { Double($0.values.reduce(0, &+)) / 1e9 }
     }

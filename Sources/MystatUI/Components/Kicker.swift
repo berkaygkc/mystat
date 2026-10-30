@@ -1,14 +1,14 @@
 import MystatCore
 import SwiftUI
 
-/// Küçük büyük harfli üst etiket ve durum noktası ("● ŞU AN").
+/// Small uppercase kicker label and status dot ("● NOW").
 public struct Kicker: View {
     let text: String
     let level: Level
     let pulsing: Bool
     let tintText: Bool
 
-    /// `tintText`: monitörde olay etiketinin yazısı da renklenir; panelde yalnızca nokta.
+    /// `tintText`: in the monitor the incident label's text is tinted too; in the panel only the dot.
     public init(_ text: String, level: Level = .ok, pulsing: Bool = false, tintText: Bool = true) {
         self.text = text; self.level = level; self.pulsing = pulsing; self.tintText = tintText
     }

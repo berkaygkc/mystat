@@ -3,8 +3,8 @@ import Foundation
 import MystatCore
 import Synchronization
 
-/// libproc ile süreç listesi (spec §9.1). Root gerektirmez; başka kullanıcıların süreçleri yalnızca yoluyla gelir.
-/// Yol, argüman ve çalışma klasörü (pid, başlangıç) anahtarıyla önbellekte; her turda yalnızca sayaçlar okunur.
+/// Process list via libproc. Needs no root; other users' processes come only with their path.
+/// Path, arguments and working directory are cached by (pid, start time) key; each round reads only the counters.
 public final class ProcessProbe: Sendable {
     private struct Key: Hashable { let pid: Int32; let start: Date }
     private struct Static: Sendable { let path: String?; let args: [String]; let cwd: String?; let root: String?; let terminal: String? }
@@ -12,7 +12,7 @@ public final class ProcessProbe: Sendable {
     private let roots = Mutex<[String: String?]>([:])
     private let foreignPaths = Mutex<[Int32: String]>([:])
 
-    /// Apple Silicon'da rusage süreleri Mach zaman birimidir (M serisinde 125/3); nanosaniyeye çevrilir.
+    /// On Apple Silicon rusage times are in Mach time units (125/3 on M-series); converted to nanoseconds.
     static let timebase: (numer: UInt64, denom: UInt64) = {
         var t = mach_timebase_info()
         mach_timebase_info(&t)
@@ -64,7 +64,7 @@ public final class ProcessProbe: Sendable {
         return out
     }
 
-    /// Başka kullanıcının süreci: yalnızca yol (önbellekte), sayaç yok.
+    /// Another user's process: path only (cached), no counters.
     private func foreign(_ pid: Int32) -> ProcessRecord {
         let path = foreignPaths.withLock { $0[pid] } ?? {
             let p = Self.path(pid) ?? (pid == 0 ? "kernel_task" : "")
@@ -76,7 +76,7 @@ public final class ProcessProbe: Sendable {
                              restricted: true)
     }
 
-    /// Dinlenen TCP portları (yalnızca istenen pid'ler; geliştirme sunucusu adayları).
+    /// Listening TCP ports (only for the requested pids; dev-server candidates).
     public func listeningPorts(pids: [Int32]) -> [Int32: [Int]] {
         var out: [Int32: [Int]] = [:]
         for pid in pids {
@@ -101,7 +101,7 @@ public final class ProcessProbe: Sendable {
         return out
     }
 
-    // MARK: - libproc yardımcıları
+    // MARK: - libproc helpers
 
     static func allPids() -> [Int32] {
         let n = proc_listallpids(nil, 0)
@@ -124,7 +124,7 @@ public final class ProcessProbe: Sendable {
         return string(v.pvi_cdir.vip_path).nonEmpty
     }
 
-    /// cwd'den yukarı en yakın `.git` (ev klasöründe durur); klasör başına bir kez bakılır.
+    /// Nearest `.git` going up from cwd (stops at the home folder); looked up once per folder.
     private func projectRoot(_ cwd: String) -> String? {
         if let hit = roots.withLock({ $0[cwd] }) { return hit }
         var dir = cwd, found: String? = nil
@@ -137,7 +137,7 @@ public final class ProcessProbe: Sendable {
         return found
     }
 
-    /// `TERM_PROGRAM` → görünen ad.
+    /// `TERM_PROGRAM` → display name.
     static func terminalName(_ raw: String) -> String {
         switch raw {
         case "Apple_Terminal": "Terminal"
@@ -149,7 +149,7 @@ public final class ProcessProbe: Sendable {
         }
     }
 
-    /// `KERN_PROCARGS2`: argc, çalıştırılabilir yol, boşluk, argv, ortam. Başka kullanıcının sürecinde EPERM → boş.
+    /// `KERN_PROCARGS2`: argc, executable path, padding, argv, environment. EPERM on another user's process → empty.
     static func argsAndEnv(_ pid: Int32, _ buf: inout [UInt8]) -> ([String], [String: String]) {
         var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
         var size = buf.count

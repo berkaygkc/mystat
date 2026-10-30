@@ -4,19 +4,19 @@ import MystatTestSupport
 import Testing
 @testable import MystatLive
 
-/// Oturum açılışında başlama: ilk açılışta bir kez kaydolunur; kullanıcı kaldırdıysa ya da onay bekliyorsa dokunulmaz.
+/// Launch at login: registration happens once on first launch; if the user removed it or approval is pending, it is left alone.
 @Suite(.language("tr")) struct LoginItemTests {
     @Test func registersOnlyOnceWhenNotRegistered() {
         #expect(LoginItem.shouldRegister(status: .notRegistered, alreadyAsked: false))
-        #expect(!LoginItem.shouldRegister(status: .notRegistered, alreadyAsked: true))   // kullanıcı Giriş Öğeleri'nden kaldırmış
+        #expect(!LoginItem.shouldRegister(status: .notRegistered, alreadyAsked: true))   // the user removed it from Login Items
         #expect(!LoginItem.shouldRegister(status: .enabled, alreadyAsked: false))
-        #expect(!LoginItem.shouldRegister(status: .requiresApproval, alreadyAsked: false))   // Sistem Ayarları'ndan onaylanır
-        // Hiç kaydolmamış uygulamada macOS 26 `.notFound` döndürür (ölçüldü); bu da ilk kayıt fırsatıdır.
+        #expect(!LoginItem.shouldRegister(status: .requiresApproval, alreadyAsked: false))   // approved in System Settings
+        // For an app that was never registered, macOS 26 returns `.notFound` (measured); that is also the first-registration opportunity.
         #expect(LoginItem.shouldRegister(status: .notFound, alreadyAsked: false))
         #expect(!LoginItem.shouldRegister(status: .notFound, alreadyAsked: true))
     }
 
-    /// Yalnızca kurulu paket kaydolur; build/ altındaki geliştirme paketi giriş öğesinin yolunu değiştirmesin.
+    /// Only the installed bundle registers; the development bundle under build/ must not change the login item's path.
     @Test func onlyInstalledBundleRegisters() {
         #expect(LoginItem.isInstalled(URL(fileURLWithPath: "/Users/u/Applications/mystat.app")))
         #expect(LoginItem.isInstalled(URL(fileURLWithPath: "/Applications/mystat.app")))

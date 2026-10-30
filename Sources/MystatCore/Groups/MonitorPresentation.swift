@@ -1,8 +1,8 @@
 import Foundation
 
-/// Monitör penceresine özgü metin ve eşlemeler.
+/// Text and mappings specific to the Monitor window.
 public enum MonitorPresentation {
-    /// Kenar menüsündeki canlı değer (mockup'taki `navVal`).
+    /// Live value shown in the sidebar.
     public static func navValue(_ section: String, _ s: Snapshot) -> (text: String, level: Level) {
         switch section {
         case "cpu": (Fmt.pct(s.cpu.percent), Thresholds.cpuTotal(s.cpu.percent))
@@ -15,20 +15,20 @@ public enum MonitorPresentation {
         }
     }
 
-    /// Kenar menüsündeki olay kartı: panel başlığı, sondaki nokta olmadan (mockup `.side-inc .t`).
+    /// Incident card in the sidebar: the panel headline, without the trailing period.
     public static func sideIncidentText(_ s: Snapshot) -> String {
         let t = String(GroupPresentation.panelHeadline(s).title.characters)
         return t.hasSuffix(".") ? String(t.dropLast()) : t
     }
 
-    /// Olay kartının tek cümlelik özeti.
+    /// One-sentence summary of the incident card.
     public static func incidentSentence(_ s: Snapshot) -> String {
         guard let inc = s.incident else { return "" }
         let dur = L10n.plural("dur.for", inc.minutes)
         switch inc.kind {
         case .cpu:
             let lead = s.groups.first { $0.id == inc.culpritIDs.first }
-            guard s.cpu.percent >= 70 else {   // toplam düşük, tek grup yüksek
+            guard s.cpu.percent >= 70 else {   // overall load is low, a single group is high
                 return L10n.t("monitor.incident.cpu.group", ["name": lead?.name ?? L10n.t("common.aGroup"), "for": dur, "cores": Fmt.dec1(lead?.cpuCores ?? 0)])
             }
             let source = lead.map { $0.folder != nil ? L10n.t("monitor.incident.cpu.fromProject", ["project": $0.context])
@@ -58,12 +58,12 @@ public enum MonitorPresentation {
         }
     }
 
-    /// Olayın detayının bulunduğu bölüm.
+    /// The section that holds the incident's details.
     public static func section(for kind: IncidentKind) -> String {
         switch kind { case .cpu: "cpu"; case .memory: "mem"; case .disk: "disk"; case .docker: "docker"; case .heat, .battery: "sys" }
     }
 
-    /// Olay kartındaki küçük grafiğin serisi.
+    /// Series for the small chart on the incident card.
     public static func seriesKey(for kind: IncidentKind) -> SeriesKey {
         switch kind { case .cpu: .cpu; case .memory: .memPressure; case .disk: .diskWrite; case .docker: .dockerCPU; case .heat: .temp; case .battery: .power }
     }
@@ -72,14 +72,14 @@ public enum MonitorPresentation {
         Dictionary(uniqueKeysWithValues: ["overview", "cpu", "mem", "disk", "net", "docker", "sys"].map { ($0, L10n.t("section.\($0)")) })
     }
 
-    /// "İşlemci'de incele", "Bellek'te incele" … (Türkçede ek bölüme göre, dil dosyasında elle).
+    /// "Investigate in CPU", "Investigate in Memory" … (in Turkish the suffix depends on the section, so it is written by hand in the language file).
     public static func inspectTitle(section: String) -> String {
         ["cpu", "mem", "disk", "net", "docker", "sys"].contains(section) ? L10n.t("inspect.\(section)") : L10n.t("inspect.monitor")
     }
 }
 
 extension MonitorPresentation {
-    /// Genel Bakış başlığının altındaki paragraf (mockup `secOverview`).
+    /// Paragraph under the Overview headline.
     public static func overviewLede(_ s: Snapshot) -> String {
         guard let inc = s.incident else {
             let docker = s.capabilities.docker && s.docker.running ? L10n.plural("overview.calm.docker", s.docker.containers.count) : ""
@@ -88,14 +88,14 @@ extension MonitorPresentation {
         guard inc.kind == .cpu, let lead = s.groups.first(where: { $0.id == inc.culpritIDs.first }) else {
             return GroupPresentation.panelHeadline(s).lede
         }
-        // Olgular verilerden: eşlik eden sunucu yalnızca olayda ilişkiliyse, "normal" yalnızca bellek ve disk sakinse.
+        // Facts come from the data: the accompanying server only if it is involved in the incident, "normal" only if memory and disk are calm.
         var t = GroupPresentation.cpuLede(lead, s, inc, joined: true)
         if s.memory.pressureLevel == .ok, Thresholds.diskFree(s.disk.freeGB) == .ok { t += L10n.t("overview.normal") }
         return t
     }
 
-    /// Çekirdek etiketleri: önce performans (P), sonra verimlilik (V). Canlı seri bu sırada gelir (`SnapshotBuilder`);
-    /// makine bilgisi yoksa (örnek veri) mockup'taki 10 + 4.
+    /// Core labels: performance (P) first, then efficiency (E). The live series arrives in this order (`SnapshotBuilder`);
+    /// without machine info (sample data) it is 10 + 4.
     public static func coreLabels(count: Int, machine: MachineInfo?) -> (labels: [String], note: String) {
         let p = machine.map { $0.pCores + $0.eCores == count ? $0.pCores : count } ?? Swift.min(10, count)
         let e = count - p

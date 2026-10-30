@@ -1,7 +1,7 @@
 import Foundation
 import MystatCore
 
-/// Gerçek sistemi okuyan probe: alt okuyuculara devreder.
+/// Probe that reads the real system: delegates to the sub-readers.
 public struct DefaultProbe: SystemProbe {
     let mach = MachProbe()
     let netDisk = NetDiskProbe()

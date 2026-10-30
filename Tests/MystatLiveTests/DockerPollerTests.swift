@@ -6,14 +6,14 @@ import MystatTestSupport
 import Testing
 @testable import MystatLive
 
-/// Senaryolu sahte Docker: her `stats` çağrısında sayaçlar ilerler (Δsystem 14e9, Δcpu = yüzde × 1e7 ⇒ ×14×100 ile o yüzde).
+/// A scripted fake Docker: counters advance on every `stats` call (Δsystem 14e9, Δcpu = percent × 1e7 ⇒ ×14×100 gives that percent).
 final class FakeDockerAPI: DockerAPI {
     struct State {
         var down = false
         var list: [DockerContainerRaw] = []
-        var cpu: [String: Double] = [:]          // id → yüzde
-        var missing: Set<String> = []            // stats'ta 404
-        var slow: Set<String> = []               // stats'ta zaman aşımı
+        var cpu: [String: Double] = [:]          // id → percent
+        var missing: Set<String> = []            // 404 on stats
+        var slow: Set<String> = []               // timeout on stats
         var calls: [String: Int] = [:]
         var posts: [String] = []
         var statsCount: [String: UInt64] = [:]
@@ -76,7 +76,7 @@ final class FakeDockerAPI: DockerAPI {
         api.state.withLock { $0.down = false }
         await p.poll(at: t0.addingTimeInterval(30))
         #expect(p.latest.withLock { $0.running && $0.containers.count == 1 && $0.vmCores == 14 })
-        #expect(api.n("info") == 2)   // ilki düştü, yeniden bağlanınca tekrar
+        #expect(api.n("info") == 2)   // the first dropped, again after reconnecting
     }
 
     @Test func firstPollShowsZeroThenRealCPU() async {
@@ -131,24 +131,24 @@ final class FakeDockerAPI: DockerAPI {
         #expect(api.n("df") == 0 && p.latest.withLock { $0.running })
     }
 
-    // MARK: - Eylemler (§7.4)
+    // MARK: - Actions
 
     @Test func restartPostsToContainer() async {
         let api = FakeDockerAPI()
         let p = DockerPoller(api: api, rawFile: { nil })
         #expect(await p.perform(.restart(id: "abc", name: "web")) == .done(reclaimedGB: nil))
         #expect(api.state.withLock { $0.posts } == ["/containers/abc/restart?t=10"])
-        #expect(api.n("containers") == 1)                            // eylemden sonra hemen okunur
+        #expect(api.n("containers") == 1)                            // read immediately after the action
     }
 
-    /// Adsız temizlik etiketle süzülür: eski motorlarda ya da Podman'da filtresiz prune adlı veri volume'lerini de siler.
+    /// Unnamed cleanup is filtered by label: on older engines or Podman, an unfiltered prune also deletes named data volumes.
     @Test func pruneAnonymousUsesLabelFilter() async {
         let api = FakeDockerAPI()
         api.state.withLock { $0.reclaimed = 7_050_000_000 }
         let p = DockerPoller(api: api, rawFile: { nil })
         #expect(await p.perform(.pruneAnonymousVolumes) == .done(reclaimedGB: 7.05))
         #expect(api.state.withLock { $0.posts } == ["/volumes/prune?filters=%7B%22label%22%3A%5B%22com.docker.volume.anonymous%22%5D%7D"])
-        #expect(api.n("df") == 1)                                    // temizlikten sonra disk yenilenir
+        #expect(api.n("df") == 1)                                    // disk is refreshed after cleanup
     }
 
     @Test func pruneNamedVolumesOnly() async {
@@ -157,7 +157,7 @@ final class FakeDockerAPI: DockerAPI {
         _ = await p.perform(.pruneNamedVolumes)
         _ = await p.perform(.pruneImages)
         let posts = api.state.withLock { $0.posts }
-        // Yalnızca adlılar: onay penceresinin söylediği sayı ve boyutla aynı küme.
+        // Named only: the same set, with the same count and size, as the confirmation dialog states.
         #expect(posts[0] == "/volumes/prune?filters=%7B%22all%22%3A%5B%22true%22%5D%2C%22label%21%22%3A%5B%22com.docker.volume.anonymous%22%5D%7D")
         #expect(posts[1] == "/images/prune?filters=%7B%22dangling%22%3A%5B%22false%22%5D%7D")
     }
@@ -168,7 +168,7 @@ final class FakeDockerAPI: DockerAPI {
         #expect(await DockerPoller(api: api, rawFile: { nil }).perform(.stop(id: "abc", name: "web")) == .failed("Docker çalışmıyor"))
     }
 
-    /// Temizlik sürerken çift tıklama ikinci isteği göndermez.
+    /// A double click during a cleanup does not send a second request.
     @Test func duplicatePruneIsIgnored() async {
         let api = FakeDockerAPI()
         api.state.withLock { $0.postDelay = 0.4 }
@@ -180,7 +180,7 @@ final class FakeDockerAPI: DockerAPI {
         #expect(api.state.withLock { $0.posts.count } == 1)
     }
 
-    /// Yoğun sanal makinede tek container'ın istatistiği gecikirse Docker "çalışmıyor" sayılmaz; o container önceki değeriyle kalır.
+    /// On a busy virtual machine, if one container's stats are delayed, Docker is not considered "not running"; that container keeps its previous value.
     @Test func slowContainerStatsDoNotMarkDockerDown() async {
         let api = FakeDockerAPI()
         api.state.withLock { $0.list = [FakeDockerAPI.raw("a"), FakeDockerAPI.raw("busy")]; $0.cpu = ["a": 5, "busy": 80] }

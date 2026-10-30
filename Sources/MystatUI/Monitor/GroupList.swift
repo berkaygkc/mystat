@@ -1,7 +1,7 @@
 import MystatCore
 import SwiftUI
 
-/// "Kim yiyor" listesi (mockup `groupList`). Alt süreçler yalnızca İşlemci'de açılır.
+/// The "who is using it" list. Child processes expand only under CPU.
 public struct GroupList: View {
     let groups: [ProcessGroup]
     let metric: GroupMetric

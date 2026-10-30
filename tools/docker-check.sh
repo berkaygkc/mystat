@@ -1,9 +1,9 @@
 #!/bin/bash
-# Docker değerlerini docker CLI ile yan yana yazar (plan 2b, Task 10).
-# Kullanım: tools/docker-check.sh [tur=5] [aralık_sn=20]
-#   DEBUG mystat'ı --log-values ile başlatır. Her turda: container toplam CPU'su (%100 = 1 çekirdek) ve belleği (GiB)
-#   `docker stats --no-stream` ile; sonda image ve volume geri kazanılabilirleri `docker system df` ile karşılaştırılır.
-#   İki taraf da anlık değer verir (mystat 15 sn tempoyla, docker stats kendi ~2 sn penceresiyle); ölçüt tur ortalaması.
+# Prints Docker values side by side with the docker CLI.
+# Usage: tools/docker-check.sh [rounds=5] [interval_secs=20]
+#   Starts the DEBUG mystat with --log-values. Each round compares the total container CPU (100% = 1 core) and memory (GiB)
+#   with `docker stats --no-stream`; at the end, reclaimable image and volume space is compared with `docker system df`.
+#   Both sides report instantaneous values (mystat at a 15 s cadence, docker stats over its own ~2 s window); the metric is the round average.
 set -euo pipefail
 export LC_ALL=C
 cd "$(dirname "$0")/.."
@@ -15,14 +15,14 @@ LOG="$(mktemp -t mystat-docker)"
 PID=$!
 disown "$PID"
 trap 'kill $PID 2>/dev/null; rm -f "$LOG"' EXIT
-sleep 35   # ilk iki Docker okuması (kapalı panelde 15 sn tempo) ve ilk disk okuması
+sleep 35   # first two Docker readings (15 s cadence with the panel closed) and the first disk reading
 
 field() { sed -E "s/.* $1=([0-9.]+).*/\1/" <<< "$2"; }
-# "1.5GB" / "300MB" / "12kB" → ondalık GB
+# "1.5GB" / "300MB" / "12kB" → decimal GB
 gb() { awk '{ n = $1; u = $1; sub(/[A-Za-z]+$/, "", n); sub(/^[0-9.]+/, "", u)
               f = u == "GB" ? 1 : u == "MB" ? 1e-3 : u == "kB" ? 1e-6 : u == "B" ? 1e-9 : u == "TB" ? 1e3 : 0; printf "%.2f", n * f }' <<< "$1"; }
 
-printf "%-8s | %-4s | %-7s %-7s | %-8s %-8s\n" saat adet "cpu" "docker" "bellek" "docker"
+printf "%-8s | %-4s | %-7s %-7s | %-8s %-8s\n" time count "cpu" "docker" "memory" "docker"
 SUM_C=0; SUM_M=0; SUM_DC=0; SUM_DM=0
 for i in $(seq 1 "$ROUNDS"); do
     CLI=$(docker stats --no-stream --format '{{.CPUPerc}} {{.MemUsage}}')
@@ -38,12 +38,12 @@ for i in $(seq 1 "$ROUNDS"); do
     [ "$i" -lt "$ROUNDS" ] && sleep "$GAP"
 done
 awk -v c="$SUM_C" -v dc="$SUM_DC" -v m="$SUM_M" -v dm="$SUM_DM" -v n="$ROUNDS" 'BEGIN {
-    printf "ortalama: CPU mystat %%%.1f, docker %%%.1f (%+.1f puan) · bellek mystat %.2f GiB, docker %.2f GiB (%+.1f%%)\n",
+    printf "average: CPU mystat %%%.1f, docker %%%.1f (%+.1f points) · memory mystat %.2f GiB, docker %.2f GiB (%+.1f%%)\n",
            c / n, dc / n, (c - dc) / n, m / n, dm / n, (dm > 0 ? (m - dm) / dm * 100 : 0) }'
 
 M=$(tail -1 "$LOG")
 DF=$(docker system df --format '{{.Type}}|{{.Reclaimable}}')
 img=$(gb "$(awk -F'|' '$1 == "Images" { split($2, a, " "); print a[1] }' <<< "$DF")")
 vol=$(gb "$(awk -F'|' '$1 == "Local Volumes" { split($2, a, " "); print a[1] }' <<< "$DF")")
-printf "geri kazanılabilir: image mystat %s, docker %s GB · volume mystat %s, docker %s GB · adsız volume (mystat) %s GB\n" \
+printf "reclaimable: image mystat %s, docker %s GB · volume mystat %s, docker %s GB · anonymous volume (mystat) %s GB\n" \
     "$(field imgReclaim "$M")" "$img" "$(field volReclaim "$M")" "$vol" "$(field volAnon "$M")"

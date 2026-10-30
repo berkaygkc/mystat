@@ -4,7 +4,7 @@ import MystatUI
 import SwiftUI
 
 /// `mystat --snapshot <menubar|panel|monitor|bubbles|charts> --out x.png [--lang en|tr] [--dark] [--incident] [--kind k] [--section s] [--size WxH] [--scan s]`
-/// Görünümü ekran dışı bir pencerede çizip PNG'ye yazar; mockup karşılaştırması içindir.
+/// Draws the view in an off-screen window and writes it to PNG; for visual comparison.
 @MainActor
 enum SnapshotMode {
     struct Options {
@@ -73,7 +73,7 @@ enum SnapshotMode {
         root.layoutSubtreeIfNeeded()
         guard let rep = root.bitmapImageRepForCachingDisplay(in: root.bounds) else { fatalError("no bitmap") }
         root.cacheDisplay(in: root.bounds, to: rep)
-        // Ekran profiliyle yazılırsa profil okumayan araçlarda renkler kayıyor; karşılaştırma için sRGB.
+        // If written with the display profile, colors shift in tools that ignore profiles; sRGB for comparison.
         let srgb = rep.converting(to: .sRGB, renderingIntent: .default) ?? rep
         guard let png = srgb.representation(using: .png, properties: [:]) else { fatalError("no png") }
         try? png.write(to: URL(fileURLWithPath: o.out))
@@ -81,7 +81,7 @@ enum SnapshotMode {
         exit(0)
     }
 
-    /// Hedefler sonraki tasklarda eklenir.
+    /// Builds the view for the requested snapshot target.
     static func makeView(_ o: Options, _ source: SampleSource) -> AnyView {
         switch o.target {
         case "menubar":
@@ -114,7 +114,7 @@ enum SnapshotMode {
                 .shadow(color: .black.opacity(0.35), radius: 40, y: 30)
                 .padding(.top, 56))
         case "bubbles":
-            // Yalnızca harita, mockup karesiyle aynı boyutta: --bm-path, --bm-select, --bm-zoom, --bm-p, --bm-hover
+            // Map only, at a fixed size: --bm-path, --bm-select, --bm-zoom, --bm-p, --bm-hover
             let state = MonitorState()
             state.go(.disk)
             source.diskScan = o.scan == "scanning" ? .scanning(progress: 0.55, scannedGB: 128, currentPath: "~/Library/Caches") : .ready(scannedAt: Date())
@@ -140,7 +140,7 @@ enum SnapshotMode {
     }
 }
 
-/// Mockup'taki renkli duvar kâğıdı; cam yüzeylerin arkasında bir şey görünsün diye.
+/// Colorful wallpaper, so something shows behind the glass surfaces.
 struct SnapshotBackdrop<Content: View>: View {
     let dark: Bool
     @ViewBuilder let content: () -> Content
@@ -159,7 +159,7 @@ struct SnapshotBackdrop<Content: View>: View {
     }
 }
 
-/// Anlık görüntü için menü çubuğu şeridi: blok sağda, sistem simgeleri için 140 pt boşluk.
+/// Menu bar strip for snapshots: block on the right, 140 pt gap for system icons.
 struct MenubarStrip: View {
     let model: StatusBlockModel
     let highlighted: Bool
@@ -182,7 +182,7 @@ struct BlockHost: NSViewRepresentable {
     let highlighted: Bool
     func makeNSView(context: Context) -> StatusBlockView {
         let v = StatusBlockView(model: model)
-        v.appearance = NSAppearance(named: .darkAqua)   // renkli duvar kâğıdı üzerinde açık metin
+        v.appearance = NSAppearance(named: .darkAqua)   // light text over the colorful wallpaper
         v.highlighted = highlighted
         return v
     }

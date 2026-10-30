@@ -4,7 +4,7 @@ import MystatTestSupport
 import Testing
 @testable import MystatUI
 
-/// Arayüz metinlerinin İngilizcesi, birer örnekle.
+/// English UI strings, one example each.
 @MainActor @Suite(.language("en")) struct EnglishUITests {
     @Test func stopTexts() {
         let src = SampleSource(seed: 1)

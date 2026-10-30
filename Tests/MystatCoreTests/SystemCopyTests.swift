@@ -3,7 +3,7 @@ import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-/// Sistem metinleri veriden (§6.3): örnek verinin cümleleri aynı kalır; canlıda fan, güç ve GPU gerçek değerden.
+/// System texts come from data: the sample data's sentences stay the same; in live mode fan, power and GPU come from real values.
 @MainActor @Suite(.language("tr")) struct SystemCopyTests {
     var calm: Snapshot { SampleSource(seed: 1).snapshot }
     var heat: Snapshot { SampleSource(seed: 1, incident: true, kind: .heat).snapshot }
@@ -29,7 +29,7 @@ import Testing
         #expect(SystemPresentation.fanText(s) == "duruyor")
         s.fanRPM = 1356; s.fanMinRPM = 1350
         #expect(SystemPresentation.fanText(s) == "sessiz")
-        s.fanRPM = 1471                                               // bu makinede boştaki ikinci fan (en düşük 1.350)
+        s.fanRPM = 1471                                               // the idle second fan on this machine (minimum 1,350)
         #expect(SystemPresentation.fanText(s) == "sessiz")
         s.fanRPM = 1600
         #expect(SystemPresentation.fanText(s) == "1.600 dev/dk")
@@ -48,7 +48,7 @@ import Testing
         #expect(top.map(\.watts) == top.map(\.watts).sorted(by: >))
     }
 
-    /// Isınırken güç ifadesi gerçek durumdan: pildeyken "Prizdesin" denmez.
+    /// When warming up, the power phrase reflects the real state: on battery it never says "you are plugged in".
     @Test func heatLedeUsesRealPower() {
         var s = heat
         s.system.onAC = false
@@ -67,7 +67,7 @@ import Testing
         #expect(SystemPresentation.gpuPill(s) == ("Yoğun", .warn))
     }
 
-    /// "En çok enerji harcayanlar · son 10 dk": grupların watt'ı 10 dk penceresinin ortalaması.
+    /// "Top energy users · last 10 min": a group's watts are the average over the 10-minute window.
     @Test func energyListUsesTenMinuteAverage() {
         var h = GroupHistory()
         var g = calm.groups[0]
@@ -80,14 +80,14 @@ import Testing
         #expect(SystemPresentation.wattsText(g) == "4,0 W")
     }
 
-    /// Boştaki ikinci fan en düşük devrin hemen üstünde: panel "Fan sessiz" ile "Fan 1.467 dev/dk" arasında gidip gelmez.
+    /// The idle second fan sits just above the minimum speed: the panel does not flip between "Fan quiet" and "Fan 1,467 rpm".
     @Test func panelFanQuietNearMinimum() {
         var s = calm
         s.system.fanRPM = 1471; s.system.fanMinRPM = 1350
         #expect(PanelPresentation.cells(s).first { $0.section == "sys" }?.sub == "Fan sessiz, pil %100")
     }
 
-    /// Kritik termal durumda kart kendiyle çelişmez ("Ilık" / "Henüz yok" demez).
+    /// In a critical thermal state the card does not contradict itself (it does not say "Warm" / "Not yet").
     @Test func heatCardFollowsThermal() {
         var s = calm.system
         s.thermal = .crit
@@ -98,7 +98,7 @@ import Testing
         #expect(SystemPresentation.heatPill(s) == ("Normal", .ok) && SystemPresentation.slowdown(s) == "Yok")
     }
 
-    /// Fansız Mac (ya da 0 okunan fan): "Fanlar 0 dev/dk ile dönüyor" / "fan fan yok" yazılmaz.
+    /// A fanless Mac (or a fan that reads 0): "Fans spinning at 0 rpm" / "fan fan none" must not be written.
     @Test func fanlessWording() {
         var s = heat
         s.system.fanCount = 0; s.system.fanRPM = 0
@@ -110,7 +110,7 @@ import Testing
         #expect(PanelPresentation.cells(s).first { $0.section == "sys" }?.sub.contains("0 dev/dk") == false)
     }
 
-    /// §6.3 Güç kartı şarj durumunu söyler.
+    /// The power card states the charging status.
     @Test func powerLabelShowsCharging() {
         var s = calm.system
         #expect(SystemPresentation.powerLabel(s, sensors: true) == "Tam dolu · şu an 14 W harcanıyor")

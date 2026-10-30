@@ -1,7 +1,7 @@
 import MystatCore
 import SwiftUI
 
-/// Önce cümle başlığı. `.emphasized` işaretli kısım seviye rengine boyanır; `soft` kısmı soluk tonda.
+/// Sentence headline. The `.emphasized` part is tinted with the level color; the `soft` part is muted.
 public struct Headline: View {
     let title: AttributedString
     let soft: String?
@@ -20,7 +20,7 @@ public struct Headline: View {
         var t = AttributedString()
         for run in title.runs {
             var part = AttributedString(title[run.range].characters)
-            // Önceden rengi verilmiş parçalar (ör. soluk birimler) korunur.
+            // Pieces that already have a color (e.g. muted units) are kept.
             part.foregroundColor = run.inlinePresentationIntent == .emphasized ? Theme.levelColor(level) : (title[run.range].foregroundColor ?? Theme.ink)
             t += part
         }

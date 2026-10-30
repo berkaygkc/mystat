@@ -1,7 +1,7 @@
 import MystatCore
 import SwiftUI
 
-/// Panelin ve kenar menüsünün altındaki küçük dil menüsü: etkin dilin adı; tıklayınca sistem dili ve diller.
+/// Small language menu under the panel and sidebar: shows the active language's name; clicking lists system language and languages.
 struct LanguageMenu: View {
     var size: CGFloat = 12.5
 
@@ -20,12 +20,12 @@ struct LanguageMenu: View {
             } label: { label }
             .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
         } else {
-            label   // görüntü modu: yalnızca görünüş
+            label   // render mode: appearance only
         }
     }
 }
 
-/// Dil değişince alt ağacı baştan kurar: metinler `L10n`'dan okunur, gözlenmez.
+/// Rebuilds the subtree from scratch when the language changes: strings are read from `L10n`, not observed.
 struct LanguageRoot<Content: View>: View {
     let content: Content
     var body: some View {

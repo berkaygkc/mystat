@@ -71,7 +71,7 @@ import Testing
 
     @Test func networkUsersFilters() {
         let sample = SampleSource(seed: 1).snapshot.groups
-        #expect(GroupPresentation.networkUsers(sample).map(\.id) == GroupPresentation.sorted(sample, by: .network).map(\.id))   // örnek aynı
+        #expect(GroupPresentation.networkUsers(sample).map(\.id) == GroupPresentation.sorted(sample, by: .network).map(\.id))   // the sample stays the same
         var many = (0..<15).map { i in var g = sample[0]; g.netMBps = Double(15 - i); return g }
         many[3].netMBps = 0
         let users = GroupPresentation.networkUsers(many)

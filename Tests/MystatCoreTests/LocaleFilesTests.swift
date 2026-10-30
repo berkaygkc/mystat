@@ -2,13 +2,13 @@ import Foundation
 import Testing
 @testable import MystatCore
 
-/// Dil dosyası bekçileri: koddaki her anahtar İngilizcede var, her dil tam ve yer tutucuları aynı, kodda Türkçe metin yok.
-/// Yeni dil ekleyen katkıcı `swift test --filter LocaleFilesTests` ile denetler.
+/// Locale file guards: every key used in code exists in English, every language is complete with identical placeholders, and no Turkish text remains in code.
+/// A contributor adding a new language checks it with `swift test --filter LocaleFilesTests`.
 @Suite struct LocaleFilesTests {
     static let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     static let localizer = Localizer(directory: repo.appendingPathComponent("Locales"))
 
-    /// Bir dil dosyasının düz anahtarları (`_meta` hariç).
+    /// The flat keys of a locale file (excluding `_meta`).
     static func keys(_ code: String) -> [String: String] {
         let url = repo.appendingPathComponent("Locales/\(code).json")
         guard let data = try? Data(contentsOf: url), let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return [:] }
@@ -26,7 +26,7 @@ import Testing
         return out.sorted { $0.0 < $1.0 }
     }
 
-    /// `L10n.t/plural/emphasized` çağrılarının ilk argümanındaki anahtarlar ("panel.quit"; koşullu ifadede ikisi de).
+    /// The keys in the first argument of `L10n.t/plural/emphasized` calls ("panel.quit"; in a conditional expression, both of them).
     static func usedKeys(in text: String) -> Set<String> {
         let call = /L10n\.(?:t|plural|emphasized)\(([^,)]*)/
         let keyLiteral = /"([a-z][A-Za-z0-9]*(?:\.[A-Za-z0-9]+)+)"/
@@ -37,12 +37,12 @@ import Testing
         return out
     }
 
-    /// Anahtar dosyada yoksa (çoğulda `.other` de yoksa) eksik sayılır.
+    /// A key counts as missing if it is absent from the file (for plurals, if `.other` is also absent).
     static func missing(_ used: Set<String>, in keys: [String: String]) -> [String] {
         used.filter { keys[$0] == nil && keys[$0 + ".other"] == nil }.sorted()
     }
 
-    /// Kodda değişkenle kurulan anahtarlar.
+    /// Keys built from a variable in code.
     static let dynamicKeys: [String] =
         ["overview", "cpu", "mem", "disk", "net", "docker", "sys"].map { "section.\($0)" }
         + ["cpu", "mem", "disk", "net", "docker", "sys"].flatMap { ["inspect.\($0)", "kicker.\($0)"] }
@@ -86,7 +86,7 @@ import Testing
         }
     }
 
-    /// `Locales/` içindeki her dosya okunabilir olmalı: bozuk JSON ya da `_meta`sız dosya sessizce düşer, dil listede görünmez.
+    /// Every file in `Locales/` must be readable: a corrupt JSON or a file without `_meta` is silently dropped and the language does not appear in the list.
     static func unloadable(in dir: URL) -> [String] {
         let loaded = Set(Localizer(directory: dir).languages.map(\.code))
         let files = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
@@ -115,7 +115,7 @@ import Testing
         }
     }
 
-    /// Konum izni penceresini macOS çizer: metni Info.plist'ten (İngilizce) ya da sistem diline göre `<dil>.lproj`'dan alır.
+    /// macOS draws the location permission dialog: its text comes from Info.plist (English) or, by system language, from `<lang>.lproj`.
     @Test func infoPlistIsEnglishAndLocalized() throws {
         let keys = ["NSLocationUsageDescription", "NSLocationWhenInUseUsageDescription"]
         let plist = try #require(NSDictionary(contentsOf: Self.repo.appendingPathComponent("Resources/Info.plist")) as? [String: Any])
@@ -141,10 +141,10 @@ import Testing
         }
     }
 
-    /// Kodda kullanıcıya görünen Türkçe metin kalmamalı. İzin listesi: Türkçe ek kuralları ve ekrana çıkmayan iç adlar.
+    /// No user-visible Turkish text may remain in code. Allow list: Turkish suffix rules and internal names that never reach the screen.
     @Test func noTurkishLiteralsInSources() {
         let allowedFiles = ["Sources/MystatCore/Format/TurkishSuffix.swift"]
-        let allowed = [#""\u{0}küçük""#, #""Diğer""#, #""…diğer""#]   // DiskNode.smallFilesName, ScanIndex.otherName, balon kimliği
+        let allowed = [#""\u{0}küçük""#, #""Diğer""#, #""…diğer""#]   // DiskNode.smallFilesName, ScanIndex.otherName, bubble identity
         let turkish = /"(?:[^"\\]|\\.)*[çğıöşüÇĞİÖŞÜ](?:[^"\\]|\\.)*"/
         for (path, text) in Self.sources() where !allowedFiles.contains(path) {
             for (i, raw) in text.split(separator: "\n", omittingEmptySubsequences: false).enumerated() {
@@ -156,7 +156,7 @@ import Testing
         }
     }
 
-    /// Satırın açıklama kısmını atar (dize içindeki "//" korunur).
+    /// Drops the line's comment part (a "//" inside a string is preserved).
     static func stripComment(_ line: String) -> String {
         var inString = false, escaped = false, prev: Character = " "
         for (i, c) in line.enumerated() {

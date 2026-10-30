@@ -5,14 +5,14 @@ import MystatProbes
 import Observation
 import Synchronization
 
-/// Ev klasörü taraması (spec §6.4): yalnızca elle başlar, tarama sürerken ağaç canlı büyür, sonuç 1 saat geçerlidir.
-/// Süre boyunca `~/Library/Application Support/mystat/` altında sıkıştırılmış önbellektedir; süre dolunca silinir.
-/// Disk bölümü kapalıyken ağaç bellekte tutulmaz (tarama sürmüyorsa).
+/// Home-folder scan: starts only on demand, the tree grows live while scanning, and the result stays valid for 1 hour.
+/// During that time it lives in a compressed cache under `~/Library/Application Support/mystat/`; it is deleted on expiry.
+/// While the Disk section is closed the tree is not kept in memory (unless a scan is running).
 @MainActor @Observable
 public final class DiskScanController {
     public private(set) var phase: ScanPhase = .none
     public private(set) var tree: DiskTree = DiskScanController.emptyTree()
-    /// Son taramada okunamayan klasörler (Tam Disk Erişimi yoksa macOS'un korumalıları).
+    /// Folders that could not be read in the last scan (the ones macOS protects, if Full Disk Access is missing).
     public private(set) var inaccessible = 0
 
     @ObservationIgnored private let root: String
@@ -24,10 +24,10 @@ public final class DiskScanController {
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var loadGeneration = 0
     @ObservationIgnored private var cancelFlag: CancelFlag?
-    /// Önceki taramanın toplamı: ilerleme tahmini için.
+    /// Total from the previous scan, used for the progress estimate.
     @ObservationIgnored private var lastTotal: Int64?
     @ObservationIgnored private let fullDiskAccess: () -> Bool
-    /// Silme sürüyor: bu sırada bölüm kapansa da ağaç bırakılmaz (silinenler ağaçtan ve önbellekten düşsün).
+    /// Deletion in progress: the tree is not released even if the section closes meanwhile (so deleted items drop out of the tree and cache).
     @ObservationIgnored private(set) var isDeleting = false
 
     public nonisolated static let defaultCacheURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -42,14 +42,14 @@ public final class DiskScanController {
             phase = .ready(scannedAt: at)
             expireIfNeeded()
         } else {
-            try? FileManager.default.removeItem(at: cacheURL)   // yoksa bir şey olmaz; bozuksa bırakılır
+            try? FileManager.default.removeItem(at: cacheURL)   // harmless if absent; a corrupt cache is discarded
         }
     }
 
     static func emptyTree() -> DiskTree { DiskTree(root: DiskNode("~", 0), provider: nil) }
     private var treeLoaded: Bool { tree.scanIndex != nil }
 
-    /// Taranan bayt / tahmin; bitene kadar en fazla 0,99.
+    /// Bytes scanned / estimate; at most 0.99 until the scan finishes.
     nonisolated static func progress(bytes: Int64, estimate: Int64) -> Double {
         estimate > 0 ? min(0.99, Double(bytes) / Double(estimate)) : 0
     }
@@ -58,21 +58,21 @@ public final class DiskScanController {
         path.hasPrefix(root) ? "~" + path.dropFirst(root.count) : path
     }
 
-    /// Birimde kullanılan alan; önceki tarama yokken ilerleme tahmini bunun %80'i.
+    /// Space used on the volume; with no previous scan, the progress estimate is 80% of this.
     public nonisolated static func volumeUsed() -> Int64? {
         var s = statfs()
         guard statfs(NSHomeDirectory(), &s) == 0 else { return nil }
         return Int64(s.f_blocks - s.f_bfree) * Int64(s.f_bsize)
     }
 
-    // MARK: Tarama
+    // MARK: Scanning
 
     public func start() {
         expireIfNeeded()
         guard scanTask == nil else { return }
         loadGeneration += 1; loadTask?.cancel(); loadTask = nil
         let previous = (phase: phase, tree: tree, inaccessible: inaccessible)
-        // İzinsizken istem çıkarabilecek klasörler açılmaz (§10); okunamayan sayılır, not bunu söyler.
+        // Folders that could prompt for permission without access are not opened; they count as unreadable, and the note says so.
         let scanner = fullDiskAccess() ? DirectoryScanner(root: root)
             : DirectoryScanner(root: root, skip: { DiskAccess.promptsWithoutAccess($0) })
         let live = DiskTree.scanned(scanner.index)
@@ -114,7 +114,7 @@ public final class DiskScanController {
 
     private func finish(_ result: (index: ScanIndex, at: Date)?, previous: (phase: ScanPhase, tree: DiskTree, inaccessible: Int)) {
         scanTask = nil; cancelFlag = nil
-        guard let result else {   // iptal: önceki durum; önbellek o sırada yükleniyorduysa yeniden yüklenir
+        guard let result else {   // cancelled: previous state; if the cache was being loaded at the time, it is reloaded
             phase = previous.phase; tree = previous.tree; inaccessible = previous.inaccessible
             loadIfNeeded()
             return
@@ -126,10 +126,10 @@ public final class DiskScanController {
         if !visible { tree = Self.emptyTree() }
     }
 
-    // MARK: Silme
+    // MARK: Deletion
 
-    /// Sepetteki öğeleri siler ya da çöpe taşır (§6.4). En derindeki öğeden başlar. Korunan, ev dışı ya da taramadan
-    /// sonra değişmiş öğeye dokunmaz. Silinenler ağaçtan ve dizinden düşer, önbellek yeniden yazılır.
+    /// Deletes the basket's items or moves them to the Trash, starting from the deepest item. Does not touch protected items, items outside the home folder, or items changed
+    /// since the scan. Deleted items are removed from the tree and index, and the cache is rewritten.
     public func delete(_ items: [BasketItem], mode: DeleteMode) async -> DeleteOutcome {
         guard scanTask == nil, treeLoaded, case .ready(let scannedAt) = phase else {
             return DeleteOutcome(freedGB: 0, failed: items.map(\.name), changed: [])
@@ -157,32 +157,32 @@ public final class DiskScanController {
             case .failed(_, let f): failed.insert(job.path); freed += f; t.shrink(at: job.path, by: Double(f) / 1e9)
             }
         }
-        if t === tree, let index = t.scanIndex {   // bu arada yeni tarama başlamadıysa
+        if t === tree, let index = t.scanIndex {   // if no new scan has started in the meantime
             let url = cacheURL
             _ = await Task.detached(priority: .utility) { ScanCache.write(index, scannedAt: scannedAt, to: url) }.value
         }
         isDeleting = false
-        if !visible, scanTask == nil { tree = Self.emptyTree() }   // silme sürerken bölüm kapandı
+        if !visible, scanTask == nil { tree = Self.emptyTree() }   // the section closed while deleting
         return DeleteOutcome(freedGB: Double(freed) / 1e9, failed: items.filter { failed.contains($0.path) }.map(\.name),
                              changed: items.filter { changed.contains($0.path) }.map(\.name))
     }
 
-    // MARK: Görünürlük ve önbellek
+    // MARK: Visibility and cache
 
-    /// Disk bölümü açıldı/kapandı. Kapalıyken ağaç bırakılır; açılınca geçerli önbellekten yüklenir.
+    /// Disk section opened/closed. While closed the tree is released; when opened it is loaded from a valid cache.
     public func setVisible(_ v: Bool) {
         visible = v
         expireIfNeeded()
         guard scanTask == nil else { return }
         guard v else {
             loadGeneration += 1; loadTask?.cancel(); loadTask = nil
-            if !isDeleting { tree = Self.emptyTree() }   // silme bitince bırakılır
+            if !isDeleting { tree = Self.emptyTree() }   // released once deletion finishes
             return
         }
         loadIfNeeded()
     }
 
-    /// Bölüm açık, sonuç geçerli ama ağaç bellekte değilse önbellekten arka planda yüklenir.
+    /// If the section is open and the result is valid but the tree is not in memory, it is loaded from the cache in the background.
     private func loadIfNeeded() {
         guard visible, scanTask == nil, case .ready = phase, !treeLoaded, loadTask == nil else { return }
         loadGeneration += 1
@@ -191,7 +191,7 @@ public final class DiskScanController {
             let index = await Task.detached(priority: .userInitiated) { ScanCache.read(url) }.value
             guard let self, gen == self.loadGeneration else { return }
             self.loadTask = nil
-            guard let index else {   // bozuk önbellek
+            guard let index else {   // corrupt cache
                 try? FileManager.default.removeItem(at: url)
                 self.phase = .none
                 return
@@ -210,7 +210,7 @@ public final class DiskScanController {
         try? FileManager.default.removeItem(at: cacheURL)
     }
 
-    /// Testler için: süren tarama ve önbellek yüklemesi bitene kadar bekler.
+    /// For tests: waits until the running scan and cache load finish.
     func waitUntilIdle() async {
         while let t = scanTask ?? loadTask { await t.value }
     }
@@ -226,7 +226,7 @@ private final class ProgressBox: Sendable {
     let value = Mutex<DirectoryScanner.Progress?>(nil)
 }
 
-/// Önbellek dosyası: "MYSC", sürüm, tarama zamanı, ardından LZFSE ile sıkıştırılmış `ScanIndex.encoded()`.
+/// Cache file: "MYSC", version, scan time, then `ScanIndex.encoded()` compressed with LZFSE.
 enum ScanCache {
     static let magic = Array("MYSC".utf8)
     static let version: UInt32 = 1
@@ -243,7 +243,7 @@ enum ScanCache {
         return (try? d.write(to: url, options: .atomic)) != nil
     }
 
-    /// Yalnızca başlık: uygulama açılışında ağaç yüklenmeden geçerlilik bilinsin.
+    /// Header only: so validity is known at app launch without loading the tree.
     static func readDate(_ url: URL) -> Date? {
         guard let fh = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? fh.close() }

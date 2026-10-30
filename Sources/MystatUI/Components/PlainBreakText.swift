@@ -2,11 +2,11 @@ import AppKit
 import MystatCore
 import SwiftUI
 
-/// Çok satırlı metin, satır sonunda "itme" (push-out) kapalı. SwiftUI `Text` son satırı tek kelime bırakmamak için
-/// kelimeleri aşağı itiyor ("Claude Code / işlemciyi zorluyor."); mockup "Claude Code işlemciyi / zorluyor." kırıyor ve
-/// SwiftUI bunu kapatmaya izin vermiyor. Yalnızca mockup'la farkın görüldüğü iki olay başlığında kullanılır.
-/// Düzen ve çizim aynı `NSLayoutManager` ile (ölçülen yükseklik çizilenle birebir); satır kenar payı AppKit etiketlerindeki
-/// gibi 2 pt, metin sola yaslı çizilir.
+/// Multi-line text without SwiftUI's line-break balancing. SwiftUI `Text` pushes words to the next line so the last line isn't a
+/// single word, which makes an incident headline break earlier than designed, and there is no way to turn that off.
+/// Used only for the two incident headlines where the difference shows.
+/// Layout and drawing use the same `NSLayoutManager` (measured height matches the drawn height exactly); the line fragment padding is
+/// 2 pt as in AppKit labels, and the text is drawn left-aligned.
 struct PlainBreakText: NSViewRepresentable {
     let text: NSAttributedString
     static let padding: CGFloat = 2
@@ -32,10 +32,10 @@ struct PlainBreakText: NSViewRepresentable {
         return CGSize(width: w, height: ceil(t.layout.usedRect(for: t.container).height))
     }
 
-    /// Düzenleyici metin deposunu zayıf tutar: üçü birlikte taşınır.
+    /// The layout manager holds the text storage weakly, so the three are carried together.
     struct Laid { let storage: NSTextStorage; let layout: NSLayoutManager; let container: NSTextContainer }
 
-    /// Kenar payı genişliğin dışına taşacak biçimde konur: çizim sola yaslı kalır, satır kırılımı AppKit etiketleriyle aynı.
+    /// Placed so the padding extends beyond the width: drawing stays left-aligned and line breaks match AppKit labels.
     static func layout(_ s: NSAttributedString, width: CGFloat) -> Laid {
         let storage = NSTextStorage(attributedString: s)
         let layout = NSLayoutManager()
@@ -55,7 +55,7 @@ struct PlainBreakText: NSViewRepresentable {
         return p
     }
 
-    /// `Headline` ile aynı biçim: vurgulu kısım seviye renginde, harf aralığı ve satır aralığı aynı.
+    /// Same style as `Headline`: emphasized part in the level color, same letter spacing and line spacing.
     static func headline(_ title: AttributedString, size: CGFloat, level: Level) -> NSAttributedString {
         let out = NSMutableAttributedString()
         let base: [NSAttributedString.Key: Any] = [
@@ -71,7 +71,7 @@ struct PlainBreakText: NSViewRepresentable {
         return out
     }
 
-    /// Kenar menüsündeki olay kartı (mockup `.side-inc .t`): 12,5 pt, 600 ağırlık.
+    /// Incident card title in the sidebar: 12.5 pt, weight 600.
     static func sideIncident(_ text: String) -> NSAttributedString {
         NSAttributedString(string: text, attributes: [
             .font: Theme.Fonts.sf(12.5, wght: 600),
@@ -80,7 +80,7 @@ struct PlainBreakText: NSViewRepresentable {
         ])
     }
 
-    /// Satırlar, çizimle aynı düzenle (testler ve doğrulama için).
+    /// Lines, using the same layout as drawing (for tests and verification).
     static func lines(_ s: NSAttributedString, width: CGFloat) -> [String] {
         let t = layout(s, width: width), layout = t.layout
         var out: [String] = []

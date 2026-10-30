@@ -1,5 +1,5 @@
-/// Kaynağın hangi alanları gerçekten ölçebildiği. Bağlanmamış alanlar sahte sayı göstermez;
-/// sunum katmanı sakin "bağlı değil" metni yazar (Faz 2a: Docker 2b, sensörler 2c, disk taraması 2d, ağ ayrıntısı 2e).
+/// Which fields the source can actually measure. Fields that are not wired up show no fake numbers;
+/// the presentation layer writes a calm "not connected" text instead.
 public struct SourceCapabilities: Sendable, Equatable {
     public var docker: Bool
     public var sensors: Bool
@@ -14,6 +14,6 @@ public struct SourceCapabilities: Sendable, Equatable {
 }
 
 public extension Level {
-    /// Sensör yokken termal durumun sözcüğü.
+    /// The thermal state's wording when there is no sensor.
     var thermalWord: String { L10n.t("thermal.\(self == .ok ? "ok" : self == .warn ? "warn" : "crit")") }
 }

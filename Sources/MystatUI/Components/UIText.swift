@@ -1,8 +1,8 @@
 import MystatCore
 
-/// Birden çok görünümde kullanılan arayüz metinleri.
+/// UI strings used by more than one view.
 public enum UIText {
-    /// Bölüm başlığının üstündeki küçük büyük harfli satır ("İŞLEMCİ", "AĞ" …); Genel Bakış'ta "ŞU AN".
+    /// Small uppercase line above a section title ("CPU", "NETWORK" ...); "NOW" on Overview.
     public static func sectionKicker(_ s: MonitorSection) -> String {
         s == .overview ? L10n.t("headline.kicker") : L10n.t("kicker.\(s.rawValue)")
     }

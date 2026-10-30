@@ -1,53 +1,53 @@
 import Foundation
 import Synchronization
 
-/// Bir klasörün haritadaki çocuğu: alt klasör, 10 MB üstü dosya ya da küçük dosyaların toplamı ("Diğer").
+/// A folder's child on the map: a subfolder, a file over 10 MB, or the total of small files ("Other").
 public struct ScanChild: Sendable, Equatable {
     public enum Ref: Sendable, Equatable { case dir(Int32), file(fileID: UInt64), other(count: Int) }
     public let name: String
     public let bytes: Int64
     public let ref: Ref
-    /// Alt ağaçta yalnızca bulutta duran (iCloud'a boşaltılmış) öğe sayısı; boyuta katılmaz.
+    /// Number of cloud-only items in the subtree (offloaded to iCloud); not included in the size.
     public let cloud: Int
 
     public init(name: String, bytes: Int64, ref: Ref, cloud: Int = 0) { self.name = name; self.bytes = bytes; self.ref = ref; self.cloud = cloud }
 }
 
-/// Alt ağaç toplamları ve çocuk listeleri (CSR), dizinin bir anındaki tutarlı görüntüsü.
+/// Subtree totals and child lists (CSR): a consistent snapshot of the index at one moment.
 public struct ScanTotals: Sendable {
     let bytes: [Int64]
-    let cloudItems: [Int32]                       // alt ağaçtaki yalnızca bulutta duran öğeler
-    let childStart: [Int32], childDirs: [Int32]   // klasör → alt klasörler
-    let fileStart: [Int32], files: [Int32]        // klasör → büyük dosyalar
+    let cloudItems: [Int32]                       // cloud-only items in the subtree
+    let childStart: [Int32], childDirs: [Int32]   // folder → subfolders
+    let fileStart: [Int32], files: [Int32]        // folder → large files
 
     public var dirCount: Int { bytes.count }
     public subscript(dir: Int32) -> Int64 { Int(dir) < bytes.count ? bytes[Int(dir)] : 0 }
     public func cloud(_ dir: Int32) -> Int { Int(dir) < cloudItems.count ? Int(cloudItems[Int(dir)]) : 0 }
 }
 
-/// Ev klasörü taramasının sıkı dizini (spec §6.4 "Hafıza tasarrufu"). 600 bin klasör düğüm nesnesiyle ≈ 100 MB
-/// tutardı; burada klasör başına ≈ 30 bayt ve tek bir ad tamponu. Klasörler ve 10 MB üstü dosyalar ayrı, küçük
-/// dosyalar klasör başına toplam. Tarayıcının iş parçacıkları yazarken arayüz okuyabilsin diye iç kilitli bir sınıf;
-/// kopyalanmaz, tarama sürerken de aynı nesne okunur.
+/// Compact index of the home folder scan, designed to save memory. 600 thousand folders as node objects would take ≈ 100 MB;
+/// here it is ≈ 30 bytes per folder and a single name buffer. Folders and files over 10 MB are stored separately, small
+/// files as one total per folder. A class with an internal lock so the UI can read while the scanner's threads write;
+/// it is not copied, and the same object is read while the scan runs.
 public final class ScanIndex: Sendable {
     public static let smallFile: Int64 = 10_000_000
     public static let otherName = "Diğer"
     static let magic: [UInt8] = Array("MYSI".utf8)
-    static let formatVersion: UInt32 = 2   // 2: bulut sayısı sütunu
-    /// Önbellekte kabul edilen en büyük toplam (1 EB): bozuk ama yapısı geçerli veri toplarken taşmasın.
+    static let formatVersion: UInt32 = 2   // 2: cloud count column
+    /// Largest total accepted from the cache (1 EB): so corrupt but structurally valid data does not overflow when summed.
     static let maxTotalBytes: Int64 = 1_000_000_000_000_000_000
 
     struct Storage {
-        // Klasörler; numara = dizi sırası, kök 0. Üst klasör her zaman çocuğundan önce eklenir (parent < id).
-        var parent: [Int32] = []          // kök -1, silinmiş -2
+        // Folders; id = array order, root is 0. A parent is always added before its child (parent < id).
+        var parent: [Int32] = []          // root -1, deleted -2
         var nameStart: [UInt32] = []
         var nameLen: [UInt16] = []
         var ownSmall: [Int64] = []
         var smallCount: [Int32] = []
-        var cloud: [Int32] = []           // doğrudan içindeki yalnızca bulutta duran öğeler
+        var cloud: [Int32] = []           // cloud-only items directly inside
         var fileID: [UInt64] = []
-        // Büyük dosyalar.
-        var fDir: [Int32] = []            // silinmiş -1
+        // Large files.
+        var fDir: [Int32] = []            // deleted -1
         var fNameStart: [UInt32] = []
         var fNameLen: [UInt16] = []
         var fBytes: [Int64] = []
@@ -83,7 +83,7 @@ public final class ScanIndex: Sendable {
     public var inaccessible: Int { state.withLock { $0.inaccessible } }
     public func noteInaccessible() { state.withLock { $0.inaccessible += 1 } }
 
-    /// Klasör ekle; dönen numara çocuklarını eklerken kullanılır. Kök 0.
+    /// Adds a folder; the returned id is used when adding its children. Root is 0.
     @discardableResult
     public func addDirectory(parent: Int32, name: String, fileID: UInt64) -> Int32 {
         state.withLock { s in
@@ -96,7 +96,7 @@ public final class ScanIndex: Sendable {
         }
     }
 
-    /// Bir klasörün doğrudan dosyaları: büyükler ayrı, küçüklerin toplamı ve sayısı; yalnızca bulutta duranların sayısı.
+    /// A folder's direct files: large ones separately, the total and count of small ones; the count of cloud-only ones.
     public func addFiles(dir: Int32, big: [(name: String, bytes: Int64, fileID: UInt64)], smallBytes: Int64, smallCount: Int, cloudCount: Int = 0) {
         state.withLock { s in
             let d = Int(dir)
@@ -111,7 +111,7 @@ public final class ScanIndex: Sendable {
 
     public func fileID(ofDir dir: Int32) -> UInt64 { state.withLock { $0.fileID[Int(dir)] } }
 
-    /// Silinen klasör: alt ağacıyla birlikte toplamlardan ve listelerden düşer.
+    /// A deleted folder: removed with its subtree from the totals and lists.
     public func removeDirectory(_ dir: Int32) {
         state.withLock { s in
             guard dir > 0, Int(dir) < s.parent.count else { return }
@@ -126,7 +126,7 @@ public final class ScanIndex: Sendable {
         }
     }
 
-    /// Tarama bitince dizileri tam boylarına indirir (büyürken iki katına çıkan kapasite geri verilir).
+    /// When the scan finishes, shrinks the arrays to their exact size (capacity that doubled while growing is returned).
     public func finishAdding() {
         state.withLock { s in
             func fit<T>(_ a: inout [T]) { a = Array(unsafeUninitializedCapacity: a.count) { buf, n in
@@ -136,7 +136,7 @@ public final class ScanIndex: Sendable {
         }
     }
 
-    /// Alt ağaç toplamları ve çocuk listeleri; dizin değişmediyse önceki görüntü döner. O(n).
+    /// Subtree totals and child lists; if the index has not changed, the previous snapshot is returned. O(n).
     public func totals() -> ScanTotals {
         state.withLock { s in
             if let c = s.cache, c.version == s.version { return c.totals }
@@ -168,8 +168,8 @@ public final class ScanIndex: Sendable {
         return ScanTotals(bytes: bytes, cloudItems: cloud, childStart: childCount, childDirs: childDirs, fileStart: fileCount, files: files)
     }
 
-    /// Bir klasörün çocukları: tüm alt klasörler ve büyük dosyalar (büyükten küçüğe), sonda küçük dosyaların "Diğer"i.
-    /// Boş (0 bayt) klasörler listelenmez.
+    /// A folder's children: all subfolders and large files (largest first), with the "Other" of small files at the end.
+    /// Empty (0 byte) folders are not listed.
     public func children(of dir: Int32, totals t: ScanTotals) -> [ScanChild] {
         let d = Int(dir)
         guard d >= 0, d < t.dirCount else { return [] }
@@ -200,8 +200,8 @@ public final class ScanIndex: Sendable {
         }
     }
 
-    /// Dizilerin kullandığı bellek. Kapasite değil: `malloc` büyük blokları yuvarlar (600 bin elemana ≈ 786 bin), yazılmayan
-    /// kuyruk yerleşik belleğe girmez ve yuvarlama süreçteki ayırma durumuna göre değişir. Gerçek ayak izi tools/disk-check.sh'de.
+    /// Memory used by the arrays. Not capacity: `malloc` rounds up large blocks (600 thousand elements ≈ 786 thousand), the unwritten
+    /// tail does not count toward resident memory, and rounding varies with the process's allocation state. The real footprint is checked by tools/disk-check.sh.
     var storageBytes: Int {
         state.withLock { s in
             func b<T>(_ a: [T]) -> Int { a.count * MemoryLayout<T>.stride }
@@ -210,9 +210,9 @@ public final class ScanIndex: Sendable {
         }
     }
 
-    // MARK: Önbellek biçimi
+    // MARK: Cache format
 
-    /// "MYSI", sürüm, sayılar, ardından diziler ham olarak (küçük uçlu). Sıkıştırmayı çağıran yapar.
+    /// "MYSI", version, counts, then the arrays raw (little-endian). The caller does the compression.
     public func encoded() -> Data {
         state.withLock { s in
             var d = Data(Self.magic)
@@ -226,7 +226,7 @@ public final class ScanIndex: Sendable {
         }
     }
 
-    /// Bozuk, eksik ya da başka sürüm veri → nil.
+    /// Corrupt, incomplete or other-version data → nil.
     public convenience init?(decoding data: Data) {
         guard let s = Self.decode(data) else { return nil }
         self.init(storage: s)
@@ -244,14 +244,14 @@ public final class ScanIndex: Sendable {
               let fDir = r.array(Int32.self, f), let fNameStart = r.array(UInt32.self, f), let fNameLen = r.array(UInt16.self, f),
               let fBytes = r.array(Int64.self, f), let fID = r.array(UInt64.self, f), let names = r.array(UInt8.self, nb),
               r.atEnd else { return nil }
-        // Yapı denetimi: üst klasör önce, adlar tamponun içinde, boyutlar eksi değil.
+        // Structure check: parent first, names inside the buffer, sizes non-negative.
         guard parent[0] == -1 else { return nil }
         for i in 1..<n where !(parent[i] == -2 || (parent[i] >= 0 && Int(parent[i]) < i)) { return nil }
         for i in 0..<n where Int(nameStart[i]) + Int(nameLen[i]) > nb || ownSmall[i] < 0 || smallCount[i] < 0 || cloud[i] < 0 { return nil }
         for j in 0..<f where !(fDir[j] >= -1 && Int(fDir[j]) < n) || Int(fNameStart[j]) + Int(fNameLen[j]) > nb || fBytes[j] < 0 {
             return nil
         }
-        // Toplamlar alt ağaç toplamlarının üst sınırı: burada taşmıyorsa `computeTotals` da taşmaz.
+        // Totals are an upper bound on the subtree totals: if they do not overflow here, `computeTotals` will not either.
         var total: Int64 = 0, cloudTotal: Int32 = 0
         for v in ownSmall + fBytes {
             let (sum, over) = total.addingReportingOverflow(v)

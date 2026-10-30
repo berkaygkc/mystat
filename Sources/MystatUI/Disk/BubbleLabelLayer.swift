@@ -2,13 +2,13 @@ import AppKit
 import CoreText
 import QuartzCore
 
-/// Bir balon etiketinin bitmap'i (mockup `.bm-l`): ad 650 ağırlık ve satır kutusu 1,15·fs, 2 pt boşluk,
-/// boyut 0,78·fs 550 ağırlık; iki katmanlı hale gölgesi; WebKit'in `-webkit-font-smoothing: antialiased`'ı gibi
-/// yazı yumuşatması kapalı. Görüntü her yanda `pad` kadar hale payı taşır; merkezi kutunun merkezidir.
+/// Bitmap of one bubble label: name at weight 650 with a 1.15·fs line box, 2 pt gap,
+/// size at 0.78·fs weight 550; two-layer halo shadow; font smoothing is off, like WebKit's `-webkit-font-smoothing: antialiased`.
+/// The image carries `pad` of halo margin on every side; its center is the box's center.
 struct BubbleLabelImage {
     static let pad = 16.0
     let image: CGImage
-    /// Nokta cinsinden, pay dahil.
+    /// In points, including the padding.
     let size: CGSize
 
     @MainActor
@@ -38,7 +38,7 @@ struct BubbleLabelImage {
         ctx.setShouldSubpixelPositionFonts(true)
         ctx.setShouldSubpixelQuantizeFonts(false)
 
-        // Taban çizgileri (CG'de y yukarı). CSS yarım satır aralığı: glif kutusu satır kutusunun ortasında.
+        // Baselines (y is up in CG). CSS half-leading: the glyph box sits in the middle of the line box.
         let top = H - pad
         var lines: [(line: CTLine, x: Double, y: Double)] = []
         if let nl = nameLine {
@@ -48,14 +48,14 @@ struct BubbleLabelImage {
         let sizeTop = top - nameH - gap
         lines.append((sizeLine, pad + (boxW - width(sizeLine)) / 2, sizeTop - (Double(sizeFont.leading) / 2 + Double(sizeFont.ascender))))
 
-        // Hale: metin tuvalin dışına çizilir, yalnızca gölgesi yerine düşer (metin iki kez çizilip kalınlaşmasın).
+        // Halo: the text is drawn off the canvas and only its shadow lands inside (so the text is not drawn twice and thickened).
         let shift = W + 40
         let halo: [(dy: Double, blur: Double, color: NSColor)] = dark
             ? [(1, 3, NSColor(white: 0, alpha: 0.55)), (0, 14, NSColor(white: 0, alpha: 0.35))]
             : [(1, 2, NSColor(white: 1, alpha: 0.7)), (0, 12, NSColor(white: 1, alpha: 0.45))]
         for h in halo {
             ctx.saveGState()
-            // Gölge ofseti cihaz pikselinde; CSS'teki 1 px aşağı = CG'de −y.
+            // Shadow offset is in device pixels; CSS's 1 px down is −y in CG.
             ctx.setShadow(offset: CGSize(width: -shift * scale, height: -h.dy * scale), blur: h.blur * scale, color: h.color.cgColor)
             for l in lines { ctx.textPosition = CGPoint(x: l.x + shift, y: l.y); CTLineDraw(l.line, ctx) }
             ctx.restoreGState()
@@ -65,8 +65,8 @@ struct BubbleLabelImage {
     }
 }
 
-/// Canlı etiket katmanı: metin yalnızca değişince yeniden çizilir; karede konum, opaklık ve ölçek
-/// CA özelliği olarak güncellenir (SwiftUI düzeni yok) ve Metal karesiyle aynı işlemde sunulur.
+/// Live label layer: text is redrawn only when it changes; per frame, position, opacity and scale
+/// are updated as CA properties (no SwiftUI layout) and presented in the same transaction as the Metal frame.
 final class BubbleLabelsView: NSView {
     private let root = CALayer()
     private struct Entry { let layer: CALayer; var key: String; var label: BubbleLabel? }
@@ -74,7 +74,7 @@ final class BubbleLabelsView: NSView {
 
     override init(frame: NSRect) {
         super.init(frame: frame)
-        layer = root          // katman barındıran görünüm: alt katmanlar bizim
+        layer = root          // layer-hosting view: the sublayers are ours
         wantsLayer = true
     }
 

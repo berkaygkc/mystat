@@ -1,7 +1,7 @@
 import Foundation
 
-/// Haritadan silinemeyecek klasörler (spec §6.4). Klasörün kendisi korunur; içindekiler seçilebilir.
-/// Yollar ev köküne göre; boş yol ev klasörünün kendisi.
+/// Folders that cannot be deleted from the map. The folder itself is protected; its contents can be selected.
+/// Paths are relative to the home root; the empty path is the home folder itself.
 public enum DeletionGuard {
     public static let protected: Set<String> = [
         "", "Library", "Library/Application Support", "Library/Preferences", "Library/Keychains", "Library/Containers",
@@ -9,19 +9,19 @@ public enum DeletionGuard {
         "Desktop", "Documents", "Downloads", "Pictures", "Movies", "Music", "Applications", "Public",
     ]
 
-    /// nil: silinebilir; aksi halde kullanıcıya gösterilecek neden.
+    /// nil: deletable; otherwise the reason to show the user.
     public static func reason(path: [String]) -> String? {
         guard protected.contains(path.joined(separator: "/")) else { return nil }
         return L10n.t("disk.protected", ["name": path.last ?? L10n.t("disk.homeFolder")])
     }
 }
 
-/// Silmenin sonucu: boşalan alan, silinemeyenler ve taramadan sonra değiştiği için dokunulmayanlar.
+/// Result of a deletion: freed space, items that could not be deleted, and items left untouched because they changed after the scan.
 public struct DeleteOutcome: Sendable, Equatable {
     public let freedGB: Double
     public let failed: [String]
     public let changed: [String]
-    /// Örnek veride benzetim.
+    /// Simulated in sample data.
     public let simulated: Bool
 
     public init(freedGB: Double, failed: [String], changed: [String], simulated: Bool = false) {

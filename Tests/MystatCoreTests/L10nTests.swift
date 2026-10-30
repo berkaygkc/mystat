@@ -4,7 +4,7 @@ import Testing
 @testable import MystatCore
 
 @Suite struct L10nTests {
-    /// Geçici klasörde dil dosyaları: `[kod: içerik]`.
+    /// Language files in a temporary folder: `[code: content]`.
     static func localizer(_ files: [String: String]) throws -> Localizer {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("l10n-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -37,7 +37,7 @@ import Testing
         #expect(L10n.plural("n", 2, language: "en", localizer: l) == "2 processes")
         #expect(L10n.plural("n", 1, language: "tr", localizer: l) == "1 süreç")
         #expect(L10n.plural("n", 1_201, ["n": "1.201"], language: "tr", localizer: l) == "1.201 süreç")
-        // "one" kuralı olan dilde .one yoksa .other.
+        // In a language with a "one" rule, a missing .one falls back to .other.
         let l2 = try Self.localizer(["en": #"{"_meta": {"name": "English", "locale": "en_US"}, "k.other": "{n} things"}"#])
         #expect(L10n.plural("k", 1, language: "en", localizer: l2) == "1 things")
     }
@@ -50,13 +50,13 @@ import Testing
         #expect(L10n.detect(preferred: ["pt-BR", "tr"], available: available) == "tr")
         #expect(L10n.detect(preferred: [], available: available) == "en")
         #expect(L10n.detect(preferred: ["pt-BR"], available: ["en", "pt-BR", "pt"]) == "pt-BR")
-        // Yazı alt etiketi: macOS "zh-Hans-CN" bildirir; sondan kırpılarak eşleşir.
+        // Script subtag: macOS reports "zh-Hans-CN"; it matches by trimming from the end.
         #expect(L10n.detect(preferred: ["zh-Hans-CN"], available: ["en", "zh-Hans"]) == "zh-Hans")
         #expect(L10n.detect(preferred: ["sr-Latn-RS"], available: ["en", "sr-Latn", "sr"]) == "sr-Latn")
         #expect(L10n.detect(preferred: ["pt-PT"], available: ["en", "pt-BR", "pt"]) == "pt")
     }
 
-    /// Boş bırakılmış çeviri eksik sayılır: İngilizcesi görünür, ekranda boş metin olmaz.
+    /// A blank translation counts as missing: the English text shows, never an empty string on screen.
     @Test func emptyValueFallsBack() throws {
         let l = try Self.localizer(["en": Self.en, "tr": #"{"_meta": {"name": "Türkçe", "locale": "tr_TR", "plural": "none"}, "a": "", "n.other": ""}"#])
         #expect(L10n.t("a", language: "tr", localizer: l) == "A")
@@ -77,10 +77,10 @@ import Testing
 
     @Test(.language("tr")) func languageTraitScopes() async {
         #expect(L10n.code == "tr")
-        await Task { #expect(L10n.code == "tr") }.value   // alt görevlere geçer
+        await Task { #expect(L10n.code == "tr") }.value   // carries over into child tasks
     }
 
-    /// Paketteki dosyalar kaynak ağacının önüne geçer; paket boşsa kaynak ağacı, ikisi de yoksa nil.
+    /// Files in the bundle take precedence over the source tree; if the bundle is empty the source tree is used, and if neither exists the result is nil.
     @Test func locatePrefersBundle() throws {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("loc-\(UUID().uuidString)")
         let bundle = tmp.appendingPathComponent("Resources"), source = tmp.appendingPathComponent("repo")

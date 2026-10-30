@@ -1,8 +1,8 @@
 import Foundation
 
-/// Süreçleri anlamına göre gruplar (spec §8). Önce soy ağacı: bir Claude Code oturumu tüm torunlarını alır;
-/// ama torunlardan bir geliştirme sunucusu kendi grubudur. Sonra yol: uygulama paketleri yardımcılarıyla tek
-/// grup, Docker'ın sanal makinesi, sistem süreçleri tek "macOS" satırı, kalanlar adlarıyla.
+/// Groups processes by meaning. First the process tree: a Claude Code session takes all its descendants,
+/// but a dev server among the descendants is its own group. Then the path: an app bundle with its helpers forms one
+/// group, Docker's virtual machine, system processes form a single "macOS" row, and the rest are grouped by name.
 public enum ProcessGrouper {
     static let gib = 1_073_741_824.0
     static let dockerVM = "com.apple.Virtualization.VirtualMachine"
@@ -22,7 +22,7 @@ public enum ProcessGrouper {
 
         var out: [ProcessGroup] = []
         var claudeIDs: [Int32: String] = [:]
-        // Aynı klasörde iki oturum ya da portsuz iki sunucu: en küçük pid sade kimliği alır, kimlik turdan tura sabit.
+        // Two sessions in the same folder or two servers without ports: the smallest pid gets the plain id, so the id is stable from round to round.
         var used = Set<String>()
         func unique(_ id: String, _ root: Int32) -> String {
             let u = used.contains(id) ? "\(id)#\(root)" : id
@@ -57,7 +57,7 @@ public enum ProcessGrouper {
             case .app(let path):
                 let name = ((path as NSString).lastPathComponent as NSString).deletingPathExtension
                 out.append(make(id: "app:\(path)", name: name, context: ms.count > 1 ? L10n.plural("group.processes", ms.count) : "", ms, cores, owner, watts, now: now))
-            case .systemApp(let path):   // loginwindow, Dock, Finder: kullanıcının uid'iyle çalışır ama durdurulmamalı
+            case .systemApp(let path):   // loginwindow, Dock, Finder: they run under the user's uid but must not be stoppable
                 var g = make(id: "app:\(path)", name: ((path as NSString).lastPathComponent as NSString).deletingPathExtension, context: "macOS",
                              ms, cores, owner, watts, now: now)
                 g.foreign = true
@@ -76,17 +76,17 @@ public enum ProcessGrouper {
         return out.sorted { $0.cpuCores != $1.cpuCores ? $0.cpuCores > $1.cpuCores : $0.memoryGB > $1.memoryGB }
     }
 
-    /// Dinlenen portu okunacak süreçler: geliştirme sunucusu gibi görünenler ve torunları.
+    /// Processes whose listening port should be read: those that look like a dev server, and their descendants.
     public static func devServerCandidates(_ r: [ProcessRecord], cache: ClassCache = .init()) -> [Int32] {
         let byPid = Dictionary(r.filter { !$0.restricted }.map { ($0.pid, $0) }, uniquingKeysWith: { a, _ in a })
         let marks = cache.marks(r)
         return r.filter { p in !p.restricted && ([p] + ancestors(p, byPid)).contains { marks[$0.pid]?.dev == true } }.map(\.pid)
     }
 
-    // MARK: - Sınıflandırma
+    // MARK: - Classification
 
-    /// Bir sürecin ömrü boyunca değişmeyen sınıflandırması (argüman ve yol taraması). Örnekleyici turlar arasında
-    /// tutar; anahtar (pid, başlangıç) olduğundan yeniden kullanılan pid yeniden hesaplanır. Boşta maliyetin çoğu buradaydı.
+    /// Classification of a process that does not change over its lifetime (argument and path scan). The sampler keeps it
+    /// across rounds; the key is (pid, start time), so a reused pid is recomputed. Most of the idle cost used to be here.
     public final class ClassCache {
         struct Key: Hashable { let pid: Int32; let start: Date }
         struct Entry { let claude: Bool, dev: Bool, app: String?, system: Bool }
@@ -94,7 +94,7 @@ public enum ProcessGrouper {
         public init() {}
         public var count: Int { entries.count }
 
-        /// Bu turun kendi süreçleri için sınıflar; listede olmayan kayıtlar atılır.
+        /// Classes for this round's own processes; entries not in the list are dropped.
         fileprivate func marks(_ r: [ProcessRecord]) -> [Int32: Entry] {
             var next: [Key: Entry] = [:], out: [Int32: Entry] = [:]
             next.reserveCapacity(r.count)
@@ -123,7 +123,7 @@ public enum ProcessGrouper {
         return .other(p.name)
     }
 
-    /// Çekirdek süreç adını 32 karakterde kırptığı için ("com.apple.Virtualization.Virtua") tanıma yoldan.
+    /// Because the kernel truncates the process name to 32 characters ("com.apple.Virtualization.Virtua"), recognition goes by path.
     static func isDockerVM(_ p: ProcessRecord) -> Bool {
         p.name == dockerVM || p.path?.hasSuffix("/" + dockerVM) == true
     }
@@ -137,8 +137,8 @@ public enum ProcessGrouper {
         switch k { case .claude(let r), .dev(let r): r; default: .max }
     }
 
-    /// "next dev" → Next.js dev, "next start"/next-server → Next.js, vite (vitest değil), bun dev, node --watch,
-    /// `tsx <betik>` (acmecorp servisleri böyle çalışır).
+    /// "next dev" → Next.js dev, "next start"/next-server → Next.js, vite (not vitest), bun dev, node --watch,
+    /// `tsx <script>` (acmecorp services run this way).
     static func devKind(_ p: ProcessRecord) -> String? {
         let t = p.args.flatMap { $0.split(separator: " ").map(String.init) }
         let last = t.map { ($0 as NSString).lastPathComponent }
@@ -154,13 +154,13 @@ public enum ProcessGrouper {
         return nil
     }
 
-    /// `tsx [watch] services/panel/src/main.ts` → betik yolu.
+    /// `tsx [watch] services/panel/src/main.ts` → script path.
     private static func tsxScript(_ t: [String]) -> String? {
         guard let i = t.firstIndex(where: { ($0 as NSString).lastPathComponent == "tsx" }) else { return nil }
         return t.dropFirst(i + 1).first { !$0.hasPrefix("-") && $0 != "watch" }
     }
 
-    /// Betiğin servis adı: `services/panel/src/main.ts` → "panel" (`src`'den önceki klasör).
+    /// Service name of the script: `services/panel/src/main.ts` → "panel" (the folder before `src`).
     static func service(_ p: ProcessRecord) -> String? {
         guard let script = tsxScript(p.args.flatMap { $0.split(separator: " ").map(String.init) }) else { return nil }
         let parts = script.split(separator: "/").map(String.init)
@@ -192,7 +192,7 @@ public enum ProcessGrouper {
         return nil
     }
 
-    /// "acmecorp/web": proje kökünün adı ve (kökte değilse) cwd'nin son parçası.
+    /// "acmecorp/web": the project root's name and (if not at the root) the last component of the cwd.
     static func projectContext(cwd: String, root: String?) -> String {
         let last = (cwd as NSString).lastPathComponent
         guard let root, root != cwd, cwd.hasPrefix(root) else { return last }

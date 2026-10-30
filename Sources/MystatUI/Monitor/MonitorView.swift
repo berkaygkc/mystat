@@ -1,7 +1,7 @@
 import MystatCore
 import SwiftUI
 
-/// Monitör penceresinin kökü (mockup monitor.html).
+/// Root of the monitor window.
 public struct MonitorView<Source: MetricsSource>: View {
     let source: Source
     @Bindable var state: MonitorState
@@ -31,11 +31,11 @@ public struct MonitorView<Source: MetricsSource>: View {
         }
         .background(Theme.win)
         .confirmHost($state.confirm)
-        .onChange(of: state.section, initial: true) { source.setVisibleSection(state.section.rawValue) }   // Docker'ın diski açılınca (§9.2)
+        .onChange(of: state.section, initial: true) { source.setVisibleSection(state.section.rawValue) }   // when Docker's disk usage opens
     }
 }
 
-/// Seçili bölümün içeriği.
+/// Content of the selected section.
 struct SectionContent<Source: MetricsSource>: View {
     let source: Source
     let state: MonitorState

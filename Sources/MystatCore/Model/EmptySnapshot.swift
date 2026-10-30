@@ -1,7 +1,7 @@
 import Foundation
 
 public extension Snapshot {
-    /// İlk ölçüm gelmeden önceki sakin durum: sıfırlar, grup yok, olay yok.
+    /// Calm state before the first measurement: zeros, no groups, no incidents.
     static func empty(capabilities: SourceCapabilities) -> Snapshot {
         Snapshot(
             cpu: CPUState(percent: 0, systemPercent: 0, cores: [], loadAvg: [0, 0, 0]),
@@ -17,7 +17,7 @@ public extension Snapshot {
 }
 
 public extension DockerState {
-    /// Docker'a ulaşılamıyor (Docker Desktop kapalı ya da yok) ya da henüz okunmadı.
+    /// Docker is unreachable (Docker Desktop is off or missing) or has not been read yet.
     static let notRunning = DockerState(running: false, containers: [], vmMemoryGB: 0, vmCores: 0,
                                         disk: DockerDisk(imagesGB: 0, imagesReclaimGB: 0, imagesCount: 0, volumesGB: 0, volumesReclaimGB: 0,
                                                          volumesCount: 0, buildCacheGB: 0, rawGB: nil))

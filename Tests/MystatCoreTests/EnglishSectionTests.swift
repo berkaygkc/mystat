@@ -3,7 +3,7 @@ import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-/// Bölüm metinlerinin İngilizcesi, birer örnekle.
+/// The English section texts, one example each.
 @MainActor @Suite(.language("en")) struct EnglishSectionTests {
     @Test func memory() {
         let h = SectionText.memory(SampleSource(seed: 1).snapshot)
@@ -44,7 +44,7 @@ import Testing
     @Test func system() {
         let s = SampleSource(seed: 1).snapshot
         #expect(String(SectionText.system(s).title.characters) == "Cool and quiet.")
-        #expect(SectionText.system(s).lede.hasPrefix("Chip 48°, fans stopped. Plugged in, battery full"))   // "and healthy": örnek veri Task 5
+        #expect(SectionText.system(s).lede.hasPrefix("Chip 48°, fans stopped. Plugged in, battery full"))   // "and healthy": sample data
         #expect(SystemPresentation.gpuPill(s.system).0 == "Calm")
     }
 

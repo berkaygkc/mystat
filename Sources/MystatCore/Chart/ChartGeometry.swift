@@ -1,7 +1,7 @@
 import CoreGraphics
 
-/// Alan grafiğinin ölçek ve konum hesabı (mockup'taki `drawChart`).
-/// Seri `capacity`'den kısaysa (canlı geçmiş yeni başladıysa) sağa yaslanır: son nokta hep sağ kenarda.
+/// Scale and position math for the area chart.
+/// A series shorter than `capacity` (live history just started) is right-aligned: the last point is always at the right edge.
 public struct ChartGeometry: Sendable {
     public let count: Int
     public let capacity: Int
@@ -16,13 +16,13 @@ public struct ChartGeometry: Sendable {
 
     private var offset: Int { capacity - count }
 
-    /// Verilmezse en büyük değer × 1,15; hepsi sıfırsa 1.
+    /// If not given, the maximum value × 1.15; 1 if all values are zero.
     public static func autoMax(_ series: [[Double]]) -> Double {
         let m = series.flatMap { $0 }.filter(\.isFinite).max() ?? 0
         return m > 0 ? m * 1.15 : 1
     }
 
-    /// Kesintisiz parçalar: eksik nokta (NaN; uyku, kapalı kalma) çizgiyi böler, boşluk düz çizgiyle köprülenmez.
+    /// Contiguous segments: a missing point (NaN; sleep, being off) splits the line, and the gap is not bridged with a straight line.
     public static func segments(_ v: [Double]) -> [Range<Int>] {
         var out: [Range<Int>] = [], start: Int?
         for (i, x) in v.enumerated() {
@@ -34,10 +34,10 @@ public struct ChartGeometry: Sendable {
 
     public func x(_ i: Int) -> CGFloat { capacity > 1 ? CGFloat(i + offset) / CGFloat(capacity - 1) * width : 0 }
 
-    /// Üstte 4 pt pay bırakır; tavanı aşan değer kırpılır.
+    /// Leaves 4 pt of headroom at the top; values above the ceiling are clamped.
     public func y(_ v: Double) -> CGFloat { plotHeight - CGFloat(Swift.min(v, max) / max) * (plotHeight - 4) }
 
-    /// Boş seride `nil`; verinin solunda kalan noktalar ilk değere düşer.
+    /// `nil` for an empty series; points to the left of the data take the first value.
     public func index(atX px: CGFloat) -> Int? {
         guard count > 0 else { return nil }
         guard capacity > 1, width > 0 else { return 0 }
@@ -46,7 +46,7 @@ public struct ChartGeometry: Sendable {
         return Swift.min(count - 1, Swift.max(0, slot - offset))
     }
 
-    /// Sağdaki ızgara etiketinin dikey merkezi.
+    /// Vertical center of the grid label on the right.
     public func labelY(fraction f: Double) -> CGFloat {
         plotHeight - CGFloat(f) * (plotHeight - 4) + (f == 1 ? 6 : 0)
     }

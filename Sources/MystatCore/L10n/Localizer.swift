@@ -1,22 +1,22 @@
 import Foundation
 
-/// Bir dil dosyası: `Locales/<code>.json`.
+/// A language file: `Locales/<code>.json`.
 public struct Language: Sendable, Hashable, Identifiable {
-    /// Dosya adı: "en", "tr".
+    /// File name: "en", "tr".
     public let code: String
-    /// Kendi dilinde adı: "English", "Türkçe".
+    /// Name in the language itself (English is "English", Turkish is written in Turkish).
     public let name: String
-    /// Sayı, tarih ve büyük/küçük harf için (`_meta.locale`).
+    /// Used for numbers, dates and casing (`_meta.locale`).
     public let locale: Locale
     public var id: String { code }
 }
 
-/// `Locales/` klasöründeki dil dosyalarını okur. Dosya başına `_meta` (ad, locale, biçim kalıpları) ve düz
-/// `"anahtar": "metin"` çiftleri. Okunamayan ya da `_meta.name`/`_meta.locale` eksik dosya yok sayılır.
+/// Reads the language files in the `Locales/` folder. Each file has `_meta` (name, locale, format patterns) and flat
+/// `"key": "text"` pairs. A file that is unreadable or lacks `_meta.name`/`_meta.locale` is ignored.
 public final class Localizer: Sendable {
     public static let shared = Localizer(directory: locate())
 
-    /// İngilizce başta, sonra kendi adlarına göre.
+    /// English first, then sorted by their own names.
     public let languages: [Language]
     private let strings: [String: [String: String]]
     private let metas: [String: [String: String]]
@@ -32,7 +32,7 @@ public final class Localizer: Sendable {
                   let meta = root["_meta"] as? [String: String],
                   let name = meta["name"], let locale = meta["locale"] else { continue }
             let code = file.deletingPathExtension().lastPathComponent
-            strings[code] = root.compactMapValues { ($0 as? String).flatMap { $0.isEmpty ? nil : $0 } }   // boş = çevrilmemiş: İngilizcesi görünür
+            strings[code] = root.compactMapValues { ($0 as? String).flatMap { $0.isEmpty ? nil : $0 } }   // empty = untranslated: the English text shows instead
             metas[code] = meta
             languages.append(Language(code: code, name: name, locale: Locale(identifier: locale)))
         }
@@ -45,9 +45,9 @@ public final class Localizer: Sendable {
 
     public func meta(_ field: String, language: String) -> String? { metas[language]?[field] }
 
-    /// Paketin `Contents/Resources/Locales`'i, yoksa kaynak ağacındaki `Locales/` (geliştirme ve testler).
+    /// The bundle's `Contents/Resources/Locales`, otherwise `Locales/` in the source tree (development and tests).
     static func locate() -> URL? {
-        // Bu dosya: <depo>/Sources/MystatCore/L10n/Localizer.swift
+        // This file: <repo>/Sources/MystatCore/L10n/Localizer.swift
         let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent()
         return locate(bundleResources: Bundle.main.resourceURL, sourceRoot: repo)

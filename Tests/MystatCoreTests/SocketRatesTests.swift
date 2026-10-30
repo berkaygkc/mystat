@@ -5,7 +5,7 @@ import Testing
 
 @Suite(.language("tr")) struct SocketRatesTests {
     func s(_ generation: UInt64, _ pid: Int32, _ rx: UInt64) -> SocketStat { SocketStat(generation: generation, pid: pid, rxBytes: rx) }
-    /// Network.framework akışı: çekirdek kaydında kuşak 0; kimliği bağlantı noktaları.
+    /// Network.framework flow: generation 0 in the kernel record; identity comes from the connection endpoints.
     func flow(_ pid: Int32, _ lport: UInt16, _ rx: UInt64) -> SocketStat {
         SocketStat(generation: 0, pid: pid, rxBytes: rx, proto: 6, localPort: lport, foreignPort: 443)
     }
@@ -15,7 +15,7 @@ import Testing
         #expect(r.update([s(1, 7, 5_000_000)], at: 100) == nil)
     }
 
-    /// Çekirdek alınanı iki kez sayıyor (ölçüldü): 2 sn'de 8 MB sayaç farkı → 2 MB/s.
+    /// The kernel counts received bytes twice (measured): an 8 MB counter delta in 2 s → 2 MB/s.
     @Test func deltasPerPidDividedByFactor() {
         var r = SocketRates(receiveFactor: 2)
         _ = r.update([s(1, 7, 1_000_000), s(2, 7, 0), s(3, 9, 500)], at: 100)
@@ -26,7 +26,7 @@ import Testing
     @Test func newSocketCountsFullyClosedIgnoredResetCounts() {
         var r = SocketRates(receiveFactor: 1)
         _ = r.update([s(1, 7, 1_000_000), s(2, 8, 900)], at: 0)
-        // 1 kapandı (yok sayılır), 2'nin sayacı sıfırlandı (tutamaç yeniden kullanıldı: güncel değer sayılır), 3 yeni
+        // 1 closed (ignored), 2's counter was reset (handle reused: the current value counts), 3 is new
         let out = r.update([s(2, 8, 300), s(3, 9, 4_000_000)], at: 2)
         #expect(out == [8: 0.00015, 9: 2.0])
     }
@@ -49,12 +49,12 @@ import Testing
         #expect(groups.map(\.netMBps) == [1.5, 0])
     }
 
-    /// Kullanıcı alanı akışları ortak bir tutamaçta çakışmaz (hayalet hız yok) ve tek sayılır (2'ye bölünmez).
+    /// User-space flows do not collide on a shared handle (no phantom rate) and are counted once (not divided by 2).
     @Test func userSpaceFlowsKeyedByPortsAndSingleCounted() {
         var r = SocketRates(receiveFactor: 2)
         _ = r.update([flow(378, 5223, 46_791), flow(7728, 50_001, 563_700_574), s(5, 9, 0)], at: 0)
         #expect(r.update([flow(378, 5223, 46_791), flow(7728, 50_001, 563_700_574), s(5, 9, 0)], at: 2) == [378: 0, 7728: 0, 9: 0])
         let out = r.update([flow(378, 5223, 46_791), flow(7728, 50_001, 567_700_574), s(5, 9, 8_000_000)], at: 4)
-        #expect(out == [378: 0, 7728: 2.0, 9: 2.0])   // akış 4 MB / 2 sn; çekirdek soketi 8 MB / 2 / 2 sn
+        #expect(out == [378: 0, 7728: 2.0, 9: 2.0])   // flow 4 MB / 2 s; kernel socket 8 MB / 2 / 2 s
     }
 }

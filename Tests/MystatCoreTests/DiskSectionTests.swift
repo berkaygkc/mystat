@@ -36,7 +36,7 @@ import Testing
         #expect(DiskPresentation.accessNote(fullDiskAccess: false, scanned: true, inaccessible: 1_440) == "1.440 klasör okunamadı (macOS korumalı)")
     }
 
-    /// Gerçek taramada cümle ağaçtan kurulur; örnek verideki "en çok yazan" yalnızca veri varsa.
+    /// In a real scan the sentence is built from the tree; the sample data's "top writer" is shown only when data exists.
     @Test func ledeFromScannedTree() {
         var s = SampleSource(seed: 1).snapshot
         s.disk.topWriter = nil

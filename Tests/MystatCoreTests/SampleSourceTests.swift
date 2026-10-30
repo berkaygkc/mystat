@@ -22,7 +22,7 @@ import Testing
         #expect(s.snapshot.groups.first { $0.id == "next-web" }?.isOrphan == true)
     }
     @Test func mulberryMatchesJavaScript() {
-        // mockup'taki rng(1) ilk değeri: Node ile hesaplandı
+        // first value of rng(1) in the reference implementation: computed with Node
         var r = Mulberry32(seed: 1)
         #expect(abs(r.next() - 0.6270739405881613) < 1e-12)
     }
@@ -35,7 +35,7 @@ import Testing
         #expect(SampleSource(seed: 1, incident: true, kind: .disk).snapshot.disk.freeGB == 8)
     }
 
-    /// Örnekte de WindowServer sistemin süreci: durdurulamaz, diğerleri durdurulur (spec §7.4).
+    /// In the sample data too, WindowServer is a system process: it cannot be stopped, the others can.
     @Test func systemGroupIsNotStoppable() {
         let s = SampleSource(seed: 1)
         #expect(s.snapshot.groups.filter(\.foreign).map(\.id) == ["windowserver"])

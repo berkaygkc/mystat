@@ -1,12 +1,12 @@
 import Foundation
 
-/// Docker Engine API'den okunan ham değerler (probe ↔ core sözleşmesi). Anlam `DockerMeter`'da kurulur.
+/// Raw values read from the Docker Engine API (probe ↔ core contract). Meaning is built in `DockerMeter`.
 
-/// `/containers/json` satırı.
+/// A `/containers/json` row.
 public struct DockerContainerRaw: Sendable, Equatable {
     /// `state`: "running", "restarting" …; `status`: "Up 2 days (healthy)".
     public let id, name, image, state, status: String
-    /// `com.docker.compose.project` / `com.docker.compose.service` etiketleri.
+    /// `com.docker.compose.project` / `com.docker.compose.service` labels.
     public let project: String?, service: String?
 
     public init(id: String, name: String, image: String, state: String, status: String, project: String?, service: String?) {
@@ -15,7 +15,7 @@ public struct DockerContainerRaw: Sendable, Equatable {
     }
 }
 
-/// `/containers/{id}/stats?stream=false&one-shot=true`: sayaçlar (fark bizde hesaplanır).
+/// `/containers/{id}/stats?stream=false&one-shot=true`: counters (the delta is computed on our side).
 public struct DockerStatsRaw: Sendable, Equatable {
     public let id: String
     public let cpuTotal: UInt64, systemTotal: UInt64, onlineCPUs: Int
@@ -34,7 +34,7 @@ public struct DockerDFRaw: Sendable, Equatable {
         public init(size: Int64, shared: Int64, containers: Int) { self.size = size; self.shared = shared; self.containers = containers }
     }
     public struct Volume: Sendable, Equatable {
-        /// `anonymous`: Docker'ın `com.docker.volume.anonymous` etiketi var (prune süzgeciyle aynı küme).
+        /// `anonymous`: has Docker's `com.docker.volume.anonymous` label (the same set as the prune filter).
         public let size: Int64, refCount: Int, anonymous: Bool
         public init(size: Int64, refCount: Int, anonymous: Bool) { self.size = size; self.refCount = refCount; self.anonymous = anonymous }
     }
@@ -51,7 +51,7 @@ public struct DockerDFRaw: Sendable, Equatable {
     }
 }
 
-/// `/info`: sanal makinenin tahsisi.
+/// `/info`: the virtual machine's allocation.
 public struct DockerInfoRaw: Sendable, Equatable {
     public let ncpu: Int, memTotal: Int64
     public init(ncpu: Int, memTotal: Int64) { self.ncpu = ncpu; self.memTotal = memTotal }

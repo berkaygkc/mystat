@@ -1,9 +1,9 @@
 import Foundation
 
-/// §8/3: Mac tarafında tüm container'lar tek sanal makine süreci olarak görünür; değerleri Engine API'den bölünür.
-/// Her compose projesi bir satır ("Docker · deploy · 13 container"), projesizler "diğer container'lar", sanal makinenin
-/// kendi ek yükü (VM eksi container toplamı, sıfırın altına inmez) "sanal makine" satırı. VM'in pid'leri ek yük satırında
-/// kalır: disk yazımı ve grup geçmişi `docker:vm` kimliğiyle sürer.
+/// On the Mac all containers appear as a single virtual machine process; their values are split out using the Engine API.
+/// Each compose project becomes one row ("Docker · deploy · 13 containers"), containers without a project become "other containers", and the virtual machine's
+/// own overhead (VM minus the container total, never below zero) becomes the "virtual machine" row. The VM's pids stay in the overhead row:
+/// disk writes and group history continue under the `docker:vm` id.
 public enum DockerGroups {
     public static func split(_ groups: [ProcessGroup], containers: [Container]) -> [ProcessGroup] {
         guard !containers.isEmpty, let i = groups.firstIndex(where: { $0.id == "docker:vm" }) else { return groups }

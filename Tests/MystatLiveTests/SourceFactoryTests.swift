@@ -3,7 +3,7 @@ import MystatTestSupport
 import Testing
 @testable import MystatLive
 
-/// Varsayılan canlı kaynak; `--sample` Faz 1'in örnek verisini açar (spec §3).
+/// The default live source; `--sample` enables the sample data.
 @MainActor @Suite(.language("tr")) struct SourceFactoryTests {
     @Test func sampleFlagSelectsSampleSource() {
         #expect(SourceFactory.make(arguments: ["mystat", "--sample"]) is SampleSource)
@@ -12,8 +12,8 @@ import Testing
 
     @Test func liveSourceDoesNotPretend() {
         let s = SourceFactory.make(arguments: ["mystat"])
-        #expect(s.snapshot.capabilities == SourceCapabilities(docker: true, sensors: false, diskScan: true, netDetails: true))   // 2b: Docker, 2d: disk taraması, 2e: ağ ayrıntıları
-        #expect(!s.snapshot.docker.running)                       // ilk okumadan önce sakin
+        #expect(s.snapshot.capabilities == SourceCapabilities(docker: true, sensors: false, diskScan: true, netDetails: true))   // Docker, disk scan and network details are wired up
+        #expect(!s.snapshot.docker.running)                       // calm before the first read
         #expect(s.snapshot.groups.isEmpty && s.snapshot.incident == nil)
         #expect(s.stop(groupID: "yok", pids: [], force: false) == .notFound)
     }

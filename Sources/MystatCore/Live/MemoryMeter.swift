@@ -1,13 +1,13 @@
 import Foundation
 
-/// Sayfa sayaçlarından bellek durumu; Activity Monitor ile aynı tanım (spec §7.1).
-/// Birimler ikili GB (1024³): Activity Monitor 48 GB'lık makineyi "48,00 GB" gösterir.
+/// Memory state from page counters, using the same definitions as the system's built-in memory view.
+/// Units are binary GB (1024³): a 48 GB machine shows as "48.00 GB".
 public enum MemoryMeter {
     static let gib = 1_073_741_824.0
 
     public static func state(_ c: VMCounters) -> MemoryState {
         let page = Double(c.pageSize)
-        let apps = Double(c.internal &- min(c.purgeable, c.internal)) * page / gib   // uygulama = internal − purgeable
+        let apps = Double(c.internal &- min(c.purgeable, c.internal)) * page / gib   // apps = internal − purgeable
         let wired = Double(c.wired) * page / gib
         let compressed = Double(c.compressor) * page / gib
         let total = Double(c.total) / gib

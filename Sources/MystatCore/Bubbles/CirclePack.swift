@@ -5,17 +5,17 @@ public struct PackCircle: Sendable, Equatable {
     public init(x: Double, y: Double, r: Double) { self.x = x; self.y = y; self.r = r }
 }
 
-/// Bir çocuk ve (varsa) torunlarının değerleri. Torun yoksa çocuk yapraktır.
+/// A child and the values of its grandchildren (if any). A child without grandchildren is a leaf.
 public struct PackInput: Sendable {
     public let value: Double
     public let grandchildren: [Double]
     public init(value: Double, grandchildren: [Double] = []) { self.value = value; self.grandchildren = grandchildren }
 }
 
-/// d3-hierarchy 3.1.2 `pack` portu (src/pack/siblings.js, enclose.js, index.js; src/lcg.js, array.js).
-/// Mockup bu kütüphaneyi kullandığı için yerleşimler birebir aynı çıkar.
+/// Port of d3-hierarchy 3.1.2 `pack` (src/pack/siblings.js, enclose.js, index.js; src/lcg.js, array.js).
+/// Layouts match d3's output exactly.
 public enum CirclePack {
-    // MARK: - Rastgelelik (d3 lcg)
+    // MARK: - Randomness (d3 lcg)
 
     struct LCG {
         var s: UInt64 = 1
@@ -83,7 +83,7 @@ public enum CirclePack {
 
         var a = FNode(first), b = FNode(second)
         let c0 = FNode(circles[2])
-        // Ön zincir döngüsel (next/previous); dönüşte kırılmazsa düğümler ve daireler sızar.
+        // The front chain is circular (next/previous); if it is not broken on return, nodes and circles leak.
         var nodes = [a, b, c0]
         defer { for nd in nodes { nd.next = nil; nd.previous = nil } }
         a.next = b; c0.previous = b
@@ -129,7 +129,7 @@ public enum CirclePack {
         return e.r
     }
 
-    /// Kardeş daireleri yerleştirir (d3 `packSiblings`).
+    /// Places sibling circles (d3 `packSiblings`).
     public static func packSiblings(_ radii: [Double]) -> [PackCircle] {
         let circles = radii.map { Circ(r: $0) }
         var random = LCG()
@@ -174,7 +174,7 @@ public enum CirclePack {
                 return [B[i], B[j], p]
             }
         }
-        return [p]   // d3 burada hata fırlatır; sayısal uç durumda en güvenli seçim
+        return [p]   // d3 throws an error here; the safest choice for a numerical edge case
     }
 
     static func enclosesNot(_ a: PackCircle, _ b: PackCircle) -> Bool {
@@ -217,20 +217,20 @@ public enum CirclePack {
         return PackCircle(x: x1 + xa + xb * r, y: y1 + ya + yb * r, r: r)
     }
 
-    // MARK: - index.js (iki seviyeli `pack().size([s, s]).padding(d => d.depth === 0 ? root : child)`)
+    // MARK: - index.js (two levels: `pack().size([s, s]).padding(d => d.depth === 0 ? root : child)`)
 
-    /// Çocuklar ve torunlar değere göre azalan sırada verilmelidir (mockup'taki `.sort`).
-    /// Dönüş: `[0, size]` karesinde çocuk daireleri ve her birinin torunları.
+    /// Children and grandchildren must be given in descending order of value (like `.sort` in d3).
+    /// Returns the child circles within the `[0, size]` square, each with its grandchildren.
     public static func layout(children: [PackInput], size: Double, rootPadding: Double, childPadding: Double) -> [(PackCircle, [PackCircle])] {
         let kids = children.map { Circ(r: $0.grandchildren.isEmpty ? $0.value.squareRoot() : 0) }
         let grands = children.map { $0.grandchildren.map { Circ(r: $0.squareRoot()) } }
         var random = LCG()
 
-        // 1. geçiş: dolgusuz (k = 1)
+        // pass 1: no padding (k = 1)
         for (i, g) in grands.enumerated() where !g.isEmpty { kids[i].r = packSiblingsRandom(g, &random) }
         var rootR = packSiblingsRandom(kids, &random)
 
-        // 2. geçiş: dolgu, ölçek k = kök yarıçapı / boyut
+        // pass 2: padding, scale k = root radius / size
         let k = rootR / size
         for (i, g) in grands.enumerated() where !g.isEmpty {
             let pad = childPadding * k
@@ -245,7 +245,7 @@ public enum CirclePack {
         kids.forEach { $0.r -= pad }
         rootR = e + pad
 
-        // Ötele ve ölçekle (kök merkezi size/2)
+        // Translate and scale (root center at size/2)
         let t = size / (2 * rootR), cx = size / 2, cy = size / 2
         return kids.indices.map { i in
             let kc = PackCircle(x: cx + t * kids[i].x, y: cy + t * kids[i].y, r: kids[i].r * t)

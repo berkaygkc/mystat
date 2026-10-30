@@ -10,7 +10,7 @@ let package = Package(
         .target(name: "MystatProbes", dependencies: ["MystatCore"]),
         .target(name: "MystatLive", dependencies: ["MystatCore", "MystatProbes"]),
         .executableTarget(name: "mystat", dependencies: ["MystatCore", "MystatUI", "MystatLive"]),
-        // Testlerin ortak yardımcıları (dil özelliği).
+        // Shared test helpers (locale support).
         .target(name: "MystatTestSupport", dependencies: ["MystatCore"], path: "Tests/Support"),
         .testTarget(name: "MystatCoreTests", dependencies: ["MystatCore", "MystatTestSupport"]),
         .testTarget(name: "MystatUITests", dependencies: ["MystatUI", "MystatTestSupport"]),

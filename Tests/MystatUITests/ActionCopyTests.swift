@@ -12,7 +12,7 @@ import Testing
         #expect(soft.message == "3 süreç kapanması için uyarılacak. Cevap vermezse zorla kapatmayı seçebilirsin.")
         #expect(hard.title.hasSuffix("zorla kapatılsın mı?")); #expect(hard.destructive); #expect(hard.confirm == "Zorla kapat")
     }
-    /// Bildirim gerçek sonucu söyler: kapatıldı, izin yok ya da zaten kapanmış.
+    /// The toast reports the real outcome: closed, permission denied, or already closed.
     @Test func stopToastFollowsOutcome() {
         let src = SampleSource(seed: 1)
         let g = src.snapshot.groups.first { $0.id == "next-web" }!
@@ -26,7 +26,7 @@ import Testing
     @Test func pruneTexts() {
         let src = SampleSource(seed: 1)
         let v = DockerActions.request(.pruneAnonymousVolumes, disk: src.snapshot.docker.disk, source: src)
-        #expect(v.title == "Kullanılmayan adsız volume'ler temizlensin mi?" && !v.destructive)   // kullanıcının kararı: iki ayrı volume düğmesi
+        #expect(v.title == "Kullanılmayan adsız volume'ler temizlensin mi?" && !v.destructive)   // named data volumes of stopped projects get their own button, so there are two separate volume buttons
         #expect(DockerActions.request(.pruneNamedVolumes, disk: src.snapshot.docker.disk, source: src).destructive)
     }
     @Test func copyDiagnosisShowsToast() {

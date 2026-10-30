@@ -1,16 +1,16 @@
 #!/bin/bash
-# mystat.app paketini oluşturur ve imzalar.
-# Kullanım: scripts/make-app.sh [release|debug|install]
-#   release (varsayılan): build/mystat.app; boşta ölçümler bununla yapılır
-#   debug:                hata ayıklama paketi
-#   install:              release paketi ~/Applications/mystat.app'e kurar ve açar (giriş öğesinin yolu sabit kalır)
+# Builds and signs the mystat.app bundle.
+# Usage: scripts/make-app.sh [release|debug|install]
+#   release (default): build/mystat.app; idle measurements are made with this
+#   debug:             debug bundle
+#   install:           installs the release bundle to ~/Applications/mystat.app and opens it (the login item path stays fixed)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 MODE="${1:-release}"
 case "$MODE" in
     release|install) CONFIG=release ;;
     debug) CONFIG=debug ;;
-    *) echo "kullanım: $0 [release|debug|install]" >&2; exit 64 ;;
+    *) echo "usage: $0 [release|debug|install]" >&2; exit 64 ;;
 esac
 swift build -c "$CONFIG"
 BIN="$(swift build -c "$CONFIG" --show-bin-path)/mystat"
@@ -19,13 +19,13 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/mystat"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
-# Dil dosyaları (Locales/*.json). Yoksa uygulama metin yerine anahtar gösterir: paketleme durur.
-ls Locales/*.json >/dev/null 2>&1 || { echo "Locales/*.json yok" >&2; exit 1; }
+# Locale files (Locales/*.json). Without them the app shows keys instead of text, so packaging stops.
+ls Locales/*.json >/dev/null 2>&1 || { echo "Locales/*.json missing" >&2; exit 1; }
 mkdir -p "$APP/Contents/Resources/Locales"
 cp Locales/*.json "$APP/Contents/Resources/Locales/"
-# macOS'un kendi çizdiği metinler (konum izni penceresi) sistem diline göre.
+# Texts macOS draws itself (the location permission dialog), per system language.
 cp -R Resources/*.lproj "$APP/Contents/Resources/"
-# Uygulama ikonu: Resources/AppIcon.png (1024, Apple ikon ızgarası) → 16…1024 px ikon seti → AppIcon.icns.
+# App icon: Resources/AppIcon.png (1024, Apple icon grid) → 16…1024 px icon set → AppIcon.icns.
 ICONSET="build/AppIcon.iconset"
 rm -rf "$ICONSET"; mkdir -p "$ICONSET"
 for s in 16 32 128 256 512; do
@@ -33,9 +33,9 @@ for s in 16 32 128 256 512; do
     sips -z $((s * 2)) $((s * 2)) Resources/AppIcon.png --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
 done
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
-# İmza: Developer ID (GitHub'dan dağıtım; Tam Disk Erişimi ve Konum izni kurulumlar arasında korunur), yoksa
-# Apple Development, o da yoksa geçici (ad-hoc). Developer ID'de güçlendirilmiş çalışma ortamı ve zaman damgası:
-# Apple onayının (notarization) şartı; zaman damgası sertifikanın süresi dolsa da imzayı geçerli tutar.
+# Signing: Developer ID (distribution via GitHub; Full Disk Access and Location permissions persist across installs), otherwise
+# Apple Development, otherwise ad-hoc. Developer ID uses the hardened runtime and a timestamp, which
+# notarization requires; the timestamp keeps the signature valid even after the certificate expires.
 find_identity() { security find-identity -v -p codesigning 2>/dev/null | grep -m1 "$1" | sed -E 's/.*"(.*)"/\1/' || true; }
 IDENTITY="$(find_identity 'Developer ID Application')"
 if [ -n "$IDENTITY" ]; then
@@ -44,7 +44,7 @@ else
     IDENTITY="$(find_identity 'Apple Development')"
     codesign --force --sign "${IDENTITY:--}" "$APP" >/dev/null
 fi
-echo "$APP ($CONFIG, imza: ${IDENTITY:-ad-hoc})"
+echo "$APP ($CONFIG, signature: ${IDENTITY:-ad-hoc})"
 
 if [ "$MODE" = install ]; then
     DEST="$HOME/Applications/mystat.app"
@@ -53,5 +53,5 @@ if [ "$MODE" = install ]; then
     rm -rf "$DEST"
     cp -R "$APP" "$DEST"
     open "$DEST"
-    echo "kuruldu: $DEST"
+    echo "installed: $DEST"
 fi

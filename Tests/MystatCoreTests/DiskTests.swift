@@ -8,7 +8,7 @@ import Testing
         let t = SampleSource(seed: 1).diskTree; var b = SelectionBasket()
         #expect(b.toggle(["Documents", "apps", "acmecorp"], in: t) == .added)
         #expect(b.toggle(["Documents", "apps", "Diğer"], in: t) == .notSelectable)
-        #expect(b.toggle(["Documents", "apps"], in: t) == .added)   // alt öğe düşer
+        #expect(b.toggle(["Documents", "apps"], in: t) == .added)   // the child drops out
         #expect(b.items.map(\.name) == ["apps"]); #expect(b.state(of: ["Documents", "apps", "acmecorp"]) == .implied)
         #expect(b.toggle(["Documents", "apps", "acmecorp"], in: t) == .blockedByAncestor)
         #expect(b.buttonTitle(mode: .permanent) == "Kalıcı olarak sil")
@@ -38,10 +38,10 @@ import Testing
             path.append(next.name); depth += 1
         }
         #expect(depth >= 7)
-        let other = SampleSource(seed: 99).diskTree   // üretim tohuma değil yola bağlı: aynı yol aynı çocuklar
+        let other = SampleSource(seed: 99).diskTree   // production is tied to the path, not the seed: the same path gives the same children
         #expect(t.node(at: path)?.children?.map(\.name) == other.node(at: path)?.children?.map(\.name))
         let kids = t.node(at: ["Documents", "apps", "acmecorp", "node_modules"])!.children!
-        #expect(abs(kids.reduce(0) { $0 + $1.size } - 11.2) < 1e-9)   // çocuklar ebeveyni tam doldurur
+        #expect(abs(kids.reduce(0) { $0 + $1.size } - 11.2) < 1e-9)   // children fill the parent exactly
     }
     @Test func crumbs() {
         let c = Breadcrumbs.make(["a", "b", "c", "d", "e", "f", "g"])
@@ -54,8 +54,8 @@ import Testing
         #expect(ScanPhase.ready(scannedAt: t0).effective(now: t0 + 3600) == .none)
         #expect(ScanPhase.ready(scannedAt: t0).validityText(now: t0 + 3600) == nil)
     }
-    /// Tohum mockup'taki gibi `floor(hash01(yol + "#") · 1e9) + 11`; boyutlar (karıştırmadan önce çekilir)
-    /// tarayıcıdan bağımsız olarak mockup `genKids` ile aynı olmalı (WebKit dökümünden).
+    /// The seed is `floor(hash01(path + "#") · 1e9) + 11`; the sizes (drawn before shuffling)
+    /// must match the reference JavaScript generator regardless of the browser (taken from a WebKit dump).
     @Test func generatedSizesMatchMockup() {
         let t = SampleSource(seed: 1).diskTree
         let expected: [String: [Double]] = [
@@ -71,11 +71,11 @@ import Testing
         }
     }
 
-    // MARK: Tarama ağacı (Faz 2d)
+    // MARK: Scan tree
 
     static let MB: Int64 = 1_000_000
 
-    /// kök → a(50) → a/b(40 + x 20), kök → c(30 + y 15). Toplam 155 MB.
+    /// root → a(50) → a/b(40 + x 20), root → c(30 + y 15). Total 155 MB.
     static func scanIndex() -> (ScanIndex, a: Int32, b: Int32, c: Int32) {
         let idx = ScanIndex(rootName: "~")
         let a = idx.addDirectory(parent: 0, name: "a", fileID: 1)
@@ -94,7 +94,7 @@ import Testing
         let na = try #require(t.node(at: ["a"]))
         #expect(na.children?.map(\.displayName) == idx.children(of: a, totals: idx.totals()).map(\.name))
         #expect(na.children?.map(\.displayName) == ["b", "Diğer"])
-        #expect(t.root.children?.first { $0.name == "c" }?.children == nil)   // açılmayan dal
+        #expect(t.root.children?.first { $0.name == "c" }?.children == nil)   // a branch that was not expanded
         #expect(t.node(at: ["a", "b", "x"])?.isFile == true)
         #expect(t.node(at: ["a", "b", "x"])?.fileID == 10)
         #expect(t.node(at: ["a", "b"])?.fileID == 2)
@@ -171,7 +171,7 @@ import Testing
         #expect(abs(t.root.size - 0.135) < 1e-9)
     }
 
-    /// Diskte "Diğer" adlı gerçek klasör ile küçük dosyaların yapay "Diğer"i karışmaz (yanlış öğe silinmesin).
+    /// A real folder named "Other" on disk is not confused with the synthetic "Other" for small files (the wrong item must not be deleted).
     @Test func realOtherFolderAndSmallFilesDoNotCollide() throws {
         let idx = ScanIndex(rootName: "~")
         let o = idx.addDirectory(parent: 0, name: "Diğer", fileID: 1)

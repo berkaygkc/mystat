@@ -1,16 +1,16 @@
 import CoreGraphics
 import MystatCore
 
-/// Mockup'taki `BM_FS` cam balon shader'ının Metal karşılığı ve uniform tamponunun düzeni.
+/// Metal port of the glass bubble shader, and the layout of the uniform buffer.
 ///
-/// Tampon `float4` dizisidir: 8 başlık vektörü, ardından `B[24]`, `W[24]`, `C[24]`, `I[96]`.
-/// GLSL'deki `vec3 uC[24]` burada `float4` hizalamasıyla tutulur. Koordinatlar cihaz pikselidir.
+/// The buffer is an array of `float4`: 8 header vectors, then `B[24]`, `W[24]`, `C[24]`, `I[96]`.
+/// The GLSL `vec3 uC[24]` is stored here with `float4` alignment. Coordinates are in device pixels.
 enum BubbleShaderSource {
     static let headerCount = 8
     static let bOffset = 8, wOffset = 32, cOffset = 56, iOffset = 80
     static let uniformVectorCount = 176
 
-    /// Mockup `KIND` (shader uzayında, 0–1).
+    /// Node kind colors (in shader space, 0–1).
     static func kindRGB(_ k: NodeKind) -> SIMD3<Float> {
         switch k {
         case .folder: SIMD3(0.404, 0.392, 0.961)
@@ -27,7 +27,7 @@ enum BubbleShaderSource {
         return SIMD4(c, Float(t.amount))
     }
 
-    /// Mockup `render()`'ın uniform yüklemesi: `size` nokta, `scale` cihaz pikseli oranı (mockup `dpr`), `mouse` nokta.
+    /// Fills the uniforms: `size` in points, `scale` is the device pixel ratio, `mouse` in points.
     static func pack(_ f: BubbleFrame, size: CGSize, scale: Double, time: Double, dark: Bool, mouse: CGPoint) -> [SIMD4<Float>] {
         func v(_ a: Double, _ b: Double, _ c: Double, _ d: Double) -> SIMD4<Float> { SIMD4(Float(a), Float(b), Float(c), Float(d)) }
         var u = [SIMD4<Float>](repeating: .zero, count: uniformVectorCount)
@@ -89,7 +89,7 @@ enum BubbleShaderSource {
         return mix(b, a, h) - k * h * (1.0 - h);
     }
 
-    // GLSL mod: x − y·floor(x/y) (fmod negatiflerde farklı davranır).
+    // GLSL mod: x − y·floor(x/y) (fmod behaves differently for negatives).
     static float2 gmod(float2 x, float y) { return x - y * floor(x / y); }
 
     static float3 background(constant Uniforms& u, float2 p) {
@@ -186,7 +186,7 @@ enum BubbleShaderSource {
 
     fragment float4 bubbleFragment(VOut in [[stage_in]], constant Uniforms& u [[buffer(0)]]) {
         int N = min(int(u.n), 24), M = min(int(u.m), 96);
-        // Metal'de konum zaten sol üstten başlar: GLSL'deki (x, uRes.y − y) çevirmesinin karşılığı.
+        // In Metal the origin is already at the top left: this is the equivalent of GLSL's (x, uRes.y − y) flip.
         float2 p0 = in.pos.xy;
         float2 p = ripple(u, p0);
         float3 col = background(u, p);

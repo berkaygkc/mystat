@@ -5,8 +5,8 @@ import SwiftUI
 import Testing
 @testable import MystatUI
 
-/// Olay sürerken nabız atan nokta SwiftUI'yi her karede güncelletmemeli: monitör penceresinde bu, bütün pencerenin
-/// her karede yeniden yerleşmesi demekti (ölçüldü: olay varken %35–60 CPU, pencere görünmezken bile).
+/// A dot that pulses during an incident must not make SwiftUI update every frame: in the monitor window that meant the whole window
+/// re-laid out every frame (measured: 35-60% CPU during an incident, even while the window was not visible).
 @MainActor @Suite(.language("tr")) struct KickerPulseTests {
     final class CountingHost<V: View>: NSHostingView<V> {
         var layouts = 0
@@ -19,7 +19,7 @@ import Testing
         win.contentView = host
         win.orderFrontRegardless()
         defer { win.orderOut(nil) }
-        RunLoop.main.run(until: Date().addingTimeInterval(0.3))   // ilk yerleşim
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))   // first layout
         let start = host.layouts
         RunLoop.main.run(until: Date().addingTimeInterval(1.2))
         #expect(host.layouts - start <= 3, "1,2 sn'de \(host.layouts - start) yerleşim")

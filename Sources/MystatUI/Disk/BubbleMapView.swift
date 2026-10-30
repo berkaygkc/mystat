@@ -4,7 +4,7 @@ import MystatCore
 import Observation
 import SwiftUI
 
-/// Disk haritası (mockup `BubbleMap`): Metal cam balonlar + SwiftUI etiketler ve seçim düğmeleri.
+/// Disk map: Metal glass bubbles + SwiftUI labels and selection buttons.
 public struct BubbleMapView: View {
     private let source: any MetricsSource
     private let state: MonitorState
@@ -26,7 +26,7 @@ public struct BubbleMapView: View {
                 let r = BubbleStillRender.make(source: source, disk: state.disk, size: g.size, scale: displayScale, dark: dark, cfg: still)
                 ZStack(alignment: .topLeading) {
                     if let img = r.image { Image(decorative: img, scale: displayScale) }
-                    // Canlı katmanla aynı etiket görüntüleri.
+                    // The same label images as the live layer.
                     ForEach(r.labels) { l in
                         let li = BubbleLabelImage.make(name: l.name, size: l.size, fontSize: l.fontSize, dark: dark, scale: displayScale)
                         Image(decorative: li.image, scale: displayScale)
@@ -41,7 +41,7 @@ public struct BubbleMapView: View {
     }
 }
 
-/// Anlık görüntü modu: canlı Metal yerine tek kare (ekran dışı çizimde `CAMetalLayer` yakalanmaz).
+/// Snapshot mode: a single frame instead of live Metal (`CAMetalLayer` is not captured in offscreen rendering).
 public struct BubbleStill: Sendable, Equatable {
     public var time: Double
     public var mouse: CGPoint
@@ -57,7 +57,7 @@ extension EnvironmentValues {
     @Entry public var bubbleStill: BubbleStill? = nil
 }
 
-// MARK: - Katman içeriği
+// MARK: - Layer content
 
 struct BubbleLabel: Equatable, Identifiable {
     let id: String
@@ -72,12 +72,12 @@ struct BubbleButton: Equatable, Identifiable {
     let path: [String]
     let state: SelState
     let x: Double, y: Double, alpha: Double
-    /// Korunan klasör (§6.4): ＋ yerine kilit, ipucunda neden.
+    /// Protected folder: a lock instead of ＋, with the reason in the tooltip.
     var locked: String? = nil
 }
 
-/// Mockup `updateLabels`: karedeki balonlardan etiketler ve ＋/✓ düğmeleri.
-/// Konumlar `quantum` (bir cihaz pikseli) adımına oturur: dinlenmedeki süzülme saniyede yalnızca birkaç güncelleme doğurur.
+/// Labels and ＋/✓ buttons derived from the bubbles in the frame.
+/// Positions snap to `quantum` (one device pixel): the slow drift at rest causes only a few updates per second.
 enum BubbleOverlayContent {
     private static func sstep(_ a: Double, _ b: Double, _ x: Double) -> Double {
         let t = max(0, min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t)
@@ -112,7 +112,7 @@ enum BubbleOverlayContent {
     }
 }
 
-/// Durağan kare: mockup'taki `renderContent(); MAPE.render(2.0)` dizisinin karşılığı.
+/// Static frame: stands in for the live render sequence at t = 2.0 s.
 enum BubbleStillRender {
     @MainActor
     static func make(source: any MetricsSource, disk: DiskUIState, size: CGSize, scale: CGFloat, dark: Bool, cfg: BubbleStill)
@@ -137,15 +137,15 @@ enum BubbleStillRender {
     }
 }
 
-// MARK: - Canlı model
+// MARK: - Live model
 
-/// Motoru renderer saatinde ilerletir; yol, silme ve tarama durumunu haritaya taşır; fare ve tuşları yorumlar.
+/// Advances the engine on the renderer clock; carries path, deletion and scan state to the map; interprets mouse and keys.
 @MainActor @Observable
 final class BubbleMapModel {
-    /// Etiketler SwiftUI'dan geçmez (kare başına güncellenir); katman her karede buradan okur.
+    /// Labels do not go through SwiftUI (updated per frame); the layer reads them from here every frame.
     @ObservationIgnored private(set) var labels: [BubbleLabel] = []
     private(set) var buttons: [BubbleButton] = []
-    /// Ekranın piksel oranı; etiket konumları bu adıma oturur.
+    /// The screen's pixel ratio; label positions snap to this step.
     @ObservationIgnored var pixelScale = 2.0
 
     @ObservationIgnored private let source: any MetricsSource
@@ -155,7 +155,7 @@ final class BubbleMapModel {
     @ObservationIgnored private var token: Int
     @ObservationIgnored private var lastFrame: BubbleFrame?
     @ObservationIgnored private var shownProgress: Double?
-    /// Gerçek tarama: ağaç büyüdükçe yeniden yerleşim (en sık 2 sn'de bir; arada gezinme serbest kalsın).
+    /// Real scan: re-layout as the tree grows (at most every 2 s, so navigation stays free in between).
     @ObservationIgnored private var lastScannedGB: Double?
     @ObservationIgnored private var lastGrowth = -Double.infinity
     static let growthInterval = 2.0
@@ -174,9 +174,9 @@ final class BubbleMapModel {
         let tree = source.diskTree
         if let x = engine, x.tree === tree {
             e = x; e.resize(size)
-        } else {   // ağaç değişti (tarama başladı, önbellekten yüklendi): yeni ağaçta var olan en yakın klasör
+        } else {   // the tree changed (scan started, loaded from cache): the closest folder that exists in the new tree
             var p = disk.path
-            let loading = tree.scanIndex == nil && tree.root.children == nil   // yer tutucu: yol korunur
+            let loading = tree.scanIndex == nil && tree.root.children == nil   // placeholder: the path is kept
             while !loading, !p.isEmpty, tree.node(at: p) == nil { p.removeLast() }
             if p != disk.path { disk.path = p }
             e = BubbleEngine(tree: tree, path: p, viewSize: size); engine = e
@@ -184,7 +184,7 @@ final class BubbleMapModel {
         }
         sync(e, at: t)
         if !source.diskScanSimulated { growLive(e, at: t) }
-        // Örnek tarama: ilerleme 100 ms'de bir atlar; balonlar yumuşak büyüsün diye izlenir, bitince 1'e süzülür.
+        // Sample scan: progress jumps every 100 ms; it is tracked so bubbles grow smoothly, and eases to 1 when done.
         if source.diskScanSimulated, case .scanning(let p, _, _) = source.diskScan {
             shownProgress = shownProgress.map { $0 + (p - $0) * 0.1 } ?? 0
         } else if let s = shownProgress {
@@ -201,26 +201,26 @@ final class BubbleMapModel {
         return f
     }
 
-    /// Gerçek tarama: kaynak saniyede bir ağacı günceller; harita en sık `growthInterval`'da bir yeniden yerleşir,
-    /// tarama bitince bir kez daha.
+    /// Real scan: the source updates the tree once a second; the map re-lays out at most every `growthInterval`,
+    /// and once more when the scan finishes.
     private func growLive(_ e: BubbleEngine, at t: Double) {
         let gb: Double? = if case .scanning(_, let g, _) = source.diskScan { g } else { nil }
         if let gb {
             guard gb != lastScannedGB, t - lastGrowth >= Self.growthInterval else { return }
             lastScannedGB = gb; lastGrowth = t
             e.relayout(at: t)
-        } else if lastScannedGB != nil {   // bitti ya da durduruldu
+        } else if lastScannedGB != nil {   // finished or stopped
             lastScannedGB = nil
             e.relayout(at: t)
         }
     }
 
-    /// Yol değişikliklerini (harita, yol satırı, kenar listesi, Esc) animasyonla uygular. Geçiş sürerken
-    /// `DiskUIState.open` yeni gezinmeyi zaten reddeder; yine de gelen bir yol geçiş bitince uygulanır.
+    /// Applies path changes (map, path row, sidebar list, Esc) with animation. While a transition runs,
+    /// `DiskUIState.open` already rejects new navigation; a path that still arrives is applied when the transition ends.
     private func sync(_ e: BubbleEngine, at t: Double) {
         if disk.relayoutToken != token {
             token = disk.relayoutToken
-            // Bulunduğun klasör silindiyse oraya atla; değilse yeniden yerleş (geçiş sürüyorsa motor sona erteler).
+            // If the current folder was deleted, jump out of it; otherwise re-layout (the engine defers it if a transition is running).
             if source.diskTree.node(at: e.path) == nil { e.setPath(disk.path) } else { e.relayout(at: t) }
             hover = nil
         }
@@ -236,7 +236,7 @@ final class BubbleMapModel {
         hover = nil
     }
 
-    /// İmleç; dönen değer el imleci gösterilsin mi.
+    /// Pointer; the return value says whether to show the pointing-hand cursor.
     func mouseMoved(_ p: CGPoint) -> Bool {
         guard let e = engine, !e.isAnimating else { hover = nil; return false }
         let hit = e.hitTest(p, current: hover)
@@ -246,10 +246,10 @@ final class BubbleMapModel {
 
     func mouseExited() { hover = nil }
 
-    /// Harita ekrandan kalkınca gezinme kilidi kalmasın.
+    /// So no navigation lock remains when the map leaves the screen.
     func detach() { disk.isMapAnimating = false }
 
-    /// Klasöre tıklamak içine girer; dosyaya ya da ⌘-tık seçer (mockup `click`).
+    /// Clicking a folder enters it; clicking a file, or ⌘-click, selects.
     func click(_ p: CGPoint, flags: NSEvent.ModifierFlags) {
         guard let e = engine, !e.isAnimating, let h = hover,
               let m = lastFrame?.mains.first(where: { $0.item.name == h }), m.item.kind != .other,
@@ -260,7 +260,7 @@ final class BubbleMapModel {
 
     func toggle(_ path: [String]) { disk.toggle(path, tree: source.diskTree) }
 
-    /// Esc: bir üst seviye · Space: üzerindeki balonu seç · ⌫: toplu silme onayı.
+    /// Esc: up one level · Space: select the bubble under the pointer · ⌫: bulk delete confirmation.
     func key(_ ev: NSEvent) -> Bool {
         guard ev.modifierFlags.intersection([.command, .control, .option]).isEmpty, state.confirm == nil, state.section == .disk else { return false }
         switch ev.keyCode {
@@ -280,7 +280,7 @@ final class BubbleMapModel {
     }
 }
 
-// MARK: - Metal görünümü
+// MARK: - Metal view
 
 struct BubbleMetalHost: NSViewRepresentable {
     let model: BubbleMapModel
@@ -302,8 +302,8 @@ struct BubbleMetalHost: NSViewRepresentable {
     }
 }
 
-/// Üç katman: `MTKView` (balonlar), CA etiketleri, SwiftUI ＋/✓ düğmeleri. Düğmeler ayrı ve boyut bildirmeyen
-/// bir `NSHostingView`'dadır: değişimleri monitör penceresinin SwiftUI düzenini yeniden hesaplatmaz.
+/// Three layers: `MTKView` (bubbles), CA labels, SwiftUI ＋/✓ buttons. The buttons live in a separate `NSHostingView`
+/// that does not report its size, so changes do not trigger a recalculation of the monitor window's SwiftUI layout.
 final class BubbleMapContainer: NSView {
     let metal: BubbleMTKView
     private let labels = BubbleLabelsView()
@@ -330,7 +330,7 @@ final class BubbleMapContainer: NSView {
         metal.presentsWithTransaction = true
         metal.autoResizeDrawable = true
         if let layer = metal.layer as? CAMetalLayer {
-            layer.colorspace = CGColorSpace(name: CGColorSpace.sRGB)   // tarayıcı tuvaliyle aynı renk uzayı
+            layer.colorspace = CGColorSpace(name: CGColorSpace.sRGB)   // the same color space as a browser canvas
             layer.isOpaque = true
         }
         metal.delegate = r
@@ -369,13 +369,13 @@ final class BubbleMapContainer: NSView {
         if overlay.rootView.dark != dark { overlay.rootView = BubbleLiveOverlay(model: model, dark: dark) }
     }
 
-    /// Fare olayları haritaya gider; yalnızca ＋/✓ düğmelerinin üstü katmana.
+    /// Mouse events go to the map; only the area over the ＋/✓ buttons goes to the overlay.
     override func hitTest(_ point: NSPoint) -> NSView? {
         let p = convert(point, from: superview)
         guard bounds.contains(p) else { return nil }
         let q = CGPoint(x: p.x, y: isFlipped ? p.y : bounds.height - p.y)
         if model.buttons.contains(where: { $0.alpha > 0.05 && hypot($0.x - q.x, $0.y - q.y) <= 14 }) {
-            return overlay.hitTest(p) ?? metal   // alt görünümün hitTest noktası üst görünüm (burası) koordinatında
+            return overlay.hitTest(p) ?? metal   // the subview's hitTest point is in the superview's (this view's) coordinates
         }
         return metal
     }
@@ -387,7 +387,7 @@ final class BubbleMapContainer: NSView {
     }
 }
 
-/// Fare, tuş ve görünürlük olaylarını modele taşıyan `MTKView`.
+/// An `MTKView` that forwards mouse, key and visibility events to the model.
 final class BubbleMTKView: MTKView {
     var onMove: ((CGPoint) -> Bool)?
     var onExit: (() -> Void)?
@@ -398,7 +398,7 @@ final class BubbleMTKView: MTKView {
     private var occlusion: NSObjectProtocol?
     private var downAt: CGPoint?
 
-    // Pencere arka plandan sürüklenebilir; harita tıklamaları pencereyi taşımasın.
+    // The window can be dragged from its background; map clicks must not move the window.
     override var mouseDownCanMoveWindow: Bool { false }
 
     private func local(_ e: NSEvent) -> CGPoint {
@@ -432,7 +432,7 @@ final class BubbleMTKView: MTKView {
         onClick?(p, e.modifierFlags)
     }
 
-    /// Yalnızca görünürken çizer: pencere kapanınca, küçülünce ya da tamamen örtülünce durur.
+    /// Draws only while visible: stops when the window closes, is minimized, or is fully covered.
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         teardown()
@@ -458,9 +458,9 @@ final class BubbleMTKView: MTKView {
     }
 }
 
-// MARK: - Seçim düğmeleri
+// MARK: - Selection buttons
 
-/// Yalnızca düğmeler değişince yeniden çizilir.
+/// Redrawn only when the buttons change.
 struct BubbleLiveOverlay: View {
     let model: BubbleMapModel
     let dark: Bool
@@ -484,8 +484,8 @@ struct BubbleOverlay: View {
     }
 }
 
-/// Mockup `.bm-sel`: 26 pt cam daire; ＋ / mavi ✓ / soluk mavi ✓ (üst klasörle seçili) / kilit (korunan klasör; tıklanınca
-/// nedeni bildirim olarak gelir).
+/// Selection button: a 26 pt glass circle; ＋ / blue ✓ / faded blue ✓ (selected via parent folder) / lock (protected folder; clicking
+/// reports the reason as a toast).
 private struct BubbleSelectButton: View {
     let button: BubbleButton
     let dark: Bool

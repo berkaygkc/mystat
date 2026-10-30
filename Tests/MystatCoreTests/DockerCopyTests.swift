@@ -3,7 +3,7 @@ import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-/// Docker metinleri: örnek verinin cümleleri aynı kalır (karakterizasyon); Docker çalışmıyorsa sakin durum.
+/// Docker texts: the sample data's sentences stay the same (characterization); if Docker is not running, a calm state.
 @MainActor @Suite(.language("tr")) struct DockerCopyTests {
     var calm: Snapshot { SampleSource(seed: 1).snapshot }
     var busy: Snapshot { SampleSource(seed: 1, incident: true, kind: .docker).snapshot }
@@ -37,14 +37,14 @@ import Testing
         #expect(MonitorPresentation.navValue("docker", s).text == "—")
     }
 
-    /// Sanal disk dosyası okunamazsa Docker'ın verisi (image + volume + build cache + container) söylenir.
+    /// If the virtual disk file cannot be read, Docker's data (image + volume + build cache + container) is reported.
     @Test func unreadableRawFileUsesDataTotal() {
         var s = calm
         s.docker.disk.rawGB = nil
         #expect(SectionText.docker(s).lede.hasSuffix("Docker'ın verisi 27,0 GB; 12,6 GB'ı geri kazanılabilir."))
     }
 
-    /// Disk dolu olayı Docker kapalıyken "Docker'da 0,0 GB geri kazanılabilir" demez.
+    /// A disk-full incident does not say "0.0 GB reclaimable in Docker" when Docker is off.
     @Test func diskIncidentSkipsDockerWhenDown() {
         var s = SampleSource(seed: 1, incident: true, kind: .disk).snapshot
         #expect(GroupPresentation.panelHeadline(s).lede.contains("Docker'da 12,6 GB geri kazanılabilir"))

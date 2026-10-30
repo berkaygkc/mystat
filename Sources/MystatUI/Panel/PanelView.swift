@@ -5,7 +5,7 @@ public enum MonitorSection: String, CaseIterable, Sendable {
     case overview, cpu, mem, disk, net, docker, sys
 }
 
-/// Menü çubuğuna tıklayınca açılan panel (mockup panel-menubar.html, D sütunu).
+/// The panel that opens when the menu bar item is clicked.
 public struct PanelView<Source: MetricsSource>: View {
     let source: Source
     let openMonitor: (MonitorSection?, String?) -> Void
@@ -22,7 +22,7 @@ public struct PanelView<Source: MetricsSource>: View {
         VStack(alignment: .leading, spacing: 0) {
             Kicker(head.kicker, level: level, pulsing: s.incident != nil, tintText: false)
                 .padding(.bottom, 8)
-            if s.incident != nil {   // mockup kırılımı (itme kapalı); sakin başlık tek satır, SwiftUI'de kalır
+            if s.incident != nil {   // line breaks matching the intended layout (push-out disabled); the calm one-line headline stays in SwiftUI
                 PlainBreakText(text: PlainBreakText.headline(head.title, size: 23, level: level == .ok ? .crit : level))
             } else {
                 Headline(head.title, size: 23, level: level == .ok ? .crit : level)
@@ -41,7 +41,7 @@ public struct PanelView<Source: MetricsSource>: View {
             }
             .onTapGesture { NSApp.terminate(nil) }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .overlay(alignment: .trailing) { LanguageMenu() }   // satır boyunu değiştirmez (mockup ölçüleri)
+            .overlay(alignment: .trailing) { LanguageMenu() }   // does not change the row height
             .padding(.top, 10)
         }
         .padding(.horizontal, 22).padding(.top, 22).padding(.bottom, 16)
@@ -143,8 +143,8 @@ public struct PanelView<Source: MetricsSource>: View {
     }
 }
 
-/// Mockup `.dirD .pop` dış gölgesi (0 30 70, 0 4 14). Pencerenin kendi gölgesi kapalı: o, yuvarlak paneli
-/// kare pencereye göre çiziyordu. Panelin içi yarı saydam olduğundan gölge yalnızca dışta kalır.
+/// The panel's outer shadow (0 30 70, 0 4 14). The window's own shadow is off: it was drawn for the square window
+/// rather than the rounded panel. Since the panel's interior is translucent, the shadow stays outside only.
 private struct PanelShadow: View {
     let dark: Bool
     var body: some View {
@@ -164,7 +164,7 @@ private struct PanelShadow: View {
     }
 }
 
-/// Tıklanabilir satır/kutucuk: üzerine gelince yumuşak vurgu ve el imleci (mockup'ta `cursor: pointer`).
+/// Clickable row/tile: soft highlight and a pointing-hand cursor on hover.
 private struct HoverFill: ViewModifier {
     let inset: EdgeInsets
     @State private var on = false
@@ -181,7 +181,7 @@ private struct HoverFill: ViewModifier {
     }
 }
 
-/// Metin bağlantısı: üzerine gelince alt çizgi, ok 2 pt ileri ve el imleci.
+/// Text link: underline on hover, arrow moves 2 pt forward, and a pointing-hand cursor.
 private struct HoverLink<Label: View>: View {
     @ViewBuilder let label: (Bool) -> Label
     @State private var on = false
@@ -194,9 +194,9 @@ private struct HoverLink<Label: View>: View {
     }
 }
 
-/// Panelin dışına tıklama kuralı (spec §4). Uygulamanın kendi pencerelerine tıklamalar da sayılır;
-/// panelin içi ve durum öğesi hariç (durum öğesi zaten aç/kapa yapar).
-/// Pencere, çizilen gölge için panelden büyüktür: gölge payına tıklamak da dışarısı sayılır.
+/// Rule for clicks outside the panel. Clicks on the app's own windows count too,
+/// except the panel's interior and the status item (which already toggles the panel).
+/// The window is larger than the panel to fit the drawn shadow: clicking the shadow margin also counts as outside.
 public enum PanelDismissal {
     public static func closes(clickWindow: NSWindow?, panel: NSWindow?, statusWindow: NSWindow?,
                               location: CGPoint = .zero, content: CGRect? = nil) -> Bool {

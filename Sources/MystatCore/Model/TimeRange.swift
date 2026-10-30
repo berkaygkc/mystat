@@ -1,6 +1,6 @@
 import Foundation
 
-/// Grafik zaman aralıkları ve gezinti ipucu metinleri (mockup'taki `timeLabel`, `xLabels`).
+/// Chart time ranges and navigation hint texts.
 public enum TimeRange: CaseIterable, Sendable, Hashable {
     case m10, h1, h24, d7
 
@@ -12,7 +12,7 @@ public enum TimeRange: CaseIterable, Sendable, Hashable {
         switch self { case .m10: 120; case .h1: 120; case .h24: 144; case .d7: 168 }
     }
 
-    /// İki nokta arası süre (sn).
+    /// Duration between two points (s).
     public var step: TimeInterval {
         switch self { case .m10: 5; case .h1: 30; case .h24: 600; case .d7: 3600 }
     }
@@ -42,6 +42,6 @@ public enum TimeRange: CaseIterable, Sendable, Hashable {
         }
     }
 
-    /// Seçili dilde gün adları (Pazar'dan başlar).
+    /// Day names in the selected language (starting from Sunday).
     static var dayNames: [String] { DateFormatter.weekdays(Fmt.locale) }
 }

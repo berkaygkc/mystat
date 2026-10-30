@@ -1,6 +1,6 @@
 import Foundation
 
-/// Disk taraması: yalnızca elle başlar, 1 saat geçerlidir (spec §6.4).
+/// Disk scan: starts only manually, valid for 1 hour.
 public enum ScanPhase: Sendable, Equatable {
     case none
     case scanning(progress: Double, scannedGB: Double, currentPath: String)

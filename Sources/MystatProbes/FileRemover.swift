@@ -1,14 +1,14 @@
 import Darwin
 import Foundation
 
-/// Disk haritasından silme (spec §6.4). Silmeden hemen önce öğenin taramadaki öğe olduğu dosya kimliğiyle (inode)
-/// denetlenir; sembolik bağlantının yalnızca kendisi silinir, hedefine dokunulmaz.
+/// Deletion from the disk map. Right before deleting, the item is checked against the file identity (inode) of the item in the scan;
+/// for a symbolic link only the link itself is deleted, its target is not touched.
 public enum FileRemover {
     public enum Result: Sendable, Equatable {
         case removed(bytes: Int64)
-        /// Yolda artık başka bir öğe var ya da öğe yok: dokunulmadı.
+        /// The path now holds a different item or nothing: left untouched.
         case changed
-        /// Silme yarıda kaldı; `freed` o ana kadar boşalan alan.
+        /// Deletion was interrupted; `freed` is the space freed so far.
         case failed(String, freed: Int64)
     }
 
@@ -30,8 +30,8 @@ public enum FileRemover {
         }
     }
 
-    /// Silinince boşalacak alan: klasörde tarayıcıyla (hardlink bir kez, bağlantı izlenmez, dataless sayılmaz), dosyada
-    /// ayrılan bloklar. Başka adı da olan dosya (hardlink) silinince yer açılmaz.
+    /// Space that deleting would free: for a folder, computed with the scanner (hardlink once, links not followed, dataless not counted); for a file,
+    /// the allocated blocks. Deleting a file that has another name too (hardlink) frees no space.
     static func allocated(_ url: URL, _ st: stat) -> Int64 {
         switch st.st_mode & S_IFMT {
         case S_IFDIR: return DirectoryScanner(root: url.path, workers: 2).scan(onProgress: { _ in }, isCancelled: { false }).totals()[0]

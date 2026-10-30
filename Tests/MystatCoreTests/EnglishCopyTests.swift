@@ -3,7 +3,7 @@ import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-/// İngilizce metinler: Türkçe testlerin karşılıkları, birer örnekle.
+/// English texts: counterparts of the Turkish tests, one example each.
 @MainActor @Suite(.language("en")) struct EnglishCopyTests {
     @Test func menubarLabels() {
         let cal = Calendar.trTest, now = Date()
@@ -11,7 +11,7 @@ import Testing
         #expect(calm.metrics.map(\.label) == ["CPU", "RAM", "DISK"])
         let a = { (k: IncidentKind) in StatusBlockLayout.model(SampleSource(seed: 1, incident: true, kind: k).snapshot, now: now, calendar: cal).alert }
         #expect(a(.heat)?.label == "TEMP"); #expect(a(.battery) == StatusMetric(label: "BATT", value: "−25%", level: .warn))
-        #expect(a(.docker)?.label == "DOCKER")   // değer örnek veriden (Task 5)
+        #expect(a(.docker)?.label == "DOCKER")   // value comes from sample data
     }
 
     @Test func calmPanel() {
@@ -56,7 +56,7 @@ import Testing
     }
 }
 
-/// Örnek veri ve ölçüm tarafında üretilen metinler, İngilizce.
+/// Texts produced on the sample-data and measurement side, in English.
 @MainActor @Suite(.language("en")) struct EnglishSampleTests {
     @Test func sampleIncidentAndMenubar() {
         let docker = SampleSource(seed: 1, incident: true, kind: .docker).snapshot

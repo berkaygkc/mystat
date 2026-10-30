@@ -3,27 +3,27 @@ import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-/// Bellek içi seriler (10 dk: 5 sn × 120, 1 sa: 30 sn × 120) ve grup halkaları (spec §9.4).
+/// In-memory series (10 min: 5 s × 120, 1 h: 30 s × 120) and group rings.
 @MainActor @Suite(.language("tr")) struct SeriesBufferTests {
-    let t0 = Date(timeIntervalSince1970: 1_793_163_600)   // 5 ve 30 sn'nin katı
+    let t0 = Date(timeIntervalSince1970: 1_793_163_600)   // a multiple of 5 and 30 s
 
     @Test func m10BucketsAverage() {
         var b = SeriesBuffer()
         b.add(.cpu, 10, at: t0)
         b.add(.cpu, 20, at: t0.addingTimeInterval(2))
-        b.add(.cpu, 99, at: t0.addingTimeInterval(6))          // sonraki kova (açık, henüz kapanmadı)
+        b.add(.cpu, 99, at: t0.addingTimeInterval(6))          // next bucket (open, not yet closed)
         #expect(b.series(.cpu, .m10) == [15, 99])
     }
 
     @Test func capsAtPointCount() {
         var b = SeriesBuffer()
         var t = 0.0
-        while t < 900 { b.add(.cpu, t, at: t0.addingTimeInterval(t)); t += 2 }    // 15 dk
+        while t < 900 { b.add(.cpu, t, at: t0.addingTimeInterval(t)); t += 2 }    // 15 min
         #expect(b.series(.cpu, .m10).count == 120)
         #expect(b.series(.cpu, .h1).count == 30)
     }
 
-    /// 2 saatlik boşluk düz çizgiyle doldurulmaz; seri boşluktan sonra yeniden başlar (Review Focus #1).
+    /// A 2-hour gap is not filled with a flat line; the series restarts after the gap.
     @Test func gapRestartsSeries() {
         var b = SeriesBuffer()
         for i in 0..<30 { b.add(.netDown, 5, at: t0.addingTimeInterval(Double(i) * 2)) }
@@ -38,7 +38,7 @@ import Testing
 
     @Test func groupCoresAndMemoryGrowth() {
         var h = GroupHistory()
-        for i in 0...300 {   // 10 dk, 2 sn
+        for i in 0...300 {   // 10 min, 2 s
             let t = t0.addingTimeInterval(Double(i) * 2)
             h.add([group("docker", cores: 0.5, memGB: 8 + Double(i) / 300 * 2.1), group("brave", cores: 0.2, memGB: 3)], writtenBytes: [:], at: t)
         }
@@ -49,7 +49,7 @@ import Testing
 
     @Test func groupDiskWritesOverLastHour() {
         var h = GroupHistory()
-        for m in 0..<70 {   // 70 dk boyunca dakikada 1 GB
+        for m in 0..<70 {   // 1 GB per minute for 70 min
             for s in stride(from: 0, to: 60, by: 5) {
                 h.add([group("docker", cores: 0, memGB: 1)], writtenBytes: ["docker": s == 0 ? 1_000_000_000 : 0],
                       at: t0.addingTimeInterval(Double(m * 60 + s)))

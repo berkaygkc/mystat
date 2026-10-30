@@ -10,12 +10,12 @@ import Testing
     @Test func layoutMatchesMockupGeometry() {
         let e = BubbleEngine(tree: SampleSource(seed: 1).diskTree, path: [], viewSize: size)
         #expect(e.items.first?.name == "Library")
-        // R0 = min(655, 514)/2 − 22 = 235; tüm balonlar kök dairesinin içinde
+        // R0 = min(655, 514)/2 − 22 = 235; all bubbles lie inside the root circle
         for it in e.items { #expect(hypot(it.x - 327.5, it.y - 265) + it.r <= 235 + 1e-6) }
     }
     @Test func zoomInLandsExactly() {
         let e = BubbleEngine(tree: SampleSource(seed: 1).diskTree, path: [], viewSize: size)
-        #expect(e.zoomIn("Library", at: 0)); #expect(e.zoomIn("Documents", at: 0.1) == false)   // animasyon sürerken yok sayılır
+        #expect(e.zoomIn("Library", at: 0)); #expect(e.zoomIn("Documents", at: 0.1) == false)   // ignored while the animation is running
         _ = e.frame(at: 1.4, hover: nil, selection: { _ in .none })
         #expect(e.path == ["Library"]); #expect(e.isAnimating == false)
         let target = BubbleEngine(tree: SampleSource(seed: 1).diskTree, path: ["Library"], viewSize: size).items
@@ -46,7 +46,7 @@ import Testing
     @Test func labels() {
         let e = BubbleEngine(tree: SampleSource(seed: 1).diskTree, path: ["Library"], viewSize: size)
         let a = e.items.first { $0.name == "Application Support" }!
-        #expect(e.labelText(for: a, radius: 40)?.name == "Applicat…")   // mockup: slice(0, floor(r/4,4) − 1) + "…"
+        #expect(e.labelText(for: a, radius: 40)?.name == "Applicat…")   // reference rule: slice(0, floor(r/4,4) − 1) + "…"
         #expect(e.labelText(for: a, radius: 20)?.name == nil); #expect(e.labelText(for: a, radius: 20)?.size == "28 GB")
         #expect(e.labelText(for: a, radius: 10) == nil)
     }
@@ -58,7 +58,7 @@ import Testing
         #expect(e.hitTest(CGPoint(x: lib.x, y: lib.y), current: nil)?.name == "Library")
         #expect(e.hitTest(CGPoint(x: 2, y: 2), current: nil) == nil)
     }
-    /// Tarama sürerken balonlar yerinde büyür (spec §6.4 "Tarama sırasında"); bitince tam boyda.
+    /// While a scan runs the bubbles grow in place; when it finishes they are full size.
     @Test func scanGrowsBubblesInPlace() {
         let e = BubbleEngine(tree: SampleSource(seed: 1).diskTree, path: [], viewSize: size)
         let full = e.frame(at: 2, hover: nil, selection: { _ in .none })
@@ -76,14 +76,14 @@ import Testing
         #expect(BubbleEngine.scanGrowth(phase: 0.9, progress: 1) == 1)
         #expect(BubbleEngine.scanGrowth(phase: 0.2, progress: 0) > 0)
     }
-    /// Kenar listesi taramada haritadaki etiketle aynı birikmiş boyutu gösterir.
+    /// During a scan the sidebar list shows the same accumulated size as the label on the map.
     @Test func scannedSizeMatchesBubbleGrowth() {
         let e = BubbleEngine(tree: SampleSource(seed: 1).diskTree, path: [], viewSize: size)
         let lib = e.items.first { $0.name == "Library" }!
         #expect(BubbleEngine.scannedSize(96, path: ["Library"], progress: 0.3) == 96 * BubbleEngine.scanGrowth(phase: lib.phase, progress: 0.3))
         #expect(BubbleEngine.scannedSize(96, path: ["Library"], progress: nil) == 96)
     }
-    /// Tarama satırındaki "Taranıyor · X GB" kenar listesinin toplamıyla aynı.
+    /// The "Scanning · X GB" figure on the scan row equals the sidebar list's total.
     @Test func scannedTotalIsSumOfRootRows() {
         let t = SampleSource(seed: 1).diskTree
         let rows = (t.root.children ?? []).reduce(0) { $0 + BubbleEngine.scannedSize($1.size, path: [$1.name], progress: 0.55) }
@@ -102,7 +102,7 @@ import Testing
         #expect(e.items.count == BubbleEngine.maxBubbles)
         #expect(Set(e.items.filter { $0.kind != .other }.map(\.name)) == Set((8...30).map { "d\($0)" }))
         let rest = try #require(e.items.first { $0.kind == .other })
-        #expect(abs(rest.size - 2.85) < 1e-9)   // d1…d7 (2,8 GB) + küçük dosyalar 50 MB
+        #expect(abs(rest.size - 2.85) < 1e-9)   // d1…d7 (2.8 GB) + small files 50 MB
         #expect(rest.hasChildren == false); #expect(DiskNode.display(rest.name) == "Diğer")
         #expect(e.zoomIn(rest.name, at: 0) == false)
     }

@@ -1,7 +1,7 @@
 import MystatCore
 import SwiftUI
 
-/// Disk (mockup `secDisk`): doluluk, cam balon haritası, kenar menüsü ve disk etkinliği.
+/// Disk section: usage, glass bubble map, sidebar and disk activity.
 struct DiskSection<Source: MetricsSource>: View {
     let source: Source
     @Bindable var state: MonitorState
@@ -83,10 +83,10 @@ struct DiskSection<Source: MetricsSource>: View {
     }
 }
 
-/// Yol satırının sağındaki tarama durumu: taranıyor / X dk daha geçerli · Yeniden tara.
+/// Scan status at the trailing end of the path row: scanning / valid for X more minutes · Rescan.
 struct ScanStatus: View {
     let scan: ScanPhase
-    /// Hazır durumda okunamayan klasör sayısı (Tam Disk Erişimi yoksa).
+    /// Number of folders that could not be read in the ready state (when Full Disk Access is missing).
     let note: String?
     let start: () -> Void
     let stop: () -> Void
@@ -114,13 +114,13 @@ struct ScanStatus: View {
     }
 }
 
-/// Harita kartı: durumlar (boş / taranıyor / hazır), ince ilerleme çizgisi, cam Geri düğmesi, lejant, ipucu.
+/// Map card: states (empty / scanning / ready), thin progress line, glass Back button, legend, hint.
 struct DiskMapArea<Map: View>: View {
     @Bindable var disk: DiskUIState
     let scan: ScanPhase
-    /// Gerçek tarama 2d'de bağlanır; o zamana kadar canlı kaynakta düğme yok.
+    /// The real scan is not wired up yet; until then the live source has no button.
     var scanAvailable = true
-    /// Tam Disk Erişimi yoksa taramadan önce gösterilir (§6.4).
+    /// Shown before scanning when Full Disk Access is missing.
     var accessNote: String?
     let start: () -> Void
     @Environment(\.openURL) private var openURL

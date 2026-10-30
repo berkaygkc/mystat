@@ -6,7 +6,7 @@ public struct Crumb: Sendable, Equatable {
     public let isEllipsis: Bool
 }
 
-/// Disk yolu: 6 parçayı aşarsa "Ev › … › son 4".
+/// Disk path: if it exceeds 6 parts, "Home › … › last 4".
 public enum Breadcrumbs {
     public static func make(_ path: [String]) -> [Crumb] {
         let all = [Crumb(name: L10n.t("disk.home"), path: [], isEllipsis: false)]

@@ -1,7 +1,7 @@
 import Foundation
 
 extension Calendar {
-    /// Testlerde sabit saat dilimli (Europe/Istanbul) Gregoryen takvim.
+    /// A Gregorian calendar with a fixed time zone (Europe/Istanbul) for tests.
     static var trTest: Calendar {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = TimeZone(identifier: "Europe/Istanbul")!
@@ -12,7 +12,7 @@ extension Calendar {
 @testable import MystatCore
 
 extension StatusBlockModel {
-    /// Sakin durumda örnek blok modeli.
+    /// Sample block model in the calm state.
     static var sample: StatusBlockModel {
         StatusBlockModel(alert: nil,
                          metrics: [StatusMetric(label: "CPU", value: "%14", level: .ok),

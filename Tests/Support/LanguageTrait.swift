@@ -1,8 +1,8 @@
 import MystatCore
 import Testing
 
-/// Suite ya da testi bir dilde çalıştırır: `@Suite(.language("tr"))`. Dil görev yereli (`L10n.override`) olduğundan
-/// paralel testler birbirinin dilini değiştirmez.
+/// Runs a suite or test in a given language: `@Suite(.language("tr"))`. Because the language is a task-local (`L10n.override`),
+/// parallel tests do not change each other's language.
 public struct LanguageTrait: TestTrait, SuiteTrait, TestScoping {
     let code: String
     public var isRecursive: Bool { true }

@@ -1,7 +1,7 @@
 #!/bin/bash
-# Örnek veriyle tüm görüntü modu ekranlarını bir dilde çizer: build/lang-gallery/<dil>/NN.png ve index.txt.
-# Kullanım: tools/lang-gallery.sh [dil=en]
-# Yeni bir dilin taşan ya da kesilen metinlerini gözle bulmak için (Locales/README.md).
+# Renders every snapshot screen with sample data in one language: build/lang-gallery/<lang>/NN.png and index.txt.
+# Usage: tools/lang-gallery.sh [lang=en]
+# For spotting overflowing or truncated text in a new language by eye (Locales/README.md).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 LANG_CODE="${1:-en}"
@@ -44,4 +44,4 @@ shot --snapshot monitor --section sys --caps none
 shot --snapshot monitor --section cpu --select next-web
 shot --snapshot charts --size 1000x320
 shot --snapshot bubbles --size 900x600
-echo "$OUT: $i görüntü"
+echo "$OUT: $i images"

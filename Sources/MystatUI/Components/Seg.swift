@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Mockup'taki `.seg`: kapsül zeminli küçük bölmeli seçim.
+/// Segmented picker: small segments on a capsule background.
 public struct Seg<T: Hashable>: View {
     let items: [(T, String)]
     @Binding var selection: T

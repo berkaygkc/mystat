@@ -3,8 +3,8 @@ import Foundation
 import MystatCore
 import Synchronization
 
-/// SSD sıcaklığı: HID sıcaklık servisleri (özel `IOHIDEventSystemClient*`; §9.1). Servis başına ≈ 0,7 ms olduğu için
-/// çip sıcaklığı SMC'den okunur, buradan yalnızca "NAND" adlı servisler (60 sn'de bir).
+/// SSD temperature: HID temperature services (private `IOHIDEventSystemClient*`). Since each service costs ≈ 0.7 ms,
+/// chip temperature is read from the SMC and only services named "NAND" are read here (every 60 s).
 public final class HIDTemperatureProbe: Sendable {
     private typealias ClientCreate = @convention(c) (CFAllocator?) -> Unmanaged<AnyObject>?
     private typealias SetMatching = @convention(c) (AnyObject, CFDictionary) -> Int32
@@ -31,7 +31,7 @@ public final class HIDTemperatureProbe: Sendable {
         state = Mutex(State(client: client, services: nand, copyEvent: event, floatValue: float))
     }
 
-    /// Akla yatan değerlerin ortalaması; yoksa nil.
+    /// Average of the plausible values; nil if there are none.
     public func ssd() -> Double? {
         state.withLock { s in
             let values = s.services.compactMap { svc in

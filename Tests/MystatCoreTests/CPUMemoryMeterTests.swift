@@ -3,7 +3,7 @@ import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-/// Ham sayaçlardan CPU ve bellek (spec §7.1; Activity Monitor ile aynı tanımlar).
+/// CPU and memory from raw counters (same definitions as Activity Monitor).
 @Suite(.language("tr")) struct CPUMemoryMeterTests {
     let t0 = Date(timeIntervalSince1970: 1_793_166_318)
 
@@ -17,7 +17,7 @@ import Testing
         #expect(abs(s.systemPercent - 10) < 0.01)
     }
 
-    /// Uyku sonrası ilk fark atılır (Review Focus #1); sonraki örnek normal.
+    /// The first delta after sleep is discarded; the next sample is normal.
     @Test func cpuSkipsAfterSleepGap() {
         var m = CPUMeter()
         let a = [CoreTicks(user: 0, system: 0, idle: 0, nice: 0)]
@@ -26,7 +26,7 @@ import Testing
         #expect(m.update([CoreTicks(user: 60, system: 0, idle: 140, nice: 0)], at: t0.addingTimeInterval(7202)) != nil)
     }
 
-    /// Sayaç geri giderse (çekirdek eklendi/sıfırlandı) eksi yüzde yok.
+    /// If a counter goes backwards (a core was added or reset) there is no negative percentage.
     @Test func cpuCounterResetIsSkipped() {
         var m = CPUMeter()
         _ = m.update([CoreTicks(user: 500, system: 0, idle: 500, nice: 0)], at: t0)
@@ -39,7 +39,7 @@ import Testing
                            compressor: 300_000, purgeable: 50_000, internal: 1_250_000, external: 400_000,
                            swapUsed: 1 << 30, pressureLevel: 1, memoryLevel: 59)
         let s = MemoryMeter.state(c)
-        #expect(abs(s.apps - 1_200_000 * 16384 / gib) < 0.001)                 // uygulama = internal − purgeable
+        #expect(abs(s.apps - 1_200_000 * 16384 / gib) < 0.001)                 // app = internal − purgeable
         #expect(abs(s.wired - 200_000 * 16384 / gib) < 0.001)
         #expect(abs(s.compressed - 300_000 * 16384 / gib) < 0.001)
         #expect(abs(s.percent - Double(1_700_000 * 16384) / Double(48 << 30) * 100) < 0.001)

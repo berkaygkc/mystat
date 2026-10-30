@@ -1,6 +1,6 @@
 import Foundation
 
-/// Olay motorunun bir turluk girdisi. Büyüme ve yazım toplamları grup geçmişinden gelir (Task 8 halkaları).
+/// One round of input for the incident engine. Growth and write totals come from group history.
 public struct IncidentInputs: Sendable {
     public var cpu: CPUState
     public var memory: MemoryState
@@ -8,14 +8,14 @@ public struct IncidentInputs: Sendable {
     public var disk: DiskState
     public var groups: [ProcessGroup]
     public var thermal: Level
-    /// Son 30 dk'daki pil erimesi (yüzde puan); pilde değilse ya da ölçülemiyorsa nil.
+    /// Battery drain over the last 30 min (percentage points); nil if not on battery or not measurable.
     public var batteryDrain30m: Double?
     public var onAC: Bool
-    /// Grup id → son 10 dk'daki ayak izi büyümesi (GB).
+    /// Group id → footprint growth over the last 10 min (GB).
     public var memoryGrowthGB: [String: Double]
-    /// Grup id → son 1 saatte diske yazılan (GB).
+    /// Group id → GB written to disk over the last hour.
     public var diskWrittenGB1h: [String: Double]
-    /// Çalışan container'lar (Docker çalışmıyorsa boş).
+    /// Running containers (empty if Docker is not running).
     public var containers: [Container]
 
     public init(cpu: CPUState, memory: MemoryState, swapGrowing: Bool, disk: DiskState, groups: [ProcessGroup], thermal: Level,
@@ -28,10 +28,10 @@ public struct IncidentInputs: Sendable {
     }
 }
 
-/// Süreklilik süreli olaylar (spec §7.2, §7.2.1).
-/// - Olay, koşul başladığında başlar (başlangıç saati o an); süre dolunca görünür.
-/// - Koşul eşiğin altında 30 sn kalınca biter. Uzun aralıkta (uyku) bütün süreklilik sıfırlanır.
-/// - Birden fazla olay varsa kritik, eşitlikte en eski öne çıkar.
+/// Incidents with a sustain duration.
+/// - An incident starts when its condition starts (the start time is that moment); it becomes visible once the duration has elapsed.
+/// - It ends when the condition stays below the threshold for 30 s. After a long interval (sleep), all sustain timers are reset.
+/// - With several incidents, the critical one wins; among equals, the oldest.
 public struct IncidentEngine: Sendable {
     static let calmToEnd: TimeInterval = 30
 
@@ -40,9 +40,9 @@ public struct IncidentEngine: Sendable {
 
     private var since: [IncidentKind: Since] = [:]
     private var groupSince: [String: Since] = [:]
-    /// Container başına: yoğunluk (≥ %50, 120 sn) ve sorun (yeniden başlama/unhealthy, 30 sn) ayrı tutulur.
+    /// Per container: load (≥ 50%, 120 s) and trouble (restarting/unhealthy, 30 s) are tracked separately.
     private var busySince: [String: Since] = [:], troubleSince: [String: Since] = [:]
-    /// Olay sürdükçe son sorumlular ve neden (sorun mu yoğunluk mu): koşul düzelince 30 sn'lik bitişte de aynı metin.
+    /// While an incident lasts, the latest culprits and the cause (trouble or load): the same text is shown during the 30 s wind-down after the condition clears.
     private var dockerCulprits: (list: [Container], trouble: Bool)?
     private var active: [IncidentKind: Active] = [:]
     private var last: Date?
@@ -53,7 +53,7 @@ public struct IncidentEngine: Sendable {
         if let l = last, now.timeIntervalSince(l) > SampleGap.maxInterval { self = IncidentEngine() }
         last = now
 
-        // Her tür: anlık seviye, süreklilik süresi, izlenen değer.
+        // For each kind: instantaneous level, sustain duration, monitored value.
         let total = i.cpu.percent
         let cpuTotal = level(total >= 85, total >= 70)
         var groupLevel = Level.ok, groupSustained = Level.ok
@@ -107,11 +107,11 @@ public struct IncidentEngine: Sendable {
         return incident(kind, a, i, now)
     }
 
-    // MARK: - Süreklilik
+    // MARK: - Sustain
 
     private func level(_ crit: Bool, _ warn: Bool) -> Level { crit ? .crit : warn ? .warn : .ok }
 
-    /// Anlık seviye en az `after` sn sürdüyse o seviye; değilse daha düşük süreklilik.
+    /// The instantaneous level if it has lasted at least `after` s; otherwise the lower sustained level.
     private func sustain(_ s: inout Since, _ l: Level, _ now: Date, after: TimeInterval) -> Level {
         s.warn = l >= .warn ? (s.warn ?? now) : nil
         s.crit = l >= .crit ? (s.crit ?? now) : nil
@@ -141,7 +141,7 @@ public struct IncidentEngine: Sendable {
         }
     }
 
-    // MARK: - Olay içeriği (§7.2.1)
+    // MARK: - Incident content
 
     private func incident(_ k: IncidentKind, _ a: Active, _ i: IncidentInputs, _ now: Date) -> Incident {
         let started = Fmt.timeLine(a.start).prefix(5).description
@@ -174,7 +174,7 @@ public struct IncidentEngine: Sendable {
             facts = [Fact(L10n.t("fact.project"), first.map { $0.project.isEmpty ? "—" : $0.project } ?? "—"),
                      Fact(L10n.t("fact.duration"), L10n.t("unit.minutes", ["m": String(Int(now.timeIntervalSince(a.start) / 60))])), Fact(L10n.t("fact.health"), health)]
         case .heat, .battery:
-            // §7.2.1: enerji tüketen gruplar (W); süreç enerjisi okunamıyorsa CPU'ya göre.
+            // energy-consuming groups (W); by CPU if process energy cannot be read.
             let byWatts = i.groups.filter { $0.watts >= 0.1 }.sorted { $0.watts > $1.watts }.prefix(3)
             if byWatts.isEmpty { ids = byCPU.map(\.id); values = byCPU.map { Fmt.dec1($0.cpuCores) }; unit = L10n.t("unit.cores") }
             else { ids = byWatts.map(\.id); values = byWatts.map { Fmt.dec1($0.watts) }; unit = "W" }

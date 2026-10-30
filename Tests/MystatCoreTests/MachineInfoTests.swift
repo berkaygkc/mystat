@@ -3,7 +3,7 @@ import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-/// Kenar menüsünün alt satırı ve pil olguları gerçek veriden (spec §6.1, §6.3 Sistem).
+/// The sidebar's bottom row and battery facts come from real data.
 @MainActor @Suite(.language("tr")) struct MachineInfoTests {
     let now = Date(timeIntervalSince1970: 1_793_166_318)
 
@@ -29,7 +29,7 @@ import Testing
         #expect(none.adapterText == "—" && none.healthText == "—" && none.capacityText == "—")
     }
 
-    /// Prize takılı değilken "Prizdesin" denmez (Task 2 kararı burada kesinleşir).
+    /// When not plugged in, it never says "you are plugged in".
     @Test func onBatteryWithoutSensors() {
         var s = SampleSource(seed: 1).snapshot
         s.capabilities = SourceCapabilities(docker: false, sensors: false, diskScan: false, netDetails: false)

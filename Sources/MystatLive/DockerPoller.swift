@@ -4,9 +4,9 @@ import MystatCore
 import MystatProbes
 import Synchronization
 
-/// Docker'ı kendi temposunda okur (spec §9.2) ve son okumayı `latest`'te tutar; `Sampler` her turda yalnızca onu alır.
-/// Soket G/Ç'si engelleyicidir (zaman aşımı 3 sn): actor kendi seri kuyruğunda çalışır, Swift'in ortak iş parçacıklarını
-/// ve ölçüm döngüsünü bekletmez.
+/// Reads Docker at its own pace and keeps the last reading in `latest`; `Sampler` only picks that up each round.
+/// Socket I/O is blocking (3 s timeout): the actor runs on its own serial queue and does not hold up Swift's shared threads
+/// or the sampling loop.
 public actor DockerPoller {
     public struct Reading: Sendable {
         public var running = false
@@ -16,9 +16,9 @@ public actor DockerPoller {
         public var diskAt: Date?
     }
 
-    /// Ölçüm döngüsünün okuduğu son durum.
+    /// Latest state, read by the sampling loop.
     public nonisolated let latest = Mutex(Reading())
-    /// Panel ya da monitör açık mı (tempo 5 sn / 15 sn).
+    /// Whether the panel or monitor is open (interval 5 s / 15 s).
     public nonisolated let interest = Mutex(false)
 
     private let queue = DispatchSerialQueue(label: "mystat.docker")
@@ -32,7 +32,7 @@ public actor DockerPoller {
     private var rawGB: Double?
     private var lastRequest: Date?
     private var loop: Task<Void, Never>?
-    /// Süren eylemler: actor çağrıları sıraya girdiği için çift tıklama denetimi actor'a girmeden yapılır.
+    /// Running actions: actor calls are queued, so the double-click check is done before entering the actor.
     private nonisolated let inFlight = Mutex(Set<DockerAction>())
 
     public init(api: some DockerAPI = DockerClient(), rawFile: @escaping @Sendable () -> Double? = { DockerDiskFile.allocatedGB() }) {
@@ -54,7 +54,7 @@ public actor DockerPoller {
 
     public func stop() { loop?.cancel() }
 
-    /// Docker yok: 30 sn; hiç container yok (Resource Saver, sanal makineyi uyandırma): 60 sn; ilgi varken 5, yokken 15 sn.
+    /// Docker absent: 30 s; no containers at all (Resource Saver; don't wake the VM): 60 s; otherwise 5 s while watched, 15 s when not.
     public nonisolated static func delay(running: Bool, containerCount: Int, interest: Bool) -> TimeInterval {
         guard running else { return 30 }
         guard containerCount > 0 else { return 60 }
@@ -72,12 +72,12 @@ public actor DockerPoller {
             var stats: [DockerStatsRaw] = [], gone = Set<String>(), late = Set<String>()
             for c in list {
                 do { stats.append(try api.stats(c.id)) }
-                catch DockerError.http { gone.insert(c.id) }   // liste ile istatistik arasında silindi
-                catch { late.insert(c.id) }                    // tek container gecikti: Docker "çalışmıyor" sayılmaz
+                catch DockerError.http { gone.insert(c.id) }   // deleted between the list and the stats call
+                catch { late.insert(c.id) }                    // a single container was late: Docker is not considered "not running"
             }
             let previous = Dictionary(latest.withLock { $0.containers }.map { ($0.dockerID, $0) }, uniquingKeysWith: { a, _ in a })
             let containers = meter.containers(list.filter { !gone.contains($0.id) }, stats: stats, at: now).map { c in
-                late.contains(c.dockerID) ? previous[c.dockerID] ?? c : c                     // gecikende önceki değer
+                late.contains(c.dockerID) ? previous[c.dockerID] ?? c : c                     // for a late container, use its previous value
             }
             timeouts = 0
             latest.withLock { $0.running = true; $0.containers = containers }
@@ -91,7 +91,7 @@ public actor DockerPoller {
         }
     }
 
-    /// Docker bölümü açıldı: disk ve sanal disk dosyası (izin istemi bağlamında çıksın); 60 sn'den sık değil.
+    /// Docker section opened: read the disk and virtual disk file (so any permission prompt appears in context); no more often than every 60 s.
     public func requestDisk(at now: Date) {
         guard lastRequest.map({ now.timeIntervalSince($0) >= 60 }) ?? true else { return }
         lastRequest = now
@@ -99,7 +99,7 @@ public actor DockerPoller {
         if latest.withLock({ $0.running }) { refreshDisk(at: now) }
     }
 
-    /// §7.4 eylemleri. Aynı eylem sürerken ikinci istek gönderilmez.
+    /// Actions. A second request is not sent while the same action is running.
     public nonisolated func perform(_ action: DockerAction) async -> DockerActionOutcome {
         guard inFlight.withLock({ $0.insert(action).inserted }) else { return .failed(L10n.t("docker.error.inProgress")) }
         defer { inFlight.withLock { _ = $0.remove(action) } }
@@ -107,13 +107,13 @@ public actor DockerPoller {
     }
 
     private func run(_ action: DockerAction) -> DockerActionOutcome {
-        func filters(_ json: String) -> String {   // RFC 3986 ayrılmamış karakterler dışında her şey kodlanır
+        func filters(_ json: String) -> String {   // everything except RFC 3986 unreserved characters is encoded
             "?filters=" + (json.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-._~"))) ?? "")
         }
         let (path, timeout): (String, TimeInterval) = switch action {
         case .restart(let id, _): ("/containers/\(id)/restart?t=10", 30)
         case .stop(let id, _): ("/containers/\(id)/stop?t=10", 30)
-        // Etiketle: filtresiz prune eski motorlarda (< 23.0) ve Podman'da adlı veri volume'lerini de siler.
+        // With a label: an unfiltered prune also deletes named data volumes on old engines (< 23.0) and on Podman.
         case .pruneAnonymousVolumes: ("/volumes/prune" + filters(#"{"label":["com.docker.volume.anonymous"]}"#), 120)
         case .pruneNamedVolumes: ("/volumes/prune" + filters(#"{"all":["true"],"label!":["com.docker.volume.anonymous"]}"#), 120)
         case .pruneImages: ("/images/prune" + filters(#"{"dangling":["false"]}"#), 120)

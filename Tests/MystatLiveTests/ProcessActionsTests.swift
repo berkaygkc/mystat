@@ -4,7 +4,7 @@ import MystatProbes
 import MystatTestSupport
 import Testing
 
-/// Durdur / Zorla kapat gerçek sinyal gönderir (spec §7.4); yalnızca kullanıcının kendi süreçlerine.
+/// Stop / Force quit send real signals, and only to the user's own processes.
 @Suite(.language("tr")) struct ProcessActionsTests {
     @Test func terminatesOwnChild() throws {
         let p = Process()
@@ -21,10 +21,10 @@ import Testing
 
     @Test func refusesForeignUID() {
         #expect(ProcessActions.signal([1], force: false) == .notPermitted(reason: StopOutcome.foreignReason))
-        #expect(kill(1, 0) == 0 || errno == EPERM)   // launchd yaşıyor
+        #expect(kill(1, 0) == 0 || errno == EPERM)   // launchd is alive
     }
 
-    /// Grupta tek bir yabancı süreç varsa kendi süreçlere de sinyal gitmez.
+    /// If a group contains a single foreign process, no signal is sent to the user's own processes either.
     @Test func mixedGroupSendsNothing() throws {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/bin/sleep")

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Mockup'taki `rng(seed)` (mulberry32) ile bit düzeyinde aynı üreteç; seriler mockup'la aynı çıkar.
+/// A mulberry32 generator with a fixed algorithm, so a given seed always produces the same series.
 public struct Mulberry32: Sendable {
     private var state: UInt32
     public init(seed: UInt32) { state = seed }
@@ -13,7 +13,7 @@ public struct Mulberry32: Sendable {
     }
 }
 
-/// Mockup'taki `walk`: tohumlu, yumuşatılmış rastgele yürüyüş.
+/// `walk`: a seeded, smoothed random walk.
 func walk(_ seed: UInt32, _ n: Int, _ base: Double, _ amp: Double, smooth: Double = 0.72, lo: Double = 0, hi: Double = 100) -> [Double] {
     var r = Mulberry32(seed: seed); var v = base; var out: [Double] = []
     out.reserveCapacity(n)
@@ -24,7 +24,7 @@ func walk(_ seed: UInt32, _ n: Int, _ base: Double, _ amp: Double, smooth: Doubl
     return out
 }
 
-/// Mockup'taki `surge`: son `k` noktayı [lo, hi] bandına yükseltir.
+/// `surge`: raises the last `k` points into the [lo, hi] band.
 func surge(_ arr: [Double], _ k: Int, _ lo: Double, _ hi: Double, _ seed: UInt32) -> [Double] {
     var r = Mulberry32(seed: seed); let n = arr.count
     let ramp = max(1, min(8, Double(k) / 4))

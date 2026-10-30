@@ -4,7 +4,7 @@ import MystatCore
 import Testing
 @testable import MystatProbes
 
-/// libproc okuyucusu bu makinede (spec §9.1 Süreçler).
+/// The libproc reader on this machine.
 @Suite(.serialized) struct ProcessProbeTests {
     @Test func ownProcessIsFullyReadable() throws {
         let me = try #require(ProcessProbe().processes().first { $0.pid == getpid() })
@@ -13,14 +13,14 @@ import Testing
         #expect(me.footprint > 1_000_000)
     }
 
-    /// Başka kullanıcının süreci: yalnızca yol okunur, sayaçlar yok (root yardımcısı yok, spec §10).
+    /// Another user's process: only the path is read, no counters (there is no root helper).
     @Test func launchdIsRestrictedButNamed() throws {
         let l = try #require(ProcessProbe().processes().first { $0.pid == 1 })
         #expect(l.restricted && l.cwd == nil && l.cpuTime == 0)
         #expect(l.path == "/sbin/launchd" && l.name == "launchd")
     }
 
-    /// Apple Silicon'da rusage süreleri Mach birimidir; çevrilmezse ~41 kat sapar.
+    /// On Apple Silicon, rusage times are in Mach units; if not converted, results are off by ~41x.
     @Test func ownProcessBusyLoopIsAboutOneCore() throws {
         let probe = ProcessProbe()
         var m = ProcessMeter()
@@ -30,7 +30,7 @@ import Testing
         while Date() < until { x += sin(x) }
         let measured = m.update(probe.processes(), at: Date())
         let cores = try #require(measured?[getpid()])
-        // Üst sınır çekirdek sayısı: test süreci başka suite'leri (4 iş parçacıklı tarama) paralel koşar; birim hatası ~41 kat sapar.
+        // The upper bound is the core count: the test process runs other suites (4-thread scans) in parallel; a unit error is off by ~41x.
         #expect(cores > 0.6 && cores < Double(ProcessInfo.processInfo.activeProcessorCount) + 1, "ölçülen \(cores) çekirdek, x=\(x)")
     }
 
@@ -46,7 +46,7 @@ import Testing
         let port = Int(UInt16(bigEndian: bound.sin_port))
         #expect(ProcessProbe().listeningPorts(pids: [getpid()])[getpid()]?.contains(port) == true)
     }
-    /// Proje kökü cwd'den yukarı en yakın `.git`; terminal ortamdaki `TERM_PROGRAM`.
+    /// The project root is the nearest `.git` going up from the cwd; `TERM_PROGRAM` is the terminal in the environment.
     @Test func projectRootAndTerminal() throws {
         let me = try #require(ProcessProbe().processes().first { $0.pid == getpid() })
         let cwd = FileManager.default.currentDirectoryPath

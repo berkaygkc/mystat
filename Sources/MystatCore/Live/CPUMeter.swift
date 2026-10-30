@@ -1,12 +1,12 @@
 import Foundation
 
-/// Tick farklarından CPU yüzdeleri (spec §7.1: tüm çekirdeklerin ortalaması, 0–100).
+/// CPU percentages from tick deltas (mean over all cores, 0–100).
 public struct CPUMeter: Sendable {
     private var last: (ticks: [CoreTicks], at: Date)?
 
     public init() {}
 
-    /// İlk örnekte, uzun aralıktan sonra ya da sayaç geri gidince `nil` (taban yenilenir).
+    /// `nil` on the first sample, after a long interval, or when a counter goes backwards (the baseline is refreshed).
     public mutating func update(_ ticks: [CoreTicks], at: Date) -> CPUState? {
         defer { last = (ticks, at) }
         guard let prev = last, prev.ticks.count == ticks.count, at.timeIntervalSince(prev.at) <= SampleGap.maxInterval else { return nil }

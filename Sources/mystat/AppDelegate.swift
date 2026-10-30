@@ -5,20 +5,20 @@ import MystatUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    /// Varsayılan canlı kaynak; `--sample` ile Faz 1'in örnek verisi (`SourceFactory`).
+    /// Live source by default; with `--sample`, the sample data (`SourceFactory`).
     private(set) var source: (any MetricsSource)!
     private var status: StatusItemController?
     private var panel: PanelController?
     private var monitor: MonitorWindowController?
     private var keyMonitor: Any?
     private var ticker: Task<Void, Never>?
-    /// Panel ya da monitör açıkken süreçler 2 sn'de bir, kapalıyken 5 sn'de bir okunur (spec §9.2).
+    /// Processes are read every 2 s while the panel or monitor is open, every 5 s when closed.
     private var panelOpen = false { didSet { source.setDetailInterest(panelOpen || monitorVisible) } }
     private var monitorVisible = false { didSet { source.setDetailInterest(panelOpen || monitorVisible) } }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let args = CommandLine.arguments
-        // Dil, ölçüm başlamadan: ilk metinler de doğru dilde üretilsin.
+        // Language before sampling starts: so the first texts are also produced in the right language.
         let language = LanguageSettings()
         LanguageSettings.current = language
         if Localizer.shared.languages.isEmpty { NSLog("mystat: Locales folder not found; texts will show as keys") }
@@ -33,7 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         monitor?.onVisibilityChange = { [weak self] visible in
             guard let self else { return }
             self.monitorVisible = visible
-            self.source.setMonitorOccluded(!visible)   // ağ ayrıntıları durur, disk ağacı kalır
+            self.source.setMonitorOccluded(!visible)   // network details stop, the disk tree stays
             if visible { self.source.setVisibleSection(self.monitor?.state.section.rawValue) }
         }
         monitor?.onClose = { [weak self] in self?.source.setVisibleSection(nil) }
@@ -42,7 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #if DEBUG
         if args.contains("--log-values") { startValueLog() }
         #endif
-        if args.contains("--panel") {   // maliyet ölçümü: panel açık (durum düğmesinin penceresi açılışta henüz yok)
+        if args.contains("--panel") {   // cost measurement: panel open (the status button's window does not exist yet at launch)
             Task { @MainActor [weak self] in try? await Task.sleep(for: .seconds(1)); self?.togglePanel() }
         }
         if let i = args.firstIndex(of: "--section"), args.indices.contains(i + 1), let sec = MonitorSection(rawValue: args[i + 1]) {
@@ -56,11 +56,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         (source as? LiveSource)?.flushHistory()
     }
 
-    /// Panel ve monitör kök görünümleri `LanguageRoot` ile kendiliğinden yeniden kurulur; burada geri kalanlar.
+    /// The panel and monitor root views rebuild themselves via `LanguageRoot`; the rest is handled here.
     private func languageChanged() {
         status?.refresh(now: Date())
         panel?.relayout()
-        monitor?.state.confirm = nil   // açık onay penceresi eski dilde kalmasın
+        monitor?.state.confirm = nil   // so an open confirmation dialog does not stay in the old language
         source.languageChanged()
     }
 
@@ -73,8 +73,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         monitor?.show(section: section, groupID: groupID)
     }
 
-    /// ⌘Q çık, ⌘W pencereyi/paneli kapat, ⌘M monitör — yalnızca uygulama içinde (sistem geneli değil).
-    /// DEBUG'da inceleme tuşları: ⌥⌘I olay aç/kapa, ⌥⌘K olay türü.
+    /// ⌘Q quit, ⌘W close window/panel, ⌘M monitor — only inside the app (not system-wide).
+    /// Debug keys in DEBUG: ⌥⌘I toggle incident, ⌥⌘K incident kind.
     private func installKeys() {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
             guard let self else { return e }
@@ -88,7 +88,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case nil: break
             }
             #if DEBUG
-            if mods == [.command, .option], e.keyCode == 34, let sample = self.source as? SampleSource {                       // I (yalnızca örnek veri)
+            if mods == [.command, .option], e.keyCode == 34, let sample = self.source as? SampleSource {                       // I (sample data only)
                 sample.incident.toggle(); self.status?.refresh(now: Date()); return nil
             }
             if mods == [.command, .option], e.keyCode == 40, let sample = self.source as? SampleSource {                       // K
@@ -101,9 +101,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Saat tam saniye sınırında yenilenir; örnek veri 2 sn'de bir ilerler.
+    /// The clock refreshes on the whole-second boundary; sample data advances every 2 s.
     #if DEBUG
-    /// tools/consistency.sh için: her ölçümde tek satır (stdout).
+    /// For tools/consistency.sh: one line per measurement (stdout).
     private func startValueLog() {
         Task { [weak self] in
             while !Task.isCancelled {
@@ -124,7 +124,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 try? await Task.sleep(for: .seconds(1 - frac + 0.002))
                 guard let self else { return }
                 second += 1
-                if second % 2 == 0 { (self.source as? SampleSource)?.tick() }   // canlı kaynak kendi temposunda ölçer
+                if second % 2 == 0 { (self.source as? SampleSource)?.tick() }   // the live source samples at its own pace
                 self.status?.refresh(now: Date())
             }
         }

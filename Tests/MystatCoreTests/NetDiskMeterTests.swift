@@ -3,7 +3,7 @@ import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-/// Ağ ve disk hızları, bugünkü toplamlar ve disk doluluğu (spec §7.1).
+/// Network and disk rates, today's totals, and disk fullness.
 @Suite(.language("tr")) struct NetDiskMeterTests {
     var cal: Calendar { var c = Calendar(identifier: .gregorian); c.timeZone = TimeZone(identifier: "Europe/Istanbul")!; return c }
     let t0 = Date(timeIntervalSince1970: 1_793_166_318)   // 2026-10-28 08:45:18 +03
@@ -17,10 +17,10 @@ import Testing
         #expect(m.update(en0(1_000_000, 0), at: t0, calendar: cal) == nil)
         let r = m.update(en0(5_000_000, 600_000), at: t0.addingTimeInterval(2), calendar: cal)!
         #expect(abs(r.down - 2.0) < 1e-9 && abs(r.up - 0.3) < 1e-9)
-        #expect(abs(r.todayDown - 0.004) < 1e-9)                     // GB, ondalık
+        #expect(abs(r.todayDown - 0.004) < 1e-9)                     // GB, decimal
     }
 
-    /// Arayüz yeniden başlayınca sayaç geri gider: eksi hız yok, o örnek atlanır (Review Focus #3).
+    /// When an interface restarts the counter goes backwards: no negative rate, and that sample is skipped.
     @Test func counterResetIsSkipped() {
         var m = NetMeter(primary: "en0")
         _ = m.update(en0(9_000_000, 9_000_000), at: t0, calendar: cal)
@@ -29,7 +29,7 @@ import Testing
         #expect(abs(r.down - 1.5) < 1e-9 && r.up == 0)
     }
 
-    /// Uykudan sonraki ilk fark atılır (Review Focus #1).
+    /// The first delta after sleep is discarded.
     @Test func sleepGapSkipped() {
         var m = NetMeter(primary: "en0")
         _ = m.update(en0(0, 0), at: t0, calendar: cal)
@@ -53,7 +53,7 @@ import Testing
         _ = m.update(a, at: t0, calendar: cal)
         let b = [InterfaceCounters(name: "en0", rx: 2_000_000, tx: 0, up: true), InterfaceCounters(name: "en5", rx: 2_000_000, tx: 0, up: true),
                  InterfaceCounters(name: "utun3", rx: 50_000_000, tx: 0, up: true)]
-        #expect(abs(m.update(b, at: t0.addingTimeInterval(2), calendar: cal)!.down - 2.0) < 1e-9)   // utun (VPN) çift sayılmaz
+        #expect(abs(m.update(b, at: t0.addingTimeInterval(2), calendar: cal)!.down - 2.0) < 1e-9)   // utun (VPN) is not double-counted
     }
 
     @Test func diskIORates() {
@@ -71,7 +71,7 @@ import Testing
         #expect(s.readMBps == 8.2 && s.writeMBps == 4.7)
     }
 
-    /// VPN kapanınca ya da dock çıkınca birincil arayüz kaybolur: ölçülen arayüz değişti, sıçrama yerine yeniden başlanır.
+    /// When the VPN drops or the dock is unplugged the primary interface disappears: the measured interface changed, so measurement restarts instead of spiking.
     @Test func vanishedPrimaryRebasesInsteadOfSpiking() {
         let cal = Calendar.trTest, t = Date(timeIntervalSince1970: 1_793_166_318)
         var m = NetMeter(primary: "utun4", today: .init(day: NetMeter.dayKey(t, cal), downGB: 1, upGB: 0.1))

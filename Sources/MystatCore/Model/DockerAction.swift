@@ -1,7 +1,7 @@
 import Foundation
 
-/// Docker eylemleri (§7.4); hepsi onaylı. Volume temizliği kullanıcının kararıyla iki ayrı eylem: adsızlar (güvenli)
-/// ve adlılar (durmuş projelerin veri volume'leri; uyarılı). İkisi de etiketle süzülür, birbirinin kümesine dokunmaz.
+/// Docker actions; all require confirmation. Volume cleanup is two separate actions: anonymous volumes (safe)
+/// and named ones (data volumes of stopped projects; with a warning). Both are filtered by label and never touch each other's set.
 public enum DockerAction: Sendable, Hashable {
     case restart(id: String, name: String)
     case stop(id: String, name: String)
@@ -13,7 +13,7 @@ public enum DockerAction: Sendable, Hashable {
 }
 
 public enum DockerActionOutcome: Sendable, Equatable {
-    /// Temizlikte API'nin bildirdiği gerçek boşalan alan.
+    /// Space actually freed, as reported by the API after cleanup.
     case done(reclaimedGB: Double?)
     case failed(String)
 }

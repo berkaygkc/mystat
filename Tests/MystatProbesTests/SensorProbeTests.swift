@@ -3,7 +3,7 @@ import MystatCore
 import Testing
 @testable import MystatProbes
 
-/// IOReport enerji, GPU ve SSD okuyucuları (root'suz, §9.1). Canlı testler okuyucu bu makinede açılabiliyorsa çalışır.
+/// IOReport energy, GPU and SSD readers (rootless). Live tests run if the reader can be opened on this machine.
 @Suite struct SensorProbeTests {
     @Test func unitScale() {
         #expect(UnitScale.joules(1500, unit: "mJ") == 1.5)

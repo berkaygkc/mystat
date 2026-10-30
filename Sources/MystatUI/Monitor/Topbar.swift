@@ -1,7 +1,7 @@
 import MystatCore
 import SwiftUI
 
-/// Bölüm adı, zaman aralığı ve saniyeli saat.
+/// Section name, time range and a clock with seconds.
 struct Topbar: View {
     @Bindable var state: MonitorState
 

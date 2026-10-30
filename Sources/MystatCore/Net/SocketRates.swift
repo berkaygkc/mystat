@@ -1,9 +1,9 @@
 import Foundation
 
-/// Bir soketin çekirdekteki alınan bayt sayacı ve sahibi (pcblist_n).
+/// A socket's received-byte counter in the kernel, and its owner (pcblist_n).
 public struct SocketStat: Sendable, Equatable {
-    /// Çekirdek soketinin kuşak numarası (benzersiz, yeniden kullanılmaz). Network.framework'ün kullanıcı alanı
-    /// akışlarında 0: bunlar listede tutamaçsız görünür ve bağlantı noktalarıyla tanınır.
+    /// Generation number of the kernel socket (unique, never reused). 0 for Network.framework's user-space
+    /// flows: they appear in the list without a handle and are recognized by their ports.
     public var generation: UInt64
     public var pid: Int32
     public var rxBytes: UInt64
@@ -15,16 +15,16 @@ public struct SocketStat: Sendable, Equatable {
         self.localPort = localPort; self.foreignPort = foreignPort
     }
 
-    /// Kullanıcı alanı akışı: alınanı bir kez sayar (çekirdek soketleri iki kez; ölçüldü).
+    /// User-space flow: counts received bytes once (kernel sockets count them twice; measured).
     public var isUserSpaceFlow: Bool { generation == 0 }
 
     enum Key: Hashable { case kernel(UInt64), flow(pid: Int32, proto: UInt8, local: UInt16, foreign: UInt16) }
     var key: Key { isUserSpaceFlow ? .flow(pid: pid, proto: proto, local: localPort, foreign: foreignPort) : .kernel(generation) }
 }
 
-/// Soket sayaçlarından uygulama bazında ↓ hız (spec §6.3 "Kim kullanıyor"). Çekirdek soketleri alınan veriyi
-/// `receiveFactor` kez sayar (macOS 26'da 2; loopback'te ölçülür); kullanıcı alanı akışları bir kez. İlk okuma tabandır.
-/// İki okuma arasında açılan soketin sayacı tümüyle, kapanan soketinki hiç sayılmaz; sayacı küçülen soket yeni sayılır.
+/// Per-app ↓ rate from socket counters (the "Who's using it" list). Kernel sockets count received data
+/// `receiveFactor` times (2 on macOS 26; measured on loopback); user-space flows count it once. The first reading is the baseline.
+/// A socket opened between two readings counts in full, one that closed counts not at all; a socket whose counter shrinks is treated as new.
 public struct SocketRates: Sendable {
     private let factor: Double
     private var previous: [SocketStat.Key: UInt64]?
@@ -32,13 +32,13 @@ public struct SocketRates: Sendable {
 
     public init(receiveFactor: Double) { factor = max(1, receiveFactor) }
 
-    /// pid → ↓ MB/s (ondalık); ilk okumada ya da aralık sıfırsa nil.
+    /// pid → ↓ MB/s (decimal); nil on the first reading or if the interval is zero.
     public mutating func update(_ stats: [SocketStat], at time: TimeInterval) -> [Int32: Double]? {
         defer { previous = Dictionary(stats.map { ($0.key, $0.rxBytes) }, uniquingKeysWith: { a, b in a &+ b }); lastTime = time }
         guard let prev = previous, time > lastTime else { return nil }
         let dt = time - lastTime
         var current: [SocketStat.Key: (pid: Int32, rx: UInt64, divisor: Double)] = [:]
-        for s in stats {   // aynı kimlikte birden çok kayıt (nadir) toplanır
+        for s in stats {   // several records with the same identity (rare) are summed
             let c = current[s.key]
             current[s.key] = (s.pid, (c?.rx ?? 0) &+ s.rxBytes, s.isUserSpaceFlow ? 1 : factor)
         }
@@ -52,9 +52,9 @@ public struct SocketRates: Sendable {
     }
 }
 
-/// Uygulama bazında hızlar gruplara.
+/// Per-app rates, mapped onto groups.
 public enum NetRates {
-    /// Grupların `netMBps`'i o anki pid'lerinden toplanır; gruplarda olmayan pid'ler yok sayılır.
+    /// Each group's `netMBps` is summed from its current pids; pids that are in no group are ignored.
     public static func apply(_ rates: [Int32: Double], to groups: inout [ProcessGroup]) {
         for i in groups.indices { groups[i].netMBps = groups[i].pids.reduce(0) { $0 + (rates[$1] ?? 0) } }
     }

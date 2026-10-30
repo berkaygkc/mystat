@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Mockup'taki `.btn` ailesi.
+/// The button family.
 public struct Btn: View {
     public enum Style { case normal, primary, danger, dangerFill }
     let title: String, icon: String?, trailing: String?, style: Style, action: () -> Void

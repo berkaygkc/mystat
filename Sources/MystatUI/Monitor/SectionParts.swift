@@ -1,7 +1,7 @@
 import MystatCore
 import SwiftUI
 
-/// Bölüm başı: üst etiket, başlık, açıklama (mockup `headBlock`).
+/// Section header: kicker label, title, description.
 struct SectionHead: View {
     let kicker: String
     let title: AttributedString
@@ -29,7 +29,7 @@ struct SectionHead: View {
     }
 }
 
-/// Kart başlığı satırı: solda kalın başlık, sağda soluk not ya da lejant.
+/// Card title row: bold title on the left, muted note or legend on the right.
 struct SecH<Trailing: View>: View {
     let title: String
     @ViewBuilder let trailing: () -> Trailing
@@ -65,7 +65,7 @@ struct Legend: View {
     }
 }
 
-/// Grafik kartının altındaki istatistik satırı (mockup `.stats`).
+/// Stats row under a chart card.
 struct StatsRow: View {
     let items: [(String, String, String?)]
     var body: some View {
@@ -85,7 +85,7 @@ struct StatsRow: View {
     }
 }
 
-/// Mockup `.badge`: "sahipsiz".
+/// Small badge, e.g. "unowned".
 struct OrphanBadge: View {
     var body: some View {
         Text(L10n.t("badge.orphan")).font(.system(size: 10.5, weight: .semibold)).foregroundStyle(Theme.orange)
@@ -94,7 +94,7 @@ struct OrphanBadge: View {
     }
 }
 
-/// Yatay doluluk çubuğu.
+/// Horizontal fill bar.
 struct Bar: View {
     let fraction: Double
     let color: Color
@@ -113,7 +113,7 @@ extension View {
     func hairlineBottom(_ color: Color = Theme.line) -> some View { overlay(alignment: .bottom) { Rectangle().fill(color).frame(height: 1) } }
 }
 
-/// Durum hapı (mockup `.pill`): "Normal", "Ilık", "Prizde", "Sakin".
+/// Status pill: "Normal", "Warm", "Plugged in", "Calm".
 struct Pill: View {
     let text: String
     let level: Level
@@ -129,7 +129,7 @@ struct Pill: View {
     }
 }
 
-/// Mockup `.hatch`: "kullanılmıyor" kısımlar için çapraz tarama.
+/// Diagonal hatching for "unused" portions.
 struct Hatch: View {
     let base: Color
     @Environment(\.colorScheme) private var scheme
@@ -144,7 +144,7 @@ struct Hatch: View {
     }
 }
 
-/// Olgu satırı: solda etiket, sağda kalın değer.
+/// Fact row: label on the left, bold value on the right.
 struct FactRow: View {
     let k: String, v: String
     var body: some View {

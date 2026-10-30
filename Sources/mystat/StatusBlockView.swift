@@ -1,17 +1,17 @@
 import AppKit
 import MystatCore
 
-/// Menü çubuğundaki tek blok: iki katlı metrikler + ağ + saat (tarz B). Tıklamalar alttaki düğmeye geçer.
+/// The single block in the menu bar: two-row metrics + network + clock. Clicks pass through to the button underneath.
 final class StatusBlockView: NSView {
     var model: StatusBlockModel { didSet { if model != oldValue { beginAlertTransition(from: oldValue.alert); needsDisplay = true } } }
-    /// Kaybolma geçişi bitip uyarı yeri boşalınca (uzunluk yeniden hesaplansın diye).
+    /// When the fade-out transition ends and the alert slot becomes empty (so the length is recomputed).
     var onLayoutChange: (() -> Void)?
-    /// Kaybolurken hâlâ çizilen uyarı.
+    /// The alert still being drawn while fading out.
     private var ghost: StatusMetric?
     private var transition: (kind: StatusBlockLayout.AlertTransition, start: CFTimeInterval)?
     private var ticker: Timer?
 
-    /// Çizilen ve uzunluğu belirleyen model: kaybolan uyarı geçiş süresince yerinde kalır.
+    /// The model that is drawn and determines the length: a fading alert stays in place for the duration of the transition.
     var drawnModel: StatusBlockModel {
         guard model.alert == nil, let g = ghost else { return model }
         var m = model
@@ -29,11 +29,11 @@ final class StatusBlockView: NSView {
 
     override var isFlipped: Bool { true }
 
-    // MARK: - Uyarı geçişi (spec §4; mockup `popin`). Zamanlayıcı yalnızca geçiş süresince çalışır.
+    // MARK: - Alert transition. The timer runs only for the duration of the transition.
 
     private func beginAlertTransition(from old: StatusMetric?) {
         let new = model.alert
-        guard old?.label != new?.label else { return }   // aynı uyarının değeri değişti: geçiş yok
+        guard old?.label != new?.label else { return }   // the same alert's value changed: no transition
         if new != nil { ghost = nil; transition = (.appear, CACurrentMediaTime()) }
         else { ghost = old; transition = (.disappear, CACurrentMediaTime()) }
         guard ticker == nil else { return }
@@ -63,14 +63,14 @@ final class StatusBlockView: NSView {
     override func mouseEntered(with event: NSEvent) { hovering = true }
     override func mouseExited(with event: NSEvent) { hovering = false }
 
-    // MARK: - Yazı tipleri
+    // MARK: - Fonts
 
     static let labelFont = NSFont.systemFont(ofSize: StatusBlockLayout.labelSize, weight: .semibold)
     static let valueFont = NSFont.monospacedDigitSystemFont(ofSize: StatusBlockLayout.valueSize, weight: .semibold)
     static let netFont = NSFont.monospacedDigitSystemFont(ofSize: StatusBlockLayout.netSize, weight: .semibold)
     static let dateFont = NSFont.monospacedDigitSystemFont(ofSize: StatusBlockLayout.dateSize, weight: .medium)
     static let timeFont = NSFont.monospacedDigitSystemFont(ofSize: StatusBlockLayout.timeSize, weight: .semibold)
-    static let labelKern: CGFloat = 0.6   // 0,07 em
+    static let labelKern: CGFloat = 0.6   // 0.07 em
 
     static func font(_ size: CGFloat) -> NSFont {
         switch size {
@@ -82,7 +82,7 @@ final class StatusBlockView: NSView {
         }
     }
 
-    /// Genişlikler çoğunlukla sabit şablonlardan ("%100", "88:88:88"…) gelir; her çizimde yeniden ölçülmesin.
+    /// Widths mostly come from fixed templates ("%100", "88:88:88"…); so they are not remeasured on every draw.
     private static var widths: [String: CGFloat] = [:]
 
     static func measure(_ s: String, _ size: CGFloat, _ bold: Bool) -> CGFloat {
@@ -96,7 +96,7 @@ final class StatusBlockView: NSView {
         return w
     }
 
-    // MARK: - Çizim
+    // MARK: - Drawing
 
     override func draw(_ dirtyRect: NSRect) {
         let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
@@ -121,7 +121,7 @@ final class StatusBlockView: NSView {
         }
     }
 
-    /// Geçiş sürerken uyarı grup opaklığı, kayma ve ölçekle çizilir.
+    /// During a transition the alert is drawn with group opacity, slide and scale.
     private func drawAlert(_ a: StatusMetric, in box: NSRect) {
         guard let tr = transition, let ctx = NSGraphicsContext.current?.cgContext else { drawMetric(a, in: box); return }
         let ap = StatusBlockLayout.alertAppearance(tr.kind, elapsed: CACurrentMediaTime() - tr.start)
@@ -166,7 +166,7 @@ final class StatusBlockView: NSView {
         return out
     }
 
-    /// Sağa yaslı iki satır (ağ ve saat).
+    /// Two right-aligned rows (network and clock).
     private func drawTwoLines(top: NSAttributedString, bottom: NSAttributedString, topFont: NSFont, bottomFont: NSFont, in box: NSRect, topAlpha: CGFloat) {
         let th = lineHeight(topFont), bh = lineHeight(bottomFont)
         let y0 = (bounds.height - th - bh) / 2

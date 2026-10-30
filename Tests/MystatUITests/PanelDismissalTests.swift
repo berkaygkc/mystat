@@ -3,8 +3,8 @@ import MystatTestSupport
 import Testing
 @testable import MystatUI
 
-/// Panel, kendi uygulamamızın başka bir penceresine (ör. monitör) tıklanınca da kapanmalı; panelin içi ve
-/// durum öğesinin kendisi hariç (durum öğesi zaten aç/kapa yapar, iki kez kapanmasın).
+/// The panel must also close when another window of our own app (e.g. the monitor) is clicked; except for the panel's interior and
+/// the status item itself (the status item already toggles the panel; it must not close twice).
 @MainActor @Suite(.language("tr")) struct PanelDismissalTests {
     func window() -> NSWindow { NSWindow(contentRect: .init(x: 0, y: 0, width: 10, height: 10), styleMask: [.borderless], backing: .buffered, defer: true) }
 
@@ -19,7 +19,7 @@ import Testing
         #expect(PanelDismissal.closes(clickWindow: panel, panel: panel, statusWindow: status) == false)
         #expect(PanelDismissal.closes(clickWindow: status, panel: panel, statusWindow: status) == false)
     }
-    /// Pencere, çizilen gölge için panelden büyüktür; gölge payına tıklamak da "dışarısı" sayılır.
+    /// The window is larger than the panel to fit the drawn shadow; clicking the shadow margin also counts as "outside".
     @Test func clickInShadowMarginCloses() {
         let panel = window(), status = window()
         let content = CGRect(x: 74, y: 104, width: 352, height: 500)

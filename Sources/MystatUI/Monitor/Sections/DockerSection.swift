@@ -1,11 +1,11 @@
 import MystatCore
 import SwiftUI
 
-/// Docker (mockup `secDocker`).
+/// Docker section.
 struct DockerSection<Source: MetricsSource>: View {
     let source: Source
     @Bindable var state: MonitorState
-    /// Kullanıcı bir projeyi açıp kapatana kadar varsayılan: ilk satır ve sorunlu olanlar açık.
+    /// Default until the user opens or closes a project: the first row and problem projects are expanded.
     @State private var openProjects: Set<String>?
     @State private var hovered: String?
 
@@ -73,7 +73,7 @@ struct DockerSection<Source: MetricsSource>: View {
                 Sparkline(trend, color: Theme.c1, height: 34, max: top <= 30 ? 30 : top * 1.15, fillOpacity: 0.2).padding(.top, 10)
                 VStack(spacing: 7) {
                     cleanButton(L10n.t("docker.clean.anon"), k.volumesAnonReclaimGB) { state.confirm = DockerActions.request(.pruneAnonymousVolumes, disk: k, source: source) }
-                    // Kullanıcının kararı: durmuş projelerin adlı veri volume'leri ayrı ve uyarılı düğmede.
+                    // Named data volumes of stopped projects get their own separate button with a warning.
                     cleanButton(L10n.t("docker.clean.named"), named, danger: true) { state.confirm = DockerActions.request(.pruneNamedVolumes, disk: k, source: source) }
                     cleanButton(L10n.t("docker.clean.images"), k.imagesReclaimGB) { state.confirm = DockerActions.request(.pruneImages, disk: k, source: source) }
                 }
@@ -183,7 +183,7 @@ struct DockerSection<Source: MetricsSource>: View {
     }
 }
 
-/// Docker eylemlerinin onay penceresi: onaylanınca ara bildirim, sonuç gelince gerçek sonucun bildirimi.
+/// Confirmation sheet for Docker actions: an interim toast on confirmation, then a toast with the actual result.
 @MainActor
 public enum DockerActions {
     public static func request(_ action: DockerAction, disk: DockerDisk, source: any MetricsSource) -> ConfirmRequest {

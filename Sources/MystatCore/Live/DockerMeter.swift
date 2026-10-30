@@ -1,10 +1,10 @@
 import Foundation
 
-/// Container CPU'su ve belleği `docker stats`'ın tanımıyla, disk `docker system df`'in formülleriyle (ondalık GB).
-/// CPU: `Δcpu / Δsystem × onlineCPUs × 100` (%100 = 1 çekirdek). Önceki sayaçlar container id'siyle tutulur:
-/// aynı adla yeniden yaratılan container eskisinin değerini devralmaz, ilk ölçümde 0 gösterilir (sıçrama yok).
-/// Sürekli yeniden başlama: çalışma süresi turlar arasında geriye giderse yeniden başlama sayılır; 5 dk'da 2 kez ya da
-/// "restarting" durumu. Docker'ın geri çekilmesi 10 sn'lik çalışmada sıfırlandığı için yalnızca duruma bakmak yetmez.
+/// Container CPU and memory follow the definitions of `docker stats`, disk follows the formulas of `docker system df` (decimal GB).
+/// CPU: `Δcpu / Δsystem × onlineCPUs × 100` (100% = 1 core). Previous counters are kept by container id:
+/// a container recreated with the same name does not inherit the old one's values; its first measurement shows 0 (no spike).
+/// Continuous restarting: if the uptime goes backwards between rounds it counts as a restart; 2 restarts within 5 min, or a
+/// "restarting" state. Looking only at the state is not enough, because Docker's back-off is reset in a 10 s run.
 public struct DockerMeter: Sendable {
     private var last: [String: (cpu: UInt64, system: UInt64)] = [:]
     private var uptimes: [String: Double] = [:]
@@ -60,10 +60,10 @@ public struct DockerMeter: Sendable {
                           containersGB: gb(df.containersRw))
     }
 
-    /// Docker'ın insan dilindeki süresi ("Up 2 days (healthy)", "Up About an hour") → `Fmt.uptime`. Çalışmıyorsa "—".
+    /// Docker's human-readable uptime ("Up 2 days (healthy)", "Up About an hour") → `Fmt.uptime`. "—" if not running.
     static func uptime(status: String) -> String { Fmt.uptime(uptimeSeconds(status: status) ?? .nan) }
 
-    /// Docker'ın süre metni tekdüze artar ("59 seconds" → "About a minute" → "2 minutes" …); çalışmıyorsa nil.
+    /// Docker's uptime text increases monotonically ("59 seconds" → "About a minute" → "2 minutes" …); nil if not running.
     static func uptimeSeconds(status: String) -> Double? {
         guard status.hasPrefix("Up ") else { return nil }
         var text = status.dropFirst(3)

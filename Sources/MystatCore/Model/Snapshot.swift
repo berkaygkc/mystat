@@ -3,7 +3,7 @@ import Foundation
 public struct Fact: Sendable, Equatable {
     public let label: String
     public let value: String
-    /// Değer renklenecekse seviyesi (ör. olay kartında "Isı 91°" turuncu).
+    /// Level if the value should be colored (e.g. "Heat 91°" in orange on the incident card).
     public let level: Level
     public init(_ label: String, _ value: String, level: Level = .ok) { self.label = label; self.value = value; self.level = level }
 }
@@ -13,7 +13,7 @@ public struct ChildProcess: Sendable, Equatable {
     public let cpuCores: Double
 }
 
-/// Anlamına göre gruplanmış süreçler (spec §8).
+/// Processes grouped by meaning.
 public struct ProcessGroup: Identifiable, Sendable {
     public let id: String
     public let name: String
@@ -30,26 +30,26 @@ public struct ProcessGroup: Identifiable, Sendable {
     public let relatedID: String?
     public let isDocker: Bool
     public var children: [ChildProcess]
-    /// Grubun süreçleri (canlı veride; durdurma ve disk yazımı için). Örnek veride boş.
+    /// The group's processes (in live data; for stopping and disk writes). Empty in sample data.
     public var pids: [Int32] = []
-    /// Grupta kullanıcının olmayan süreç var; Durdur / Zorla kapat pasif (spec §7.4).
+    /// The group has processes not owned by the user; Stop / Force Quit are disabled.
     public var foreign = false
-    /// Süreç enerjisi farkından (W); sensörsüz kaynakta 0.
+    /// From the process energy delta (W); 0 for a source without sensors.
     public var watts = 0.0
 }
 
 public struct Container: Identifiable, Sendable {
     public var id: String { dockerID.isEmpty ? name : dockerID }
-    /// Compose servisi; yoksa "/" olmadan container adı.
+    /// Compose service; otherwise the container name without the "/".
     public let name: String
     public let image: String
-    /// %100 = 1 çekirdek (Docker'ın alışıldık gösterimi, §6.3).
+    /// 100% = 1 core (Docker's usual display).
     public var cpuPercent: Double
     public let memoryMB: Double
     /// false = unhealthy.
     public let healthy: Bool
     public let uptime: String
-    /// Compose projesi; yoksa "".
+    /// Compose project; "" if none.
     public var project: String = ""
     public var dockerID: String = ""
     public var restarting: Bool = false
@@ -63,10 +63,10 @@ public struct Incident: Sendable {
     public let startedAt: String
     public let minutes: Int
     public let peakPercent: Double
-    /// Sorumluların kimlikleri (grup ya da container adı) ve görüntülenecek değerleri, aynı sırada.
+    /// Identifiers of the culprits (group or container name) and the values to display, in the same order.
     public let culpritIDs: [String]
     public let culpritValues: [String]
-    /// Sorumlu değerlerinin birimi: "çekirdek", "GB", "W" …
+    /// Unit of the culprit values: "cores", "GB", "W" …
     public let culpritUnit: String
     public let facts: [Fact]
 
@@ -109,7 +109,7 @@ public struct DiskState: Sendable {
     public var purgeableGB: Double
     public var readMBps: Double
     public var writeMBps: Double
-    /// Şu an diske en çok yazan (örnek veride "Docker"); bilinmiyorsa nil.
+    /// Currently the heaviest disk writer (in sample data "Docker"); nil if unknown.
     public var topWriter: String? = nil
 }
 
@@ -122,11 +122,11 @@ public struct NetState: Sendable {
     public var iface: String
     public var ssid: String
     public var details: [Fact]
-    /// Ağın adı yoksa nedeni (konum izni, Wi‑Fi değil).
+    /// Reason the network name is missing (location permission, not Wi-Fi).
     public var ssidAccess: SSIDAccess = .known
-    /// Uygulama bazında ağ okunabiliyor mu (çekirdek soket sayaçları).
+    /// Whether per-app network is readable (kernel socket counters).
     public var perAppAvailable = true
-    /// İlk hızlar geldi mi (bölüm açıldıktan ≈ 2 sn sonra); gelmediyse "Ölçülüyor…".
+    /// Whether the first rates have arrived (about 2 s after the section opens); if not, "Measuring…".
     public var perAppReady = true
 }
 
@@ -134,25 +134,25 @@ public struct DockerDisk: Sendable {
     public var imagesGB: Double, imagesReclaimGB: Double, imagesCount: Int
     public var volumesGB: Double, volumesReclaimGB: Double, volumesCount: Int
     public var buildCacheGB: Double
-    /// Sanal disk dosyasının diskte kapladığı; okunamadıysa nil.
+    /// Space the virtual disk file occupies on disk; nil if unreadable.
     public var rawGB: Double?
     public var imagesUnusedCount = 0, volumesUnusedCount = 0
-    /// Yalnızca adsız volume'ler (güvenli temizlik; adlı veri volume'lerine dokunulmaz).
+    /// Anonymous volumes only (safe cleanup; named data volumes are left alone).
     public var volumesAnonReclaimGB = 0.0, volumesAnonUnusedCount = 0
     public var buildCacheReclaimGB = 0.0, containersGB = 0.0
 
-    /// Docker'ın verisi: image + volume + build cache + container katmanları.
+    /// Docker's data: images + volumes + build cache + container layers.
     public var dataGB: Double { imagesGB + volumesGB + buildCacheGB + containersGB }
 }
 
 public struct DockerState: Sendable {
-    /// Docker'a (daemon) ulaşılıyor mu.
+    /// Whether Docker (the daemon) is reachable.
     public var running = true
     public var containers: [Container]
     public var vmMemoryGB: Double
     public var vmCores: Int
     public var disk: DockerDisk
-    /// Son 30 günün farkı (GB); 2 günden az veri varsa nil.
+    /// Change over the last 30 days (GB); nil if there is less than 2 days of data.
     public var trend30GB: Double? = nil
 
     public init(running: Bool = true, containers: [Container], vmMemoryGB: Double, vmCores: Int, disk: DockerDisk, trend30GB: Double? = nil) {
@@ -167,7 +167,7 @@ public struct SystemState: Sendable {
     public var thermal: Level
     public var battery: Int
     public var charging: Bool
-    /// Son 30 dk'daki pil erimesi (yüzde puan); olay yoksa nil.
+    /// Battery drain over the last 30 min (percentage points); nil if there is no incident.
     public var batteryDrain30m: Double?
     public var watts: Double
     public var adapter: String, health: String, capacity: String
@@ -175,15 +175,15 @@ public struct SystemState: Sendable {
     public var gpuPercent: Double
     public var gpuCores: Int
     public var onAC: Bool = true
-    /// Kenar menüsünün alt satırı ("MacBook Pro · M4 Pro / 14 çekirdek · 48 GB · açık 3 gün").
+    /// Bottom line of the sidebar ("MacBook Pro · M4 Pro / 14 cores · 48 GB · up 3 days").
     public var machine: MachineInfo? = nil
-    /// 0: fansız Mac ya da okunamadı.
+    /// 0: fanless Mac or unreadable.
     public var fanCount = 0
-    /// "Fan sessiz" eşiği (en düşük devir).
+    /// Threshold for "fan quiet" (minimum speed).
     public var fanMinRPM = 0.0
-    /// IOReport; okunamadıysa nil.
+    /// IOReport; nil if unreadable.
     public var cpuWatts: Double? = nil, gpuWatts: Double? = nil
-    /// GPU'yu en çok kullanan uygulamalar (azalan).
+    /// Apps using the GPU the most (descending).
     public var gpuApps: [(name: String, percent: Double)] = []
     public var displays = 0
 }

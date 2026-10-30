@@ -3,7 +3,7 @@ import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-/// Engine API ham değerlerinden container CPU'su, bellek, durum ve Docker'ın diski (`docker stats` / `docker system df` tanımları).
+/// Container CPU, memory, state and Docker's disk from raw Engine API values (matching the definitions of `docker stats` / `docker system df`).
 @Suite(.language("tr")) struct DockerMeterTests {
     func raw(_ id: String, name: String = "/deploy-web-1", state: String = "running", status: String = "Up 2 days",
              project: String? = nil, service: String? = nil) -> DockerContainerRaw {
@@ -48,7 +48,7 @@ import Testing
         #expect(c[0].name == "acmecorp-verifier" && c[0].project == "deploy" && c[0].healthy && c[0].uptime == Fmt.uptime(2 * 86_400))
         #expect(c[1].name == "authgate" && c[1].project == "" && c[1].restarting)
         #expect(!c[2].healthy && c[2].uptime == Fmt.uptime(3 * 3600))
-        #expect(c.allSatisfy { $0.cpuPercent == 0 && $0.memoryMB == 0 })            // stats gelmedi
+        #expect(c.allSatisfy { $0.cpuPercent == 0 && $0.memoryMB == 0 })            // no stats arrived
         #expect(DockerMeter.uptime(status: "Up About an hour") == Fmt.uptime(3600))
         #expect(DockerMeter.uptime(status: "Up Less than a second") == Fmt.uptime(0))
         #expect(DockerMeter.uptime(status: "Up 3 weeks") == Fmt.uptime(21 * 86_400))
@@ -71,8 +71,8 @@ import Testing
         #expect(near(d.buildCacheGB, 9e-7) && near(d.buildCacheReclaimGB, 3e-7) && near(d.containersGB, 0.001716) && d.rawGB == 29.9)
     }
 
-    /// 15–30 sn açılıp çöken container "restarting" durumunda neredeyse hiç yakalanmaz (Docker'ın geri çekilmesi
-    /// 10 sn'lik çalışmada sıfırlanır): çalışma süresi geriye gidince yeniden başlama sayılır, 5 dk'da 2 kez → sürekli.
+    /// A container that starts and crashes every 15–30 s is almost never caught in the "restarting" state (Docker's back-off
+    /// resets after a 10 s run): uptime going backwards counts as a restart, and 2 restarts within 5 min means continuous.
     @Test func crashLoopFromUptimeResets() {
         var m = DockerMeter()
         let t = Date(timeIntervalSince1970: 1_793_163_600)
@@ -80,11 +80,11 @@ import Testing
             m.containers([raw("kc", name: "/authgate", status: status)], stats: [], at: t.addingTimeInterval(dt))[0]
         }
         #expect(!poll("Up 20 seconds", 0).restarting)
-        #expect(!poll("Up 5 seconds", 15).restarting)                 // tek yeniden başlama (elle de olabilir)
+        #expect(!poll("Up 5 seconds", 15).restarting)                 // a single restart (could be manual)
         #expect(!poll("Up 20 seconds", 30).restarting)
-        #expect(poll("Up 4 seconds", 45).restarting)                  // 5 dk'da ikinci
+        #expect(poll("Up 4 seconds", 45).restarting)                  // second one within 5 min
         #expect(poll("Restarting (1) 2 seconds ago", 50).restarting)
-        #expect(poll("Up 19 seconds", 60).restarting)                 // pencere içinde sürer
-        #expect(!poll("Up 6 minutes", 400).restarting)                // 5 dk sakin
+        #expect(poll("Up 19 seconds", 60).restarting)                 // persists within the window
+        #expect(!poll("Up 6 minutes", 400).restarting)                // 5 min calm
     }
 }

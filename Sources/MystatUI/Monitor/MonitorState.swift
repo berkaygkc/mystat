@@ -3,7 +3,7 @@ import MystatCore
 import Observation
 import SwiftUI
 
-/// Monitör penceresinin gezinme ve seçim durumu.
+/// Navigation and selection state of the monitor window.
 @MainActor @Observable
 public final class MonitorState {
     public var section: MonitorSection = .overview
@@ -12,7 +12,7 @@ public final class MonitorState {
     public var expanded: Set<String> = ["claude-acmecorp"]
     public var confirm: ConfirmRequest?
     public let disk = DiskUIState()
-    /// Bölüm değişince içerik en üste kaydırılsın diye artar.
+    /// Incremented on every section change so the content scrolls back to the top.
     public private(set) var scrollToken = 0
 
     public init() {}
@@ -29,8 +29,8 @@ public final class MonitorState {
         if section != target { go(target) }
     }
 
-    /// Bir bölüme, varsa o bölümdeki grubu seçerek gider (panel, olay bloğu ve öneriler buradan geçer).
-    /// İşlemci/Bellek/Ağ'da grup seçilir; diğer bölümlerde grup listesi yok, yalnızca bölüm açılır.
+    /// Navigates to a section, selecting a group in it if there is one (the panel, incident block and suggestions go through here).
+    /// CPU, Memory and Network select a group; other sections have no group list, so only the section opens.
     public func show(_ target: MonitorSection, group: String?) {
         switch (target, group) {
         case (.cpu, let id?): select(.cpu, id)
@@ -44,7 +44,7 @@ public final class MonitorState {
         if expanded.contains(id) { expanded.remove(id) } else { expanded.insert(id) }
     }
 
-    /// Teşhisi panoya kopyalar ve bildirim gösterir.
+    /// Copies the diagnosis to the clipboard and shows a toast.
     public func copyDiagnosis(_ text: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)

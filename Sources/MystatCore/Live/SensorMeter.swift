@@ -1,9 +1,9 @@
 import Foundation
 
-/// Sensör değerleri: akla yatmayan okumalar (−9.201, 0, 3,4, 150 üstü, NaN) ortalamaya girmez.
+/// Sensor values: implausible readings (−9.201, 0, 3.4, above 150, NaN) are excluded from the average.
 public enum SensorMeter {
     static let plausible = 10.0...120.0
-    /// Sensörler ≈ 5–6 sn'de bir okunur; boşluk eşiği 3 tempo (2 sn'lik ölçümlerin `SampleGap.maxInterval`'ı burada her turu atardı).
+    /// Sensors are read about every 5–6 s; the gap threshold is 3 ticks (the `SampleGap.maxInterval` for 2 s measurements would be exceeded on every round).
     public static let gap: TimeInterval = 15
 
     public static func average(_ values: [Double]) -> Double? {
@@ -12,8 +12,8 @@ public enum SensorMeter {
     }
 }
 
-/// IOReport birikimli joule → watt. İlk okumada, uzun aralıktan (uyku) sonra, sayaç geri gidince ya da akla yatmayan
-/// değerde nil: sıçrama gösterilmez.
+/// IOReport cumulative joules → watts. nil on the first reading, after a long interval (sleep), when the counter goes backwards, or on an implausible
+/// value: spikes are not shown.
 public struct PowerMeter: Sendable {
     private var last: (e: EnergyCounters, at: Date)?
     public init() {}
@@ -29,8 +29,8 @@ public struct PowerMeter: Sendable {
     }
 }
 
-/// İstemci GPU süresi farkı → uygulama başına yüzde (%100 = GPU'nun tamamı bir uygulamada). Anahtar (pid, ad): aynı pid
-/// başka uygulamaya geçerse eskisinin sayacı devralınmaz. Ad çekirdekte kırpılmış olabilir; tamamlamak örnekleyicinin işi.
+/// Client GPU time delta → percent per app (100% = the whole GPU used by one app). Key (pid, name): if the same pid
+/// switches to another app, the old one's counter is not inherited. The name may be truncated in the kernel; completing it is the sampler's job.
 public struct GPUShare: Sendable {
     private struct Key: Hashable { let pid: Int32; let name: String }
     private var last: (ns: [Key: UInt64], at: Date)?

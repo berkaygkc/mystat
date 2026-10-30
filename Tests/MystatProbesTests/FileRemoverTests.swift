@@ -32,7 +32,7 @@ import Testing
         #expect(!exists(url)); #expect(exists(bin.root.appendingPathComponent("çöpe.bin")))
     }
 
-    /// Gerçek çöp: ev içinde geçici klasör; sonuç `~/.Trash`'e gider. Kullanıcının çöpünde iz bırakmasın diye varsayılan pakette çalışmaz.
+    /// Real trash: a temporary folder inside the home directory; the result goes to `~/.Trash`. It does not run in the default bundle, so it leaves no trace in the user's trash.
     @Test(.enabled(if: ProcessInfo.processInfo.environment["MYSTAT_TRASH_TEST"] != nil))
     func removeToRealTrash() throws {
         let url = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("mystat-test-\(UUID().uuidString)")

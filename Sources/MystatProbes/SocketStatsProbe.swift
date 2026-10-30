@@ -2,29 +2,29 @@ import Darwin
 import Foundation
 import MystatCore
 
-/// Uygulama bazında ağ (spec §9.1 "nettop ya da eşdeğeri"): çekirdeğin soket listesi, `netstat`'ın kaynağı
-/// (`net.inet.tcp.pcblist_n`, `net.inet.udp.pcblist_n`). `nettop` bu makinede Ağ bölümü açıkken dakikada ≈ 35 sn
-/// işlemci tutuyordu; bu okuma 2 sn tempoda dakikada ≈ 0,02 sn (ölçüldü, 2026-10-29).
+/// Per-app network: the kernel's socket list, the source of `netstat` (`net.inet.tcp.pcblist_n`, `net.inet.udp.pcblist_n`).
+/// `nettop` used ≈ 35 s of CPU per minute on this machine while the Network section was open; this read costs ≈ 0.02 s per minute
+/// at a 2 s interval (measured, 2026-10-29).
 ///
-/// Kayıtlar SDK'da yok (xnu, 4 bayta paketli; macOS 26'da doğrulandı): her kayıt `{u32 uzunluk, u32 tür, …}`, 8'e
-/// yuvarlı. `xsocket_n` 104 bayt, sahibin pid'i 68'de, etkin pid 72'de; `xsockstat_n` 136 bayt, 4 trafik sınıfının her
-/// biri `{rxpackets, rxbytes, txpackets, txbytes}`; `xinpcb_n` 104 bayt, bağlantı noktaları 16 ve 18'de. Kayıt boyu
-/// beklenenden farklıysa (düzen değişmiş) okuma hiç sonuç vermez. Network.framework'ün kullanıcı alanı akışları da
-/// listede (tutamaç ve kuşak 0); bağlantı noktalarıyla ayırt edilir ve alınanı bir kez sayar.
+/// The records are not in the SDK (xnu, packed to 4 bytes; verified on macOS 26): each record is `{u32 length, u32 kind, …}`, rounded up to 8.
+/// `xsocket_n` is 104 bytes, owner pid at 68, effective pid at 72; `xsockstat_n` is 136 bytes, each of 4 traffic classes is
+/// `{rxpackets, rxbytes, txpackets, txbytes}`; `xinpcb_n` is 104 bytes, ports at 16 and 18. If the record size differs from
+/// expected (layout changed), the read yields no result at all. Network.framework user-space flows are also in the
+/// list (handle and generation 0); they are told apart by ports and count received bytes once.
 public enum SocketStatsProbe {
     static let socketKind: UInt32 = 0x001, statsKind: UInt32 = 0x008, inpcbKind: UInt32 = 0x010
     static let socketLen = 104, statsLen = 136, inpcbLen = 104
     static let lastPidOffset = 68, effectivePidOffset = 72, generationOffset = 76, classCount = 4, classStride = 32, rxInClass = 8
-    static let foreignPortOffset = 16, localPortOffset = 18   // xinpcb_n, ağ sırası
+    static let foreignPortOffset = 16, localPortOffset = 18   // xinpcb_n, network byte order
 
-    /// Tüm TCP ve UDP soketleri; okunamazsa ya da düzen beklenenden farklıysa nil.
+    /// All TCP and UDP sockets; nil if unreadable or the layout differs from expected.
     public static func read() -> [SocketStat]? {
         guard let tcp = list("net.inet.tcp.pcblist_n", proto: 6), let udp = list("net.inet.udp.pcblist_n", proto: 17) else { return nil }
         return tcp + udp
     }
 
     static func list(_ name: String, proto: UInt8) -> [SocketStat]? {
-        for _ in 0..<3 {   // okumalar arasında soket açılırsa tampon küçük kalabilir
+        for _ in 0..<3 {   // a socket may open between reads, leaving the buffer too small
             var len = 0
             guard sysctlbyname(name, nil, &len, nil, 0) == 0 else { return nil }
             len += len / 4 + 4096
@@ -35,8 +35,8 @@ public enum SocketStatsProbe {
         return nil
     }
 
-    /// Bir soketin kayıtları sırayla gelir: xinpcb_n (bağlantı noktaları), xsocket_n (sahip, kuşak), …, xsockstat_n.
-    /// Network.framework akışlarında tutamaç ve kuşak 0'dır.
+    /// A socket's records arrive in order: xinpcb_n (ports), xsocket_n (owner, generation), …, xsockstat_n.
+    /// For Network.framework flows the handle and generation are 0.
     static func parse(_ raw: UnsafeRawBufferPointer, proto: UInt8) -> [SocketStat]? {
         guard raw.count >= 24 else { return nil }
         func u32(_ o: Int) -> UInt32 { raw.loadUnaligned(fromByteOffset: o, as: UInt32.self) }
@@ -51,7 +51,7 @@ public enum SocketStatsProbe {
         while off + 8 <= raw.count {
             let len = Int(u32(off)), kind = u32(off + 4)
             guard len >= 8, off + len <= raw.count else { break }
-            let last = off + round8(len) >= raw.count   // sondaki xinpgen: ikinci alanı soket sayısı, türle karışabilir
+            let last = off + round8(len) >= raw.count   // trailing xinpgen: its second field is the socket count and can be confused with a kind
             switch kind {
             case inpcbKind:
                 guard len == inpcbLen else { if last { break } else { return nil } }
@@ -75,9 +75,9 @@ public enum SocketStatsProbe {
         return out
     }
 
-    /// Çekirdek soketleri alınan baytı kaç kez sayıyor: loopback'te 256 KB TCP aktarımıyla ölçülür (macOS 26'da 2). Aynı
-    /// ölçüm kayıt düzenini de doğrular: kabul edilen soket bağlantı noktalarından bulunamazsa ya da oran 1 ya da 2'ye yakın
-    /// değilse nil. Tek iş parçacığında, engellemeden (gönderme ve alma iç içe), en çok 1,5 sn; SIGPIPE yok.
+    /// How many times the kernel socket counts received bytes: measured with a 256 KB TCP transfer over loopback (2 on macOS 26). It also
+    /// validates the record layout: nil if the accepted socket cannot be found by its ports, or if the ratio is not close to 1 or 2.
+    /// Single thread, non-blocking (send and receive interleaved), at most 1.5 s; no SIGPIPE.
     public static func receiveFactor() -> Double? {
         let bytes = 256 * 1024
         let srv = socket(AF_INET, SOCK_STREAM, 0), cli = socket(AF_INET, SOCK_STREAM, 0)
@@ -118,7 +118,7 @@ public enum SocketStatsProbe {
             let r = recv(acc, &buf, buf.count, MSG_DONTWAIT)
             if r > 0 { got += r } else if r == 0 { return nil } else if errno != EAGAIN, errno != EINTR { return nil } else if sent == bytes { usleep(200) }
         }
-        // Kabul edilen soket: yerel port sunucunun, uzak port istemcinin.
+        // Accepted socket: the local port is the server's, the remote port is the client's.
         guard let stats = list("net.inet.tcp.pcblist_n", proto: 6),
               let own = stats.first(where: { $0.pid == getpid() && $0.localPort == serverPort && $0.foreignPort == clientPort }) else { return nil }
         let ratio = Double(own.rxBytes) / Double(bytes)

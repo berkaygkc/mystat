@@ -1,9 +1,9 @@
 import AppKit
 import SwiftUI
 
-/// Durum noktası; olayda nabız atar. Nabız Core Animation'da çalışır: SwiftUI'nin sonsuz animasyonu görünüm ağacını her
-/// karede güncelletiyordu ve monitörde bu, bütün pencerenin her karede yeniden yerleşmesi demekti (olay varken %35–60
-/// CPU, pencere görünmezken bile). Görünüş aynı: 0,8 sn'de saydamlık 1 → 0,45 ve ölçek 1 → 0,82, gidip gelerek.
+/// Status dot; pulses during an incident. The pulse runs in Core Animation: SwiftUI's infinite animation made the view tree
+/// update every frame, which in the monitor meant the whole window re-laid out every frame (35-60% CPU during an incident,
+/// even while the window was not visible). Same look: over 0.8 s opacity goes 1 → 0.45 and scale 1 → 0.82, autoreversing.
 struct PulseDot: NSViewRepresentable {
     let color: Color
     let pulsing: Bool
@@ -28,20 +28,20 @@ struct PulseDot: NSViewRepresentable {
         override func layout() {
             super.layout()
             CATransaction.begin(); CATransaction.setDisableActions(true)
-            dot.bounds = CGRect(origin: .zero, size: bounds.size)   // dönüşümlü katmanda frame tanımsız
+            dot.bounds = CGRect(origin: .zero, size: bounds.size)   // frame is undefined on a transformed layer
             dot.position = CGPoint(x: bounds.midX, y: bounds.midY)
             dot.cornerRadius = min(bounds.width, bounds.height) / 2
             CATransaction.commit()
         }
 
-        /// Pencereden çıkıp girince (panel yeniden açılınca) animasyon yeniden eklenir.
+        /// The animation is re-added when the view leaves and re-enters a window (e.g. the panel reopens).
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             updatePulse()
         }
 
-        /// Durağan değer soluk hal: durağan çizimde (görüntü modu) eski SwiftUI noktasıyla aynı görünür; canlıda animasyon
-        /// bunun üzerinde 1 ile 0,45 arasında gidip gelir.
+        /// The resting value is the muted state: in static drawing (render mode) it looks like the old SwiftUI dot; live, the animation
+        /// oscillates between 1 and 0.45 on top of it.
         private func updatePulse() {
             dot.removeAnimation(forKey: "pulse")
             CATransaction.begin(); CATransaction.setDisableActions(true)

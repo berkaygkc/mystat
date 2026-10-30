@@ -3,7 +3,7 @@ import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-/// Süreç CPU süresi farkından çekirdek (spec §7.1: 1,0 = bir çekirdeğin tamamı).
+/// Cores derived from per-process CPU time deltas (1.0 = one full core).
 @Suite(.language("tr")) struct ProcessMeterTests {
     let t0 = Date(timeIntervalSince1970: 1_793_166_318)
     let start = Date(timeIntervalSince1970: 1_793_000_000)
@@ -20,18 +20,18 @@ import Testing
         #expect(abs(c[10]! - 1.5) < 1e-9)
     }
 
-    /// Biten ve yeniden kullanılan pid hayalet değer üretmez; eksi değer asla yok (Review Focus #2).
+    /// A process that exited or whose pid was reused produces no phantom value; negative values never occur.
     @Test func exitedAndReusedPidsAreIgnored() {
         var m = ProcessMeter()
         _ = m.update([rec(10, cpu: 9_000_000_000), rec(11, cpu: 1_000)], at: t0)
         let c = m.update([rec(10, cpu: 100, start: start.addingTimeInterval(500)), rec(12, cpu: 5_000_000_000)], at: t0.addingTimeInterval(2))!
-        #expect(c[10] == nil && c[11] == nil && c[12] == nil)                 // pid 10 yeniden kullanıldı, 11 bitti, 12 yeni
+        #expect(c[10] == nil && c[11] == nil && c[12] == nil)                 // pid 10 was reused, 11 exited, 12 is new
         #expect(c.values.allSatisfy { $0 >= 0 })
         let d = m.update([rec(10, cpu: 2_000_000_100, start: start.addingTimeInterval(500))], at: t0.addingTimeInterval(4))!
         #expect(abs(d[10]! - 1.0) < 1e-9)
     }
 
-    /// İzin verilmeyen süreçlerin (başka kullanıcı) CPU'su okunamaz; ölçüme girmez.
+    /// CPU of processes we may not inspect (another user) cannot be read; it is left out of the measurement.
     @Test func restrictedRecordsAreSkipped() {
         var m = ProcessMeter()
         _ = m.update([rec(1, cpu: 0, restricted: true)], at: t0)
@@ -44,7 +44,7 @@ import Testing
         #expect(abs(m.update([rec(10, cpu: 2_500_000_000)], at: t0.addingTimeInterval(5))![10]! - 0.5) < 1e-9)
     }
 
-    /// İki örnek arasında doğan süreç: CPU süresinin tamamı bu aralıkta harcandı (derleme işleri "macOS"a yazılmasın).
+    /// A process born between two samples: all of its CPU time was spent in that interval (so build jobs are not attributed to "macOS").
     @Test func newbornProcessCountsFully() {
         var m = ProcessMeter()
         _ = m.update([rec(1, cpu: 0)], at: t0)
@@ -62,15 +62,15 @@ import Testing
                       cpuTime: 0, footprint: 0, energy: 0, diskWritten: 0, childCPUTime: child)
     }
 
-    /// Ölüp toplanan çocukların süresi ebeveyne yazılır; önceki örnekte sayılmış kısmı tekrar sayılmaz.
+    /// The time of reaped, dead children is credited to the parent; the part already counted in the previous sample is not counted again.
     @Test func reapedChildrenCountOnParent() {
         var m = ProcessMeter()
         _ = m.update([parent(child: 0), kid(11, of: 10, cpu: 1_000_000_000)], at: t0)
-        let c = m.update([parent(child: 3_000_000_000)], at: t0.addingTimeInterval(2))   // 11 bitti: 1 sn sayılmıştı, 2 sn yeni
+        let c = m.update([parent(child: 3_000_000_000)], at: t0.addingTimeInterval(2))   // 11 exited: 1 s had been counted, 2 s is new
         #expect(c?[10].map { abs($0 - 1) < 1e-9 } == true)
     }
 
-    /// Ebeveyn çocuğu geç toplarsa sayılmış kısım bir sonraki tura taşınır.
+    /// If the parent reaps the child late, the already-counted portion is carried over to the next round.
     @Test func lateReapingIsNotDoubleCounted() {
         var m = ProcessMeter()
         _ = m.update([parent(child: 0), kid(11, of: 10, cpu: 1_000_000_000)], at: t0)

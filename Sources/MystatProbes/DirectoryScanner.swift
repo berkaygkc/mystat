@@ -3,10 +3,10 @@ import Foundation
 import MystatCore
 import Synchronization
 
-/// Ev klasörünü `getattrlistbulk` ile tarar (spec §6.4): klasör başına tek toplu okuma, birkaç iş parçacığı.
-/// Sembolik bağlantı izlenmez, başka birime geçilmez. Hardlink bir kez, iCloud'a boşaltılmış (dataless) dosya hiç
-/// sayılmaz. Boyut diskte ayrılan alandır (`du` ile aynı). Okunamayan klasör sayılır, tarama sürer.
-/// Sonuç `index`'te birikir; tarama sürerken de okunabilir. Bir tarayıcı bir kez çalıştırılır.
+/// Scans the home folder with `getattrlistbulk`: one bulk read per folder, a few threads.
+/// Symbolic links are not followed and other volumes are not crossed. A hardlink is counted once; dataless files (offloaded to iCloud) are
+/// not counted at all. Size is the space allocated on disk (same as `du`). Unreadable folders are counted and the scan continues.
+/// The result accumulates in `index`; it can be read while the scan runs. A scanner is run once.
 public final class DirectoryScanner: Sendable {
     public struct Progress: Sendable, Equatable {
         public let bytes: Int64
@@ -17,10 +17,10 @@ public final class DirectoryScanner: Sendable {
     public let index: ScanIndex
     private let root: String
     private let workers: Int
-    /// Ev köküne göre yolu verilen klasör açılmaz (izin istemi çıkarabilecekler); okunamayan sayılır.
+    /// Folders whose path (relative to the home root) is listed are not opened (those that could prompt for permission); they count as unreadable.
     private let skip: @Sendable (String) -> Bool
     static let bufferSize = 256 * 1024
-    static let progressInterval: UInt64 = 250_000_000   // ns; ≈ 4 kez/sn
+    static let progressInterval: UInt64 = 250_000_000   // ns; ≈ 4 times/s
 
     private struct Work {
         var stack: [(id: Int32, path: String)]
@@ -31,7 +31,7 @@ public final class DirectoryScanner: Sendable {
         var lastReport: UInt64 = 0
     }
     private let work: Mutex<Work>
-    private let linked = Mutex(Set<UInt64>())   // birden çok bağlantısı olan dosyalar: ilk görülen sayılır
+    private let linked = Mutex(Set<UInt64>())   // files with multiple links: the first one seen is counted
 
     public init(root: String, workers: Int = 4, skip: @escaping @Sendable (String) -> Bool = { _ in false }) {
         self.root = root
@@ -41,8 +41,8 @@ public final class DirectoryScanner: Sendable {
         work = Mutex(Work(stack: [(0, root)]))
     }
 
-    /// Engelleyici; ayrı bir görevde çağrılır. `onProgress` ≈ 4 kez/sn ve sonda bir kez. `isCancelled` true olunca
-    /// iş parçacıkları üzerindeki klasörü bitirip döner.
+    /// Blocking; call from a separate task. `onProgress` fires ≈ 4 times/s and once at the end. When `isCancelled` becomes true,
+    /// the threads finish the folder they are on and return.
     public func scan(onProgress: @Sendable (Progress) -> Void, isCancelled: @Sendable () -> Bool) -> ScanIndex {
         var st = stat()
         guard stat(root, &st) == 0 else { index.noteInaccessible(); return index }
@@ -67,7 +67,7 @@ public final class DirectoryScanner: Sendable {
             }
             guard case .item(let id, let path) = next else {
                 if case .done = next { return }
-                usleep(500)   // başka bir iş parçacığı henüz alt klasör eklemedi
+                usleep(500)   // another thread has not yet added a subfolder
                 continue
             }
             let rel = path.count > root.count ? String(path.dropFirst(root.count + 1)) : ""
@@ -96,11 +96,11 @@ public final class DirectoryScanner: Sendable {
         var big: [(name: String, bytes: Int64, fileID: UInt64)] = []
         var smallBytes: Int64 = 0, smallCount = 0
         var bytes: Int64 = 0
-        /// Yalnızca bulutta duran (iCloud'a boşaltılmış) dosya ve klasörler: yer kaplamaz, silinirse buluttan da gider.
+        /// Only files and folders that live in the cloud (offloaded to iCloud): they take no space, and deleting them removes them from the cloud too.
         var cloud = 0
     }
 
-    /// Bir klasörün doğrudan öğeleri; açılamazsa nil. Okuma yarıda hata verirse o ana kadar okunan döner.
+    /// A folder's direct entries; nil if it cannot be opened. If a read fails midway, what was read so far is returned.
     private func list(_ path: String, dev: dev_t, buf: UnsafeMutableRawPointer) -> Listing? {
         let fd = open(path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard fd >= 0 else { return nil }
@@ -115,8 +115,8 @@ public final class DirectoryScanner: Sendable {
             if n <= 0 { break }
             var p = buf
             for _ in 0..<n {
-                // Sıra çekirdeğin sabit düzeni: uzunluk, döndürülen öznitelikler, ad, aygıt, tür, bayraklar, kimlik,
-                // bağlantı sayısı, ayrılan boyut. FSOPT_PACK_INVAL_ATTRS geçersizleri sıfırla doldurur.
+                // Order is the kernel's fixed layout: length, returned attributes, name, device, type, flags, id,
+                // link count, allocated size. FSOPT_PACK_INVAL_ATTRS fills invalid ones with zero.
                 let len = Int(p.loadUnaligned(as: UInt32.self))
                 var q = p + 4 + MemoryLayout<attribute_set_t>.size
                 let nameRef = q.loadUnaligned(as: attrreference_t.self)
@@ -132,7 +132,7 @@ public final class DirectoryScanner: Sendable {
 
                 let dataless = flags & UInt32(SF_DATALESS) != 0
                 if type == UInt32(VDIR.rawValue) {
-                    if dataless { out.cloud += 1 }   // açmak içeriği buluttan indirtebilir
+                    if dataless { out.cloud += 1 }   // opening it may make the content download from the cloud
                     else if entryDev == dev { out.subdirs.append((name, fileID)) }
                 } else if type == UInt32(VREG.rawValue), dataless {
                     out.cloud += 1

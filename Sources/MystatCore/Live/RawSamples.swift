@@ -1,8 +1,8 @@
 import Foundation
 
-// Probe ↔ Core sözleşmesi: sistemden okunan ham sayaçlar. Anlam (yüzde, hız, grup) Core'da hesaplanır.
+// Probe ↔ Core contract: raw counters read from the system. Meaning (percent, rate, group) is computed in Core.
 
-/// Bir çekirdeğin birikimli tick sayaçları (`host_processor_info`).
+/// Cumulative tick counters of one core (`host_processor_info`).
 public struct CoreTicks: Sendable, Equatable {
     public var user, system, idle, nice: UInt64
     public init(user: UInt64, system: UInt64, idle: UInt64, nice: UInt64) {
@@ -10,17 +10,17 @@ public struct CoreTicks: Sendable, Equatable {
     }
 }
 
-/// Sanal bellek sayfa sayaçları (`host_statistics64`) ve ilgili sysctl'ler.
+/// Virtual memory page counters (`host_statistics64`) and related sysctls.
 public struct VMCounters: Sendable, Equatable {
     public var pageSize: UInt64
-    /// Fiziksel bellek (bayt).
+    /// Physical memory (bytes).
     public var total: UInt64
     public var free, active, inactive, speculative, wired, compressor, purgeable, `internal`, external: UInt64
-    /// `vm.swapusage.xsu_used` (bayt).
+    /// `vm.swapusage.xsu_used` (bytes).
     public var swapUsed: UInt64
-    /// `kern.memorystatus_vm_pressure_level`: 1 normal, 2 uyarı, 4 kritik.
+    /// `kern.memorystatus_vm_pressure_level`: 1 normal, 2 warning, 4 critical.
     public var pressureLevel: Int32
-    /// `kern.memorystatus_level`: kullanılabilir bellek yüzdesi.
+    /// `kern.memorystatus_level`: percentage of available memory.
     public var memoryLevel: Int32
 
     public init(pageSize: UInt64, total: UInt64, free: UInt64, active: UInt64, inactive: UInt64, speculative: UInt64, wired: UInt64,
@@ -32,12 +32,12 @@ public struct VMCounters: Sendable, Equatable {
     }
 }
 
-/// Örnekler arası aralık bundan uzunsa (uyku/uyanma) fark atılır: 2 sn tempo × 3 (Review Focus #1).
+/// If the interval between samples is longer than this (sleep/wake), the delta is discarded: 2 s tick × 3.
 public enum SampleGap {
     public static let maxInterval: TimeInterval = 6
 }
 
-/// Bir ağ arayüzünün 64 bit bayt sayaçları (`NET_RT_IFLIST2`).
+/// 64-bit byte counters of a network interface (`NET_RT_IFLIST2`).
 public struct InterfaceCounters: Sendable, Equatable {
     public let name: String
     public let rx, tx: UInt64
@@ -45,7 +45,7 @@ public struct InterfaceCounters: Sendable, Equatable {
     public init(name: String, rx: UInt64, tx: UInt64, up: Bool) { self.name = name; self.rx = rx; self.tx = tx; self.up = up }
 }
 
-/// Data biriminin kapasitesi (bayt).
+/// Capacity of the Data volume (bytes).
 public struct VolumeCapacity: Sendable, Equatable {
     public let total, available, availableImportant: UInt64
     public init(total: UInt64, available: UInt64, availableImportant: UInt64) {
@@ -53,14 +53,14 @@ public struct VolumeCapacity: Sendable, Equatable {
     }
 }
 
-/// Tüm blok sürücülerinin birikimli okuma/yazma baytları (`IOBlockStorageDriver` → `Statistics`).
+/// Cumulative read/write bytes of all block drivers (`IOBlockStorageDriver` → `Statistics`).
 public struct DiskIOCounters: Sendable, Equatable {
     public let bytesRead, bytesWritten: UInt64
     public init(bytesRead: UInt64, bytesWritten: UInt64) { self.bytesRead = bytesRead; self.bytesWritten = bytesWritten }
 }
 
-/// Bir sürecin okunabilen bilgileri. Başka kullanıcıların süreçlerinde (root, `_windowserver`…) libproc yalnızca
-/// yolu verir; o zaman `restricted` ve sayaçlar sıfırdır (root yardımcısı yok, spec §10).
+/// Readable information about a process. For other users' processes (root, `_windowserver`…) libproc only
+/// returns the path; then `restricted` is set and the counters are zero (there is no root helper).
 public struct ProcessRecord: Sendable, Equatable {
     public let pid: Int32, ppid: Int32, uid: UInt32
     public let name: String
@@ -69,15 +69,15 @@ public struct ProcessRecord: Sendable, Equatable {
     public let cwd: String?
     public let start: Date
     public let hasTTY: Bool
-    /// Kullanıcı + sistem CPU süresi, nanosaniye (Mach birimi probe'da çevrilir).
+    /// User + system CPU time, in nanoseconds (the Mach unit is converted in the probe).
     public let cpuTime: UInt64
-    /// Ölüp toplanmış çocukların kullanıcı + sistem süresi, nanosaniye (`ri_child_*`): kısa ömürlü işler ebeveyne yazılır.
+    /// User + system time of dead, reaped children, in nanoseconds (`ri_child_*`): short-lived jobs are attributed to their parent.
     public let childCPUTime: UInt64
     public let footprint: UInt64, energy: UInt64, diskWritten: UInt64
     public let restricted: Bool
-    /// cwd'den yukarı en yakın git kökü (probe hesaplar): "acmecorp/web" bağlamı için.
+    /// Nearest git root above the cwd (computed by the probe): gives context such as "acmecorp/web".
     public let projectRoot: String?
-    /// Sürecin ortamındaki `TERM_PROGRAM` (Ghostty, Terminal, iTerm2 …); yalnızca kendi süreçlerinde okunur.
+    /// `TERM_PROGRAM` from the process's environment (Ghostty, Terminal, iTerm2 …); only readable for the user's own processes.
     public let terminal: String?
 
     public init(pid: Int32, ppid: Int32, uid: UInt32, name: String, path: String?, args: [String], cwd: String?, start: Date, hasTTY: Bool,
@@ -90,7 +90,7 @@ public struct ProcessRecord: Sendable, Equatable {
     }
 }
 
-/// Pil ve adaptör (IOPowerSources + AppleSmartBattery).
+/// Battery and adapter (IOPowerSources + AppleSmartBattery).
 public struct BatteryReading: Sendable, Equatable {
     public let percent: Double
     public let charging: Bool, onAC: Bool
@@ -106,7 +106,7 @@ public struct BatteryReading: Sendable, Equatable {
 
     public var adapterText: String { adapterWatts.map { "\($0) W" + (adapterUSBC ? " USB-C" : "") } ?? "—" }
 
-    /// Sağlık = azami / tasarım kapasitesi: ≥ %80 iyi, ≥ %60 orta, altı zayıf.
+    /// Health = maximum / design capacity: ≥ 80% good, ≥ 60% fair, below that poor.
     public var healthText: String {
         guard let d = designCapacity, d > 0, let m = maxCapacity else { return "—" }
         let pct = min(100, Double(m) / Double(d) * 100)

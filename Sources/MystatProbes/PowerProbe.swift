@@ -3,7 +3,7 @@ import IOKit
 import IOKit.ps
 import MystatCore
 
-/// Termal durum (`ProcessInfo.thermalState`) ve pil (IOPowerSources + AppleSmartBattery). Root gerektirmez.
+/// Thermal state (`ProcessInfo.thermalState`) and battery (IOPowerSources + AppleSmartBattery). Needs no root.
 public struct PowerProbe: Sendable {
     public init() {}
 
@@ -15,7 +15,7 @@ public struct PowerProbe: Sendable {
         }
     }
 
-    /// Masaüstü Mac'te (pil yok) nil.
+    /// nil on a desktop Mac (no battery).
     public func battery() -> BatteryReading? {
         guard let info = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
               let list = IOPSCopyPowerSourcesList(info)?.takeRetainedValue() as? [CFTypeRef] else { return nil }
@@ -31,7 +31,7 @@ public struct PowerProbe: Sendable {
                                   adapterWatts: adapter?[kIOPSPowerAdapterWattsKey] as? Int,
                                   adapterUSBC: (adapter?["Name"] as? String)?.contains("USB-C") ?? (adapter != nil),
                                   cycles: smart["CycleCount"] as? Int, designCapacity: smart["DesignCapacity"] as? Int,
-                                  maxCapacity: smart["NominalChargeCapacity"] as? Int ?? smart["AppleRawMaxCapacity"] as? Int)   // Sistem Ayarları "Azami Kapasite"
+                                  maxCapacity: smart["NominalChargeCapacity"] as? Int ?? smart["AppleRawMaxCapacity"] as? Int)   // System Settings "Maximum Capacity"
         }
         return nil
     }

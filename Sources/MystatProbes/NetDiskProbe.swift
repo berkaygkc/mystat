@@ -4,12 +4,12 @@ import IOKit
 import MystatCore
 import SystemConfiguration
 
-/// Ağ arayüzü sayaçları, birincil arayüz ve IP, Data birimi kapasitesi, disk etkinliği.
+/// Network interface counters, primary interface and IP, Data volume capacity, disk activity.
 public struct NetDiskProbe: Sendable {
     public init() {}
 
-    /// Arayüz başına `sysctl IFMIB_IFDATA` (`netstat -ib` ile aynı 64 bit sayaçlar). `NET_RT_IFLIST2` macOS 26'da
-    /// alınan baytı 32 bitte sarıp 1024'e yuvarlıyor; `getifaddrs` da 32 bit. İkisi de kullanılmaz.
+    /// Per interface `sysctl IFMIB_IFDATA` (the same 64-bit counters as `netstat -ib`). On macOS 26 `NET_RT_IFLIST2` wraps
+    /// received bytes at 32 bits and rounds to 1024; `getifaddrs` is also 32-bit. Neither is used.
     public func interfaces() -> [InterfaceCounters] {
         guard let list = if_nameindex() else { return [] }
         defer { if_freenameindex(list) }
@@ -28,7 +28,7 @@ public struct NetDiskProbe: Sendable {
         return out
     }
 
-    /// `State:/Network/Global/IPv4` → `PrimaryInterface` (ör. "en0").
+    /// `State:/Network/Global/IPv4` → `PrimaryInterface` (e.g. "en0").
     public func primaryInterface() -> String? {
         guard let store = SCDynamicStoreCreate(nil, "mystat" as CFString, nil, nil),
               let dict = SCDynamicStoreCopyValue(store, "State:/Network/Global/IPv4" as CFString) as? [String: Any] else { return nil }
@@ -50,7 +50,7 @@ public struct NetDiskProbe: Sendable {
         return nil
     }
 
-    /// Data birimi (spec §7.1). "Önemli kullanım için" kapasite, sistemin boşaltabileceği alanı da sayar.
+    /// Data volume. The "important usage" capacity also counts space the system can free.
     public func dataVolume() -> VolumeCapacity {
         let keys: Set<URLResourceKey> = [.volumeTotalCapacityKey, .volumeAvailableCapacityKey, .volumeAvailableCapacityForImportantUsageKey]
         let v = try? URL(fileURLWithPath: "/System/Volumes/Data").resourceValues(forKeys: keys)
@@ -58,7 +58,7 @@ public struct NetDiskProbe: Sendable {
                               availableImportant: UInt64(max(0, v?.volumeAvailableCapacityForImportantUsage ?? 0)))
     }
 
-    /// Tüm `IOBlockStorageDriver`'ların `Statistics` toplamı.
+    /// Sum of `Statistics` over all `IOBlockStorageDriver`s.
     public func diskIO() -> DiskIOCounters {
         var iter: io_iterator_t = 0
         guard IOServiceGetMatchingServices(kIOMainPortDefault, IOServiceMatching("IOBlockStorageDriver"), &iter) == KERN_SUCCESS else {

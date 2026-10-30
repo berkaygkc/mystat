@@ -11,6 +11,6 @@ import Testing
         #expect(lib.makeFunction(name: "fullscreenVertex") != nil)
     }
     @Test func uniformLayoutSize() {
-        #expect(BubbleShaderSource.uniformVectorCount == 176)   // 8 başlık + 24×3 + 96
+        #expect(BubbleShaderSource.uniformVectorCount == 176)   // 8 header + 24×3 + 96
     }
 }

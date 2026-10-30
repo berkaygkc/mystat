@@ -3,7 +3,7 @@ import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-/// Süreklilik süreli olaylar (spec §7.2): anlık sıçrama sayılmaz, 30 sn sakinlikte biter, kritik öne çıkar.
+/// Incidents with duration: an instantaneous spike does not count, an incident ends after 30 s of calm, and critical takes priority.
 @MainActor @Suite(.language("tr")) struct IncidentEngineTests {
     let t0 = Date(timeIntervalSince1970: 1_793_163_660)   // 2026-10-28 08:01:00 +03
     let base = SampleSource(seed: 1).snapshot
@@ -18,7 +18,7 @@ import Testing
                               diskWrittenGB1h: ["docker": 12, "next-web": 3.1])
     }
 
-    /// `seconds` boyunca 2 sn'de bir aynı girdi; son sonucu döndürür.
+    /// Feeds the same input every 2 s for `seconds`; returns the last result.
     func run(_ e: inout IncidentEngine, _ i: IncidentInputs, from: Double, seconds: Double) -> Incident? {
         var last: Incident?
         var t = from
@@ -51,7 +51,7 @@ import Testing
         #expect(run(&e, inputs(cpu: 20), from: 94, seconds: 2) == nil)
     }
 
-    /// Toplam CPU düşükken tek grup 2 dk boyunca ≥ 4 çekirdek → kritik CPU olayı, sorumlu o grup.
+    /// With total CPU low, a single group at ≥ 4 cores for 2 min → critical CPU incident, with that group responsible.
     @Test func singleGroupCPU() {
         var e = IncidentEngine()
         var gs = base.groups
@@ -80,14 +80,14 @@ import Testing
 
     @Test func critBeatsOlderWarnAndOlderWinsTies() {
         var e = IncidentEngine()
-        _ = run(&e, inputs(freeGB: 15), from: 0, seconds: 40)                       // disk dikkat (anında)
-        #expect(run(&e, inputs(cpu: 90, freeGB: 15), from: 42, seconds: 62)?.kind == .cpu)   // CPU kritik öne
+        _ = run(&e, inputs(freeGB: 15), from: 0, seconds: 40)                       // disk warning (immediate)
+        #expect(run(&e, inputs(cpu: 90, freeGB: 15), from: 42, seconds: 62)?.kind == .cpu)   // CPU critical takes priority
         var f = IncidentEngine()
         _ = run(&f, inputs(freeGB: 15), from: 0, seconds: 40)
-        #expect(run(&f, inputs(cpu: 75, freeGB: 15), from: 42, seconds: 62)?.kind == .disk)  // ikisi dikkat: eski olan
+        #expect(run(&f, inputs(cpu: 75, freeGB: 15), from: 42, seconds: 62)?.kind == .disk)  // both warnings: the older one
     }
 
-    /// 2 saatlik uyku: süreklilik sıfırlanır, olay "2 saattir" sürmez (Review Focus #1).
+    /// 2 hours of sleep: continuity resets and the incident does not claim to have lasted "2 hours".
     @Test func sleepGapResetsContinuity() {
         var e = IncidentEngine()
         _ = run(&e, inputs(cpu: 90), from: 0, seconds: 30)
@@ -127,7 +127,7 @@ import Testing
                   dockerID: name, restarting: restarting)
     }
 
-    /// §7.2 Docker: bir container ≥ %50 CPU, 2 dk boyunca → dikkat.
+    /// Docker: one container at ≥ 50% CPU for 2 min → warning.
     @Test func dockerBusyAfterTwoMinutes() {
         var e = IncidentEngine()
         var i = inputs()
@@ -139,7 +139,7 @@ import Testing
         #expect(inc?.facts.first { $0.label == "Proje" }?.value == "deploy" && inc?.facts.first { $0.label == "Sağlık" }?.value == "sağlıklı")
     }
 
-    /// Sürekli yeniden başlama ya da unhealthy → kritik (30 sn süreklilik); düzelince 30 sn sonra biter.
+    /// Continuous restarting or unhealthy → critical (30 s of continuity); it ends 30 s after recovery.
     @Test func dockerRestartingIsCritical() {
         var e = IncidentEngine()
         var bad = inputs()
@@ -154,7 +154,7 @@ import Testing
         #expect(e.update(ok, at: t0.addingTimeInterval(62)) == nil)
     }
 
-    /// Olay biterken (30 sn sakinlik) sorumlular ve neden korunur; "Bir container … yoğun" / "DOCKER hata" boşluğu olmaz.
+    /// When an incident ends (30 s of calm) the culprits and cause are kept; there is no gap like "A container … busy" / "DOCKER error".
     @Test func dockerCalmDownKeepsCulprits() {
         var e = IncidentEngine()
         var busy = inputs()
@@ -179,7 +179,7 @@ import Testing
         #expect(StatusBlockLayout.alert(Snapshot.withIncident(inc!))?.value == "hata")
     }
 
-    /// §7.2.1: ısı olayında sorumlular enerji tüketen gruplar (W); grup watt'ı yoksa (sensörsüz) çekirdek.
+    /// Heat incident: the culprits are the energy-consuming groups (W); if there is no group wattage (no sensors), cores.
     @Test func heatCulpritsInWatts() {
         var gs = base.groups
         for i in gs.indices { gs[i].watts = gs[i].cpuCores * 6.2 }

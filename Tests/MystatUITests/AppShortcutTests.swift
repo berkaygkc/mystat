@@ -3,7 +3,7 @@ import MystatTestSupport
 import Testing
 @testable import MystatUI
 
-/// Kısayollar ana menüye bırakılmaz: panel açıkken uygulama ana menüyü işlemeyebilir, ⌘Q orada da çalışmalı.
+/// Shortcuts are not left to the main menu: while the panel is open the app may not process the main menu, and ⌘Q must work there too.
 @Suite(.language("tr")) struct AppShortcutTests {
     @Test func standardShortcuts() {
         #expect(AppShortcut.match(chars: "q", modifiers: .command) == .quit)

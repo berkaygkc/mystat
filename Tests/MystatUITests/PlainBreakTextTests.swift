@@ -5,8 +5,8 @@ import Testing
 @testable import MystatUI
 
 @MainActor @Suite(.language("tr")) struct PlainBreakTextTests {
-    /// SwiftUI son satırı tek kelime bırakmamak için kelime itiyor ("Claude Code / işlemciyi zorluyor."); mockup
-    /// "Claude Code işlemciyi / zorluyor." kırıyor. İtme kapalı metin mockup'taki gibi kırılmalı.
+    /// SwiftUI pushes a word down so the last line is not a single word, which wraps the incident headline differently from the
+    /// intended layout. Text with push-out disabled must break as intended.
     @Test func breaksLikeMockup() {
         var title = AttributedString("Claude Code"); title.inlinePresentationIntent = .emphasized
         title += AttributedString(" işlemciyi zorluyor.")
@@ -26,7 +26,7 @@ import Testing
         #expect((s.attribute(.font, at: 0, effectiveRange: nil) as? NSFont)?.pointSize == 23)
     }
 
-    /// Kenar menüsü kartı (iç genişlik 189): mockup gibi "Claude Code işlemciyi / zorluyor".
+    /// Sidebar card (inner width 189): breaks as intended, with the CPU phrase kept together on the first line.
     @Test func sideCardBreaksLikeMockup() {
         #expect(PlainBreakText.lines(PlainBreakText.sideIncident("Claude Code işlemciyi zorluyor"), width: 189) == ["Claude Code işlemciyi ", "zorluyor"])
     }

@@ -36,7 +36,7 @@ import Testing
         #expect(GroupPresentation.sorted(s.groups, by: .memory).first?.id == "docker")
         #expect(GroupPresentation.related(of: s.groups.first { $0.id == "next-web" }!, in: s.groups)?.id == "claude-acmecorp")
     }
-    /// Gerçek olayda tek sorumlu olabilir; başlık çökmemeli, ikinci kişi cümlesi olmamalı.
+    /// A real incident may have a single culprit; the headline must not break and must not have a second-person sentence.
     @Test func singleCulpritMemoryHeadline() {
         var s = SampleSource(seed: 1, incident: true, kind: .memory).snapshot
         s.incident = Incident(kind: .memory, level: .warn, startedAt: "08:41", minutes: 6, peakPercent: 86,
@@ -45,7 +45,7 @@ import Testing
         #expect(h.lede.hasPrefix("Son 6 dakikada Docker 2,1 GB büyüdü."))
     }
 
-    /// Alt süreç listesi CPU'ya göre sıralı en yoğun 5'tir; kalanlar "+ N küçük süreç daha".
+    /// The child process list is the 5 busiest sorted by CPU; the rest are summarized as "+ N more small processes".
     @Test func childRowsAreTopFiveByCPU() {
         let kids = (1...8).map { ChildProcess(name: "p\($0)", cpuCores: Double($0) / 10) }
         let g = ProcessGroup(id: "x", name: "X", context: "", cpuCores: 3.6, memoryGB: 1, netMBps: 0, uptime: "1 dk", processCount: 8,

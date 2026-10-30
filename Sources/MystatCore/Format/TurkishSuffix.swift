@@ -1,8 +1,8 @@
 import Foundation
 
-/// Sayıdan sonra gelen ekler. Ek, sayının okunuşundaki son kelimeye göre seçilir.
+/// Suffixes that follow a number. The suffix is chosen by the last word in the number's spoken form.
 public enum TurkishSuffix {
-    /// 3. tekil iyelik eki: "12,7" → "'si" (yedi), "3" → "'ü" (üç), "4,0" → "'ı" (sıfır).
+    /// Third-person possessive suffix: 12,7 ("yedi") → "'si", 3 ("uc", with umlaut) → rounded front vowel, 4,0 ("sifir", dotless i) → unrounded back vowel.
     public static func possessive3(after number: String) -> String {
         let last = number.split(separator: ",").last.map(String.init) ?? number
         let digits = last.filter(\.isNumber)
@@ -12,11 +12,11 @@ public enum TurkishSuffix {
         let tens = ["", "'u", "'si", "'u", "'ı", "'si", "'ı", "'i", "'i", "'ı"]
         if n % 10 != 0 { return units[n % 10] }
         if (n / 10) % 10 != 0 { return tens[(n / 10) % 10] }
-        if (n / 100) % 10 != 0 { return "'ü" }   // yüz
-        return "'i"                               // bin
+        if (n / 100) % 10 != 0 { return "'ü" }   // "hundred"
+        return "'i"                               // "thousand"
     }
 
-    /// İlgi (genitif) eki: "90" → "'ın" (doksanın), "70" → "'in" (yetmişin), "2" → "'nin" (ikinin).
+    /// Genitive suffix: 90 ("doksan") takes the back-vowel form, 70 ("yetmis") the front-vowel form, 2 ("iki") the form with a buffer "n".
     public static func genitive(after number: String) -> String {
         let last = number.split(separator: ",").last.map(String.init) ?? number
         guard let n = Int(last.filter(\.isNumber)) else { return "'in" }
@@ -25,7 +25,7 @@ public enum TurkishSuffix {
         let tens = ["", "'un", "'nin", "'un", "'ın", "'nin", "'ın", "'in", "'in", "'ın"]
         if n % 10 != 0 { return units[n % 10] }
         if (n / 10) % 10 != 0 { return tens[(n / 10) % 10] }
-        if (n / 100) % 10 != 0 { return "'ün" }   // yüz
-        return "'in"                               // bin
+        if (n / 100) % 10 != 0 { return "'ün" }   // "hundred"
+        return "'in"                               // "thousand"
     }
 }

@@ -1,8 +1,8 @@
 import Foundation
 
-/// Sensörlerden okunan ham değerler (probe ↔ core sözleşmesi).
+/// Raw values read from sensors (probe ↔ core contract).
 
-/// SMC değer biçimleri. Apple Silicon'da çoğu `flt ` (Float32, küçük uçlu); tamsayılar büyük uçlu.
+/// SMC value formats. On Apple Silicon most are `flt ` (Float32, little-endian); integers are big-endian.
 public enum SMCValue {
     public static func decode(type: String, bytes b: [UInt8]) -> Double? {
         func need(_ n: Int) -> Bool { b.count >= n }
@@ -18,8 +18,8 @@ public enum SMCValue {
     }
 }
 
-/// Keşfedilen SMC anahtarları. Adlar belgesiz; önek kuralıyla sınıflanır:
-/// işlemci `Tp`/`Te`, GPU `Tg`, pil `TB0T`. Yalnızca 10–120 °C arası değer veren anahtarlar (ör. `Tp01` = 3,4 sıcaklık değil).
+/// Discovered SMC keys. Names are undocumented; they are classified by prefix:
+/// CPU `Tp`/`Te`, GPU `Tg`, battery `TB0T`. Only keys yielding values between 10 and 120 °C are used (e.g. `Tp01` = 3.4 is not a temperature).
 public struct SensorMap: Sendable, Codable, Equatable {
     public var cpu: [String], gpu: [String], battery: String?
     public var fans: Int
@@ -36,20 +36,20 @@ public struct SensorMap: Sendable, Codable, Equatable {
                          battery: ok.contains("TB0T") ? "TB0T" : nil, fans: fans)
     }
 
-    /// Eşit aralıklı en fazla `n` anahtar (ilk ve son dahil): her okumada aynı küme, maliyet sınırlı (§9.3).
+    /// At most `n` evenly spaced keys (including first and last): the same set on every read, bounded cost.
     public func sample(_ keys: [String], max n: Int) -> [String] {
         guard keys.count > n, n > 1 else { return keys }
         return (0..<n).map { keys[Int((Double($0) * Double(keys.count - 1) / Double(n - 1)).rounded())] }
     }
 }
 
-/// IOReport "Energy Model": abonelikten bu yana birikimli joule.
+/// IOReport "Energy Model": cumulative joules since subscription.
 public struct EnergyCounters: Sendable, Equatable {
     public var cpuJ, gpuJ, aneJ, dramJ: Double
     public init(cpuJ: Double, gpuJ: Double, aneJ: Double, dramJ: Double) { self.cpuJ = cpuJ; self.gpuJ = gpuJ; self.aneJ = aneJ; self.dramJ = dramJ }
 }
 
-/// GPU'yu kullanan bir istemci: `IOUserClientCreator` ("pid 410, WindowServer") ve birikimli GPU süresi.
+/// A client using the GPU: `IOUserClientCreator` ("pid 410, WindowServer") and cumulative GPU time.
 public struct GPUClient: Sendable, Equatable {
     public let pid: Int32, name: String
     public let gpuTimeNs: UInt64

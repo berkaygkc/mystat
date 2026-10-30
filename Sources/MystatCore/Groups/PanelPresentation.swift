@@ -1,7 +1,7 @@
 import Foundation
 
 public struct PanelCell: Sendable, Equatable {
-    public let section: String   // MonitorSection ham değeri: overview, cpu, mem, disk, net, docker, sys
+    public let section: String   // MonitorSection raw value: overview, cpu, mem, disk, net, docker, sys
     public let label: String
     public let big: String
     public let unit: String?
@@ -14,11 +14,11 @@ public struct CulpritRow: Sendable, Equatable {
     public let context: String
     public let value: String
     public let unit: String
-    /// Tıklanınca seçilecek süreç grubu (container ise "docker").
+    /// Process group to select on click ("docker" for a container).
     public let groupID: String
 }
 
-/// Panel ve Genel Bakış'taki 2×3 özet hücreleri ile olay sorumluları.
+/// The 2×3 summary cells in the panel and Overview, plus incident culprits.
 public enum PanelPresentation {
     public static func pressureWord(_ l: Level) -> String { L10n.t(l == .crit ? "pressure.crit" : l == .warn ? "pressure.warn" : "pressure.ok") }
 
@@ -26,8 +26,8 @@ public enum PanelPresentation {
         let inc = s.incident
         let cpuLevel = Thresholds.cpuTotal(s.cpu.percent)
         let cpuSub: String
-        if let inc, inc.kind == .cpu {   // toplam düşükse olay tek grubun yükü: yüzde iddiası yazılmaz
-            let dur = L10n.plural("dur.forShort", inc.minutes)   // hücre dar: kısa süre
+        if let inc, inc.kind == .cpu {   // if overall load is low, the incident is one group's load: no percentage claim is written
+            let dur = L10n.plural("dur.forShort", inc.minutes)   // the cell is narrow: short duration
             cpuSub = s.cpu.percent >= 70 ? L10n.t("panel.cpu.above", ["for": dur, "pct": Fmt.pct(Double(Int(s.cpu.percent / 10) * 10))])
                                          : L10n.t("panel.cpu.busy", ["for": dur])
         } else { cpuSub = L10n.t("panel.cpu.calm", ["n": String(s.cpu.cores.count)]) }
@@ -38,7 +38,7 @@ public enum PanelPresentation {
             sysSub = s.system.fanCount > 0 && s.system.fanRPM > 0 ? L10n.t("panel.sys.fanWarming", ["rpm": rpm]) : L10n.t("panel.sys.warming", ["battery": battery])
         } else if s.system.fanCount == 0 {
             sysSub = L10n.t("panel.sys.battery", ["battery": battery])
-        } else {   // panelde "duruyor" da "sessiz" (Faz 1 metni)
+        } else {   // in the panel a stopped fan also reads as "quiet"
             let quiet = SystemPresentation.quiet(s.system)
             sysSub = L10n.t("panel.sys.fan", ["fan": quiet ? L10n.t("fan.quiet") : L10n.t("unit.rpm", ["rpm": rpm]), "battery": battery])
         }

@@ -3,14 +3,14 @@ import MystatCore
 import MystatUI
 import SwiftUI
 
-/// Monitör penceresi: tam boy içerik, saydam başlık çubuğu, arkada bulanık masaüstü.
+/// Monitor window: full-height content, transparent title bar, blurred desktop behind.
 @MainActor
 final class MonitorWindowController: NSObject, NSWindowDelegate {
     let state = MonitorState()
     private var window: NSWindow?
-    /// Pencere görünür mü (örtülme ve kapanma dahil): canlı kaynağın süreç temposu buna göre.
+    /// Whether the window is visible (including occlusion and closing): the live source's process cadence depends on this.
     var onVisibilityChange: ((Bool) -> Void)?
-    /// Pencere kapandı (örtülme ya da küçültme değil): disk ağacı ancak o zaman bırakılır (§6.4 "Disk bölümü kapalıyken").
+    /// Window closed (not occluded or minimized): only then is the disk tree released.
     var onClose: (() -> Void)?
     private let source: any MetricsSource
 

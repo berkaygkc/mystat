@@ -1,7 +1,7 @@
 import MystatCore
 import SwiftUI
 
-/// Liquid Glass kenar menüsü (mockup `.sidebar`).
+/// Liquid Glass sidebar.
 struct Sidebar<Source: MetricsSource>: View {
     let source: Source
     @Bindable var state: MonitorState
@@ -24,10 +24,10 @@ struct Sidebar<Source: MetricsSource>: View {
             Text(s.system.machine?.footer(now: Date()) ?? "")
                 .font(.system(size: 11)).lineSpacing(5).foregroundStyle(Theme.ink3)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .overlay(alignment: .topTrailing) { LanguageMenu(size: 11) }   // ilk satırın sağında; yükseklik değişmez
+                .overlay(alignment: .topTrailing) { LanguageMenu(size: 11) }   // at the trailing end of the first row; the height does not change
                 .padding(.horizontal, 10).padding(.top, 8)
         }
-        // Mockup border-box: 236 px'in içinden 8 px dolgu + 1 px kenarlık düşülür.
+        // Border-box sizing: 8 pt of padding plus a 1 px border come out of the 236 px width.
         .padding(.horizontal, 9).padding(.top, 48).padding(.bottom, 12)
         .frame(width: 236)
         .frame(maxHeight: .infinity, alignment: .top)
@@ -54,9 +54,9 @@ struct Sidebar<Source: MetricsSource>: View {
     private func incidentCard(_ inc: Incident, _ s: Snapshot) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Kicker(L10n.t("sidebar.incident", ["n": String(inc.minutes)]), level: inc.level, pulsing: true)
-            PlainBreakText(text: PlainBreakText.sideIncident(MonitorPresentation.sideIncidentText(s)))   // mockup kırılımı
+            PlainBreakText(text: PlainBreakText.sideIncident(MonitorPresentation.sideIncidentText(s)))   // line breaks matching the intended layout
         }
-        .padding(.horizontal, 12.5).padding(.vertical, 11.5)   // 12/11 px dolgu + 0,5 px kenarlık (border-box)
+        .padding(.horizontal, 12.5).padding(.vertical, 11.5)   // 12/11 px padding plus a 0.5 px border (border-box)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.redSoft, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(Theme.redEdge, lineWidth: 0.5))

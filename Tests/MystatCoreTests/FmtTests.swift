@@ -26,19 +26,19 @@ import Testing
         #expect(TurkishSuffix.possessive3(after: "10") == "'u"); #expect(TurkishSuffix.possessive3(after: "4,0") == "'ı")
         #expect(TurkishSuffix.possessive3(after: "100") == "'ü"); #expect(TurkishSuffix.possessive3(after: "6") == "'sı")
     }
-    /// Gerçek veride NaN/inf gelebilir (sıfıra bölme, ilk örnek); çökmeden "—" yazılır.
+    /// Real data may contain NaN/inf (division by zero, first sample); "—" is written without crashing.
     @Test func nonFiniteValuesShowDash() {
         #expect(Fmt.pct(.nan) == "—"); #expect(Fmt.dec1(.infinity) == "—"); #expect(Fmt.int(-.infinity) == "—")
         #expect(Fmt.size(.nan) == "—"); #expect(Fmt.cores(.nan) == "—")
     }
 
-    /// Bölge ayarı Budist/İslami takvim olsa da saat bloğu Gregoryen yazılır.
+    /// Even if the region setting uses a Buddhist/Islamic calendar, the clock block is written in Gregorian.
     @Test func clockCalendarIsGregorian() {
         #expect(Fmt.calendar.identifier == .gregorian)
         var buddhist = Calendar(identifier: .buddhist); buddhist.timeZone = TimeZone(identifier: "Europe/Istanbul")!
         let d = Date(timeIntervalSince1970: 1_793_166_318)   // 2026-10-28 08:45:18 +03
         #expect(Fmt.dateLine(d, calendar: Fmt.calendar) == "28 Ekim 2026 Çarşamba")
-        #expect(Fmt.dateLine(d, calendar: buddhist) != "28 Ekim 2026 Çarşamba")   // neden gerektiğinin kanıtı
+        #expect(Fmt.dateLine(d, calendar: buddhist) != "28 Ekim 2026 Çarşamba")   // proof that it is needed
     }
 }
 
@@ -51,7 +51,7 @@ import Testing
         let cal = Calendar.trTest
         let d = cal.date(from: DateComponents(year: 2026, month: 10, day: 29, hour: 14, minute: 2, second: 7))!
         #expect(Fmt.dateLine(d, calendar: cal) == "Thursday, October 29, 2026")
-        #expect(Fmt.timeLine(d, calendar: cal) == "14:02:07")   // her dilde 24 saat
+        #expect(Fmt.timeLine(d, calendar: cal) == "14:02:07")   // 24-hour in every language
     }
     @Test func uptimeUnits() {
         #expect(Fmt.uptime(14 * 60) == "14 min"); #expect(Fmt.uptime(134 * 60) == "2 h 14 min")
@@ -62,7 +62,7 @@ import Testing
         #expect(StatusBlockLayout.cpuTemplate == "100%"); #expect(StatusBlockLayout.alertTemplate == "−88%")
         #expect(StatusBlockLayout.netTemplate == "↓88.8")
     }
-    /// Saat sütunu en geniş İngilizce tarihe göre: daha kısa bir tarih bloğu daraltmaz.
+    /// The clock column is sized by the widest English date: a shorter date block does not narrow it.
     @Test func templateWidthPerLanguage() {
         let measure: (String, CGFloat, Bool) -> CGFloat = { s, size, _ in CGFloat(s.count) * size * 0.6 }
         var a = StatusBlockModel.sample; a.date = "Friday, May 1, 2026"
@@ -80,7 +80,7 @@ import Testing
     }
 }
 
-/// Olay sorumlularının değerleri ekranda yazıldığı biçimden geri okunur (çubuk uzunlukları).
+/// Incident culprit values are read back from the format they are displayed in (bar lengths).
 @Suite struct FmtNumberTests {
     @Test func parsesDisplayedValues() {
         L10n.$override.withValue("tr") {

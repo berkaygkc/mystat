@@ -1,20 +1,20 @@
 import Foundation
 
-/// Süreç başına çekirdek: CPU süresi farkı / geçen süre. Anahtar (pid, başlangıç): yeniden kullanılan pid
-/// eski sürecin süresini devralmaz (Review Focus #2). İzin verilmeyen süreçler ölçülmez.
-/// Kısa ömürlü işler (derleyici, test koşucusu) "macOS" payına düşmesin diye: aralıkta doğan sürecin tüm süresi,
-/// ölüp toplanan çocukların süresi de (`childCPUTime` farkı) ebeveyne yazılır; önceden sayılmış kısmı düşülerek.
+/// Cores per process: CPU time delta / elapsed time. Key (pid, start time): a reused pid
+/// does not inherit the old process's time. Processes that are not permitted are not measured.
+/// So that short-lived jobs (compilers, test runners) do not fall into the "macOS" share: a process born within the interval counts for its full time,
+/// and the time of dead, reaped children (`childCPUTime` delta) is also attributed to the parent, minus the part already counted.
 public struct ProcessMeter: Sendable {
     private struct Key: Hashable { let pid: Int32; let start: Date }
     private struct Reading { let cpu: UInt64, child: UInt64, ppid: Int32 }
     private var last: (procs: [Key: Reading], at: Date)?
-    /// Ölen çocuğun önceden sayılmış süresi; ebeveyn onu henüz toplamadıysa sonraki turda düşülür.
+    /// Time of a dead child already counted; if the parent has not reaped it yet, it is subtracted in a later round.
     private var owed: [Key: UInt64] = [:]
     private let cores: Int
 
     public init(cores: Int = ProcessInfo.processInfo.activeProcessorCount) { self.cores = cores }
 
-    /// `maxGap`: kapalı panelde süreçler 5 sn'de bir okunur; eşik 3 tempo.
+    /// `maxGap`: processes are read every 5 s while the panel is closed; the threshold is 3 ticks.
     public mutating func update(_ records: [ProcessRecord], at: Date, maxGap: TimeInterval = SampleGap.maxInterval) -> [Int32: Double]? {
         var now: [Key: Reading] = [:]
         for r in records where !r.restricted { now[Key(pid: r.pid, start: r.start)] = Reading(cpu: r.cpuTime, child: r.childCPUTime, ppid: r.ppid) }
@@ -35,7 +35,7 @@ public struct ProcessMeter: Sendable {
                 let debt = (owed[k] ?? 0) &+ (counted[k.pid] ?? 0)
                 if reaped >= debt { used &+= reaped - debt } else { nextOwed[k] = debt - reaped }
             } else if k.start > prev.at {
-                used = r.cpu &+ r.child                                    // bu aralıkta doğdu
+                used = r.cpu &+ r.child                                    // born within this interval
             } else { continue }
             out[k.pid] = Double(min(used, ceiling)) / 1e9 / dt
         }

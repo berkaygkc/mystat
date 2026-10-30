@@ -3,7 +3,7 @@ import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-/// Ölçümler → Snapshot (spec §5 sakin başlık, §7.3 öneriler).
+/// Measurements → Snapshot (the calm headline and the suggestions).
 @MainActor @Suite(.language("tr")) struct SnapshotBuilderTests {
     let now = Date(timeIntervalSince1970: 1_793_166_318)
 
@@ -26,7 +26,7 @@ import Testing
 
     @Test func calmTopIsBusiestGroupAsPercentOfMachine() {
         let s = SnapshotBuilder.build(measurements(), incident: nil, capabilities: .all)
-        #expect(s.calmTop.name == "Brave Browser" && s.calmTop.percent == 8)                     // 1,12 / 14
+        #expect(s.calmTop.name == "Brave Browser" && s.calmTop.percent == 8)                     // 1.12 / 14
         #expect(GroupPresentation.panelHeadline(s).lede == "Makine rahat. En yoğun uygulama Brave Browser, %8 ile.")
     }
 
@@ -51,14 +51,14 @@ import Testing
         #expect(s.system.machine?.chip == "M4 Pro")
         #expect(s.capabilities == .all)
     }
-    /// Sistem süreçlerinin toplu satırı bir uygulama değil; sakin başlıkta en yoğun gerçek grup söylenir.
+    /// The aggregate row of system processes is not an app; the calm headline names the busiest real group.
     @Test func calmTopSkipsResidualSystemRow() {
         var m = measurements()
         m.groups.insert(group("sys:macos", "macOS", ctx: "sistem süreçleri", cores: 3.5), at: 0)
         #expect(SnapshotBuilder.build(m, incident: nil, capabilities: .all).calmTop.name == "Brave Browser")
     }
 
-    /// Pildeyken yavaş erime uyarı değildir: erime yalnızca pil olayı varken taşınır (menü çubuğu sakin kalır).
+    /// A slow drain on battery is not a warning: the drain is carried over only while a battery incident exists (the menu bar stays calm).
     @Test func batteryDrainOnlyDuringBatteryIncident() {
         let m0 = measurements()
         let m = LiveMeasurements(cpu: m0.cpu, memory: m0.memory, disk: m0.disk, net: m0.net, iface: m0.iface, ip: m0.ip, groups: m0.groups,
@@ -73,7 +73,7 @@ import Testing
         #expect(SnapshotBuilder.build(m, incident: inc, capabilities: .all).system.batteryDrain30m == 3)
     }
 
-    /// Mantıksal CPU 0–3 verimlilik, 4–13 performans çekirdeği (ioreg cluster-type); arayüz performansı önce gösterir.
+    /// Logical CPUs 0–3 are efficiency cores and 4–13 are performance cores (ioreg cluster-type); the UI shows performance first.
     @Test func coresArePerformanceFirst() {
         let m0 = measurements()
         var cpu = m0.cpu
@@ -90,7 +90,7 @@ import Testing
         #expect(MonitorPresentation.coreLabels(count: 8, machine: m4).labels == ["P1", "P2", "P3", "P4", "V1", "V2", "V3", "V4"])
     }
 
-    /// §7.3 Docker önerisi kullanıcının volume kararıyla güvenli miktarı sayar: adsız volume + image (adlı veri volume'leri değil).
+    /// The Docker suggestion counts the amount that is safe given the user's volume choice: unnamed volumes + images (not named data volumes).
     @Test func dockerSuggestionUsesSafeReclaim() {
         func with(_ anon: Double, _ images: Double, running: Bool = true) -> [Suggestion] {
             var m = measurements()
@@ -119,7 +119,7 @@ import Testing
         let k = SnapshotBuilder.build(m, incident: nil, capabilities: .all).net
         #expect(k.ssid == "Ev"); #expect(k.ssidAccess == .known); #expect(k.latencyMs == 4)
         m.link = nil
-        let h = SnapshotBuilder.build(m, incident: nil, capabilities: .all).net   // Ağ bölümü kapalı: temel bilgiler
+        let h = SnapshotBuilder.build(m, incident: nil, capabilities: .all).net   // Network section off: basic info only
         #expect(h.iface == "en0"); #expect(h.details.map(\.label) == ["Arayüz", "Yerel IP"])
     }
 }

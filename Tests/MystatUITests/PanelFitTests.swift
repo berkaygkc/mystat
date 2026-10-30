@@ -4,9 +4,9 @@ import MystatTestSupport
 import Testing
 @testable import MystatUI
 
-/// İngilizce panel hücrelerinin alt satırı tek satıra sığmalı (Türkçe ölçüler mockup'tan; orada zaten kesilenler var).
+/// The second line of the English panel cells must fit on one line (the Turkish measurements came from the design; some of those are already truncated there).
 @MainActor @Suite(.language("en")) struct PanelFitTests {
-    /// Panel 352 pt, yatay dolgu 2 × 22; hücreler yarı yarıya, sol hücrenin sağında 14, sağ hücrenin solunda 16 pt dolgu.
+    /// Panel is 352 pt, horizontal padding 2 × 22; cells split the width in half, with 14 pt padding right of the left cell and 16 pt left of the right cell.
     static let widths: [CGFloat] = [154 - 14, 154 - 16]
 
     static func width(_ s: String) -> CGFloat { (s as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 11.5)]).width }
@@ -20,7 +20,7 @@ import Testing
         }
     }
 
-    /// Uzun süren olayda işlemci hücresi (sol sütun) da sığmalı.
+    /// During a long-running incident the CPU cell (left column) must fit too.
     @Test func longIncidentCPUSubFits() {
         for m in [1, 35, 120] {
             let dur = L10n.plural("dur.forShort", m)

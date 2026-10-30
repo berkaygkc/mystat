@@ -6,16 +6,16 @@ import MystatTestSupport
 import Testing
 @testable import MystatLive
 
-/// Senaryolu sahte sistem: her çağrıda sayaçlar `step` kadar ilerler.
+/// A scripted fake system: on each call the counters advance by `step`.
 final class FakeProbe: SystemProbe {
     let calls = Mutex<[String: Int]>([:])
     let step = Mutex(0)
     let busyCores: Double
-    /// pid 100'ün başlangıcı; değişirse pid başka bir sürece geçmiş demektir.
+    /// Start time of pid 100; if it changes, the pid has moved to a different process.
     let start100 = Mutex(Date(timeIntervalSince1970: 1_793_000_000))
-    /// Ek kendi süreçleri (başka gruplar).
+    /// Additional own processes (other groups).
     let extra = Mutex<[ProcessRecord]>([])
-    /// Senaryolu sensörler (varsayılan: sensör yok).
+    /// Scripted sensors (default: no sensors).
     struct Sensors {
         var map: SensorMap?
         var smc: [String: Double] = [:]
@@ -32,7 +32,7 @@ final class FakeProbe: SystemProbe {
     func advance() { step.withLock { $0 += 1 } }
     var s: UInt64 { UInt64(step.withLock { $0 }) }
 
-    // 2 çekirdek; her adımda çekirdek 0: 80/100 meşgul (60 kullanıcı + 20 sistem), çekirdek 1: 50/100.
+    // 2 cores; at each step core 0 is 80/100 busy (60 user + 20 system), core 1 is 50/100.
     func coreTicks() -> [CoreTicks] {
         [CoreTicks(user: 60 * s, system: 20 * s, idle: 20 * s, nice: 0), CoreTicks(user: 50 * s, system: 0, idle: 50 * s, nice: 0)]
     }
@@ -72,7 +72,7 @@ final class FakeProbe: SystemProbe {
     func energy() -> EnergyCounters? {
         sensors.withLock { s in
             guard s.map != nil else { return nil }
-            s.energyCalls += 1; s.energyJ += 100          // her çağrıda +100 J işlemci, +10 J GPU
+            s.energyCalls += 1; s.energyJ += 100          // +100 J CPU and +10 J GPU on each call
             return EnergyCounters(cpuJ: s.energyJ, gpuJ: s.energyJ / 10, aneJ: 0, dramJ: 0)
         }
     }
@@ -88,7 +88,7 @@ final class FakeProbe: SystemProbe {
 @MainActor @Suite(.language("tr")) struct LiveSourceTests {
     let t0 = Date(timeIntervalSince1970: 1_793_163_600)
 
-    /// Dil değişince ölçüm tarafındaki metinler (olgular, grup bağlamı) bir sonraki 2 sn'yi beklemeden yenilenir.
+    /// When the language changes, measurement-side texts (facts, group context) refresh without waiting for the next 2 s.
     @Test func languageChangeResamples() async {
         let s = source(FakeProbe())
         await s.step(at: Date())
@@ -124,11 +124,11 @@ final class FakeProbe: SystemProbe {
     @Test func detailInterestChangesProcessCadence() async {
         let p = FakeProbe(), s = source(p)
         for t in stride(from: 0.0, through: 6, by: 2) { await tick(s, p, t) }
-        #expect(p.n("processes") == 2)                  // 0 ve 6 sn (kapalıyken 5 sn)
-        #expect(p.n("ports") == 0)                      // hafif mod: port okunmaz
+        #expect(p.n("processes") == 2)                  // at 0 and 6 s (5 s while closed)
+        #expect(p.n("ports") == 0)                      // light mode: ports are not read
         s.setDetailInterest(true)
         for t in stride(from: 8.0, through: 14, by: 2) { await tick(s, p, t) }
-        #expect(p.n("processes") == 6)                  // açıkken her tur
+        #expect(p.n("processes") == 6)                  // every round while open
     }
 
     @Test func groupsAndResidualSystemRow() async {
@@ -139,23 +139,23 @@ final class FakeProbe: SystemProbe {
         let claude = s.snapshot.groups.first { $0.name == "Claude Code" }
         #expect(claude.map { abs($0.cpuCores - 1.2) < 0.01 } == true)
         #expect(claude?.pids == [100])
-        // toplam %65 × 2 çekirdek = 1,3 çekirdek; Claude 1,2 → kalan 0,1 "macOS" satırında
+        // total 65% × 2 cores = 1.3 cores; Claude 1.2 → the remaining 0.1 goes on the "macOS" row
         let mac = s.snapshot.groups.first { $0.id == "sys:macos" }
         #expect(mac.map { abs($0.cpuCores - 0.1) < 0.01 } == true)
         #expect(s.series(.group(claude!.id), range: .m10).last.map { abs($0 - 1.2) < 0.01 } == true)
     }
 
     @Test func sustainedLoadBecomesIncident() async {
-        let p = FakeProbe(busyCores: 1.3), s = source(p)   // tek grup ≥ 2 değil; toplam %65 < %70
+        let p = FakeProbe(busyCores: 1.3), s = source(p)   // no single group ≥ 2; total 65% < 70%
         for t in stride(from: 0.0, through: 130, by: 2) { await tick(s, p, t) }
         #expect(s.snapshot.incident == nil)
-        let q = FakeProbe(busyCores: 4.5), h = source(q)   // tek grup ≥ 4 çekirdek, 2 dk
+        let q = FakeProbe(busyCores: 4.5), h = source(q)   // a single group ≥ 4 cores, 2 min
         h.setDetailInterest(true)
         for t in stride(from: 0.0, through: 126, by: 2) { await tick(h, q, t) }
         #expect(h.snapshot.incident?.kind == .cpu && h.snapshot.incident?.level == .crit)
     }
 
-    /// Sinyal, grubun o anki listede hâlâ aynı süreç olan üyelerine gider (Review Focus #2).
+    /// The signal goes to the group members that are still the same process in the current list.
     @Test func stopResolvesCurrentMembers() async {
         let p = FakeProbe(busyCores: 1), s = source(p)
         var sent: [([Int32], Bool)] = []
@@ -166,7 +166,7 @@ final class FakeProbe: SystemProbe {
         let id = s.snapshot.groups.first { $0.name == "Claude Code" }!.id
         #expect(s.stop(groupID: id, pids: [100], force: true) == .done(count: 1))
         #expect(sent.count == 1 && sent[0].0 == [100] && sent[0].1)
-        p.start100.withLock { $0 = $0.addingTimeInterval(5) }   // pid 100 artık başka süreç
+        p.start100.withLock { $0 = $0.addingTimeInterval(5) }   // pid 100 is now a different process
         #expect(s.stop(groupID: id, pids: [100], force: false) == .notFound)
         #expect(sent.count == 1)
         #expect(s.stop(groupID: "yok", pids: [100], force: false) == .notFound)
@@ -183,7 +183,7 @@ final class FakeProbe: SystemProbe {
         #expect(!called)
     }
 
-    /// `--log-values` satırı: tools/consistency.sh bunu top ve vm_stat ile yan yana yazar.
+    /// The `--log-values` line: tools/consistency.sh prints it side by side with top and vm_stat.
     @Test func logLineCarriesComparableValues() async {
         let p = FakeProbe(), s = source(p)
         await tick(s, p, 0)
@@ -193,7 +193,7 @@ final class FakeProbe: SystemProbe {
         #expect(line.contains(" memGB=") && line.contains(" down=2.40 up=0.30"))
         var d = SampleSource(seed: 1).snapshot
         d.docker.containers = Array(d.docker.containers.prefix(2))
-        let dl = LiveSource.logLine(d)                                   // tools/docker-check.sh bunları docker CLI ile karşılaştırır
+        let dl = LiveSource.logLine(d)                                   // tools/docker-check.sh compares these with the docker CLI
         #expect(dl.contains(" containers=2 ") && dl.contains(" dockerCPU=") && dl.contains(" dockerMem="))
         #expect(dl.contains(" imgReclaim=2.80 volReclaim=12.60 volAnon=7.10"))
         #expect(dl.contains(" chip=48.0 gpuT=41.0 fan=0 pstr=14.0 cpuW=6.0 gpuW=1.0 gpu=6 "))   // tools/sensor-check.sh
@@ -202,8 +202,8 @@ final class FakeProbe: SystemProbe {
         #expect(LiveSource.logLine(n).hasSuffix(" rtr=- lat=- top=-"))
     }
 
-    /// Onay penceresi açıkken grubun kimliği başka oturuma geçebilir (aynı klasörde iki oturum, biri bitti):
-    /// sinyal yalnızca pencere açıldığındaki üyelerden hâlâ grupta olanlara gider.
+    /// While the confirmation dialog is open, a group's identity can pass to another session (two sessions in the same folder, one finished):
+    /// the signal goes only to those members from when the dialog opened that are still in the group.
     @Test func stopOnlyHitsMembersFromConfirmTime() async {
         let p = FakeProbe(busyCores: 1), s = source(p)
         var sent: [[Int32]] = []
@@ -213,7 +213,7 @@ final class FakeProbe: SystemProbe {
         await tick(s, p, 2)
         let g = s.snapshot.groups.first { $0.name == "Claude Code" }!
         #expect(s.stop(groupID: g.id, pids: [999], force: false) == .notFound)
-        // pencere açıldığında gruptaydı, şimdi yaşıyor ama başka grupta (ör. kimliği devralınan oturum)
+        // it was in the group when the dialog opened, and is alive now but in another group (e.g. the session that inherited the identity)
         p.extra.withLock { $0 = [ProcessRecord(pid: 300, ppid: 1, uid: 501, name: "node", path: "/opt/homebrew/bin/node", args: ["node", "x.js"],
                                                cwd: "/tmp", start: Date(timeIntervalSince1970: 1_793_000_000), hasTTY: false, cpuTime: 0,
                                                footprint: 1 << 20, energy: 0, diskWritten: 0)] }
@@ -223,7 +223,7 @@ final class FakeProbe: SystemProbe {
         #expect(s.stop(groupID: g.id, pids: g.pids, force: false) == .done(count: 1) && sent == [[100]])
     }
 
-    /// Docker okuması örnekleyiciye akar: gruplar projeye bölünür, Docker CPU serisi ve durum Snapshot'ta.
+    /// Docker readings flow into the sampler: groups are split by project, and the Docker CPU series and state appear in the Snapshot.
     @Test func dockerFlowsIntoSnapshot() async {
         let p = FakeProbe(busyCores: 1)
         p.extra.withLock { $0 = [ProcessRecord(pid: 900, ppid: 1, uid: 501, name: "com.apple.Virtualization.VirtualMachine", path: nil, args: [],
@@ -239,12 +239,12 @@ final class FakeProbe: SystemProbe {
         await tick(s, p, 2)
         #expect(s.snapshot.capabilities.docker && s.snapshot.docker.running && s.snapshot.docker.containers.count == 2)
         #expect(s.snapshot.groups.first { $0.id == "docker:project:deploy" }?.context == "deploy · 2 container")
-        await tick(s, p, 6)                                   // m10 adımı 5 sn: yeni kova yalnızca son okumayı taşır
+        await tick(s, p, 6)                                   // the m10 step is 5 s: the new bucket carries only the last reading
         #expect(s.series(.dockerCPU, range: .m10).last.map { abs($0 - 70) < 1e-6 } == true)
         #expect(s.docker.interest.withLock { $0 })
     }
 
-    /// Docker diskinin 30 günlük gidişatı geçmişten gelir (günlük ortalama).
+    /// Docker disk's 30-day trend comes from history (daily average).
     @Test func dockerTrendComesFromHistory() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("mystat-trend-\(UUID().uuidString).sqlite")
         let today = Fmt.calendar.startOfDay(for: Date())
@@ -277,17 +277,17 @@ final class FakeProbe: SystemProbe {
         #expect(s.series(.temp, range: .m10).last == 57 && s.series(.power, range: .m10).last == 29)
     }
 
-    /// Boşta (panel ve monitör kapalı) tek okumada en fazla 10 SMC anahtarı; IOReport ve GPU istemcileri okunmaz.
+    /// When idle (panel and monitor closed) a single read touches at most 10 SMC keys; IOReport and GPU clients are not read.
     @Test func idleReadsAtMostTenKeys() async {
         let p = FakeProbe(), s = source(p)
         withSensors(p)
-        p.sensors.withLock {                                          // çok anahtarlı makine: örnek 7 anahtarla sınırlı
+        p.sensors.withLock {                                          // multi-key machine: the sample is limited to 7 keys
             $0.map?.cpu += (0..<20).map { String(format: "Tp%02d", $0) }
             for k in 0..<20 { $0.smc[String(format: "Tp%02d", k)] = 57 }
         }
         for t in stride(from: 0.0, through: 12, by: 2) { await tick(s, p, t) }
         let st = p.sensors.withLock { $0 }
-        #expect(s.snapshot.system.chipTemp > 50)                     // boşta da okunuyor (§9.2 "her zaman")
+        #expect(s.snapshot.system.chipTemp > 50)                     // read even when idle ("always")
         #expect(st.maxKeysPerCall <= 10 && st.energyCalls == 0 && st.gpuClientCalls == 0)
     }
 
@@ -298,7 +298,7 @@ final class FakeProbe: SystemProbe {
         for t in stride(from: 0.0, through: 12, by: 2) { await tick(s, p, t) }
         let sys = s.snapshot.system
         #expect(sys.cpuWatts != nil && sys.gpuWatts != nil && sys.gpuTemp == 61)
-        #expect(sys.gpuApps.first?.name == "Claude Code")             // pid 100 grubunun adıyla
+        #expect(sys.gpuApps.first?.name == "Claude Code")             // under the name of pid 100's group
     }
 
     @Test func noSensorsKeepsCalmState() async {
@@ -308,7 +308,7 @@ final class FakeProbe: SystemProbe {
         #expect(!s.snapshot.capabilities.sensors && s.snapshot.system.chipTemp == 0)
     }
 
-    /// Panel/monitör kapanınca yalnızca açıkken okunan alanlar temizlenir: saatler sonra açılınca eski GPU uygulamaları görünmez.
+    /// When the panel/monitor closes, fields that are read only while open are cleared: hours later, stale GPU apps do not show when it reopens.
     @Test func detailOffClearsDetailFields() async {
         let p = FakeProbe(busyCores: 1), s = source(p)
         withSensors(p)
@@ -321,7 +321,7 @@ final class FakeProbe: SystemProbe {
         #expect(sys.gpuApps.isEmpty && sys.cpuWatts == nil && sys.gpuWatts == nil && sys.gpuTemp == 0 && sys.chipTemp == 57)
     }
 
-    /// İndirilenler'e yalnızca Tam Disk Erişimi varsa bakılır: yoksa macOS her seferinde izin penceresi açıyordu.
+    /// Downloads is checked only if Full Disk Access is granted: otherwise macOS opened a permission dialog every time.
     @Test func downloadsOnlyWithFullDiskAccess() async {
         let t0 = Date()
         let p = FakeProbe()
@@ -333,12 +333,12 @@ final class FakeProbe: SystemProbe {
         let with = Sampler(probe: q, history: nil, persistToday: false, fullDiskAccess: { true })
         with.interest.withLock { $0 = true }
         _ = await with.sample(at: t0); _ = await with.sample(at: t0.addingTimeInterval(2))
-        #expect(q.n("downloads") == 1)   // 10 dk'da bir
+        #expect(q.n("downloads") == 1)   // once every 10 min
         _ = await with.sample(at: t0.addingTimeInterval(601))
         #expect(q.n("downloads") == 2)
     }
 
-    /// Silmeden sonra disk doluluğu 60 sn beklemeden bir sonraki örnekte okunur (§6.4).
+    /// After a deletion, disk fullness is read at the next sample without waiting 60 s.
     @Test func volumeReReadOnRequest() async {
         let p = FakeProbe()
         let s = Sampler(probe: p, history: nil, persistToday: false)
@@ -350,7 +350,7 @@ final class FakeProbe: SystemProbe {
         #expect(p.n("dataVolume") == 2)
     }
 
-    /// Disk bölümü açıkken ağaç bellekte; başka bölüm ya da monitör kapalı → bırakılır (§6.4).
+    /// While the Disk section is open the tree stays in memory; with another section open or the monitor closed it is dropped.
     @Test func diskSectionVisibilityLoadsAndDropsTree() async throws {
         let fx = try DiskScanControllerTests.Fixture()
         let s = LiveSource(probe: FakeProbe(), historyURL: nil, persistToday: false, autostart: false, dockerAPI: FakeDockerAPI(),
@@ -367,7 +367,7 @@ final class FakeProbe: SystemProbe {
         #expect(s.diskTree.root.children == nil)
     }
 
-    /// Uygulama bazında ağ hızları 5 sn'den eskiyse gruplara yazılmaz (sayaçlar 2 sn'de bir okunur).
+    /// Per-app network rates older than 5 s are not written to groups (counters are read every 2 s).
     @Test func staleNetRatesIgnored() async throws {
         let p = FakeProbe()
         let net = NetDetailPoller(link: { nil }, ping: { _ in nil }, sockets: { nil }, receiveFactor: { nil }, autoTick: false)
@@ -381,7 +381,7 @@ final class FakeProbe: SystemProbe {
         let fresh = await s.sample(at: t0.addingTimeInterval(4))
         let g = try #require(fresh.snapshot.groups.first { $0.pids.contains(100) })
         #expect(g.netMBps == 3)
-        let older = await s.sample(at: t0.addingTimeInterval(11))   // 8 sn önceki örnek: eski
+        let older = await s.sample(at: t0.addingTimeInterval(11))   // the sample from 8 s ago: stale
         #expect(older.snapshot.groups.first { $0.pids.contains(100) }?.netMBps == 0)
     }
 
@@ -395,7 +395,7 @@ final class FakeProbe: SystemProbe {
         #expect(await poller.isVisible == false)
     }
 
-    /// Monitör örtülünce ya da küçültülünce ağ ayrıntıları durur (§9.2 "yalnızca görünürken"; 2 sn ping Wi‑Fi'yi uyanık tutar).
+    /// When the monitor is covered or minimized, network details stop (only while visible; a 2 s ping keeps Wi‑Fi awake).
     @Test func occludedMonitorStopsNetDetails() async {
         let f = NetFakes(), poller = f.poller()
         let s = LiveSource(probe: FakeProbe(), historyURL: nil, persistToday: false, autostart: false, dockerAPI: FakeDockerAPI(), net: poller)

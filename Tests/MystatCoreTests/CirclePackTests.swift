@@ -15,10 +15,10 @@ import Testing
     }
     @Test func singleChildCentered() {
         let out = CirclePack.layout(children: [PackInput(value: 10)], size: 200, rootPadding: 13, childPadding: 4)
-        // d3'ün iki geçişli dolgusu tam 13 pt vermez; değer d3 ile doğrulandı.
+        // d3's two-pass padding does not give exactly 13 pt; the value was verified against d3.
         #expect(abs(out[0].0.x - 100) < 1e-6); #expect(abs(out[0].0.r - 88.49557522123894) < 1e-9)
     }
-    /// Değerler mockup sayfasındaki d3-hierarchy 3.1.2 ile hesaplandı (aynı girdi, size 508, padding 13/4).
+    /// Values were computed with d3-hierarchy 3.1.2 (same input, size 508, padding 13/4).
     @Test func matchesD3() {
         let input = [PackInput(value: 96, grandchildren: [41, 28, 14, 9, 4]), PackInput(value: 52, grandchildren: [31, 12, 9]),
                      PackInput(value: 46.7), PackInput(value: 18, grandchildren: [9.5, 5.2, 3.3]),
@@ -36,8 +36,8 @@ import Testing
             #expect(abs(out[0].1[i].x - r.0) < 0.01 && abs(out[0].1[i].y - r.1) < 0.01 && abs(out[0].1[i].r - r.2) < 0.01, "torun \(i)")
         }
     }
-    /// Ön zincir döngüseldir; paketleme bitince kırılmazsa her yerleşim düğümlerini ve daireleri sızdırır
-    /// (pencere boyutlanırken her karede yerleşim yapılır).
+    /// The front chain is circular; if it is not broken when packing ends, every layout leaks its nodes and circles
+    /// (layout runs on every frame while the window is being resized).
     @Test func packingReleasesItsFrontChain() {
         weak var probe: CirclePack.Circ?
         do {

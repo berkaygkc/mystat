@@ -3,7 +3,7 @@ import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-/// SMC değer çözümü ve keşfedilen anahtarların sınıflanması (önek kuralı).
+/// SMC value decoding and classification of discovered keys (prefix rule).
 @Suite(.language("tr")) struct SensorMapTests {
     @Test func decodesSMCTypes() {
         #expect(SMCValue.decode(type: "flt ", bytes: [0x9A, 0x99, 0xA9, 0x44]).map { abs($0 - 1356.8) < 0.01 } == true)
@@ -12,7 +12,7 @@ import Testing
         #expect(SMCValue.decode(type: "fpe2", bytes: [0x15, 0x40]) == 1360)
         #expect(SMCValue.decode(type: "sp78", bytes: [0x1D, 0x80]) == 29.5)
         #expect(SMCValue.decode(type: "ch8*", bytes: [0x41]) == nil)
-        #expect(SMCValue.decode(type: "flt ", bytes: [0x01]) == nil)            // eksik bayt
+        #expect(SMCValue.decode(type: "flt ", bytes: [0x01]) == nil)            // missing bytes
     }
 
     @Test func classifyKeepsPlausibleTemps() {

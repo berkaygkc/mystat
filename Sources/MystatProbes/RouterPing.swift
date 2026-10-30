@@ -1,9 +1,9 @@
 import Darwin
 import Foundation
 
-/// Yönlendiriciye gecikme (spec §6.3: dış bir sunucuya değil). root gerektirmeyen ICMP soketi (`SOCK_DGRAM`).
+/// Latency to the router (not to an external server). Uses an ICMP socket that needs no root (`SOCK_DGRAM`).
 public enum RouterPing {
-    /// Yanıt yoksa, adres geçersizse ya da süre dolarsa nil. Milisaniye.
+    /// nil if there is no reply, the address is invalid, or time runs out. In milliseconds.
     public static func ping(_ ipv4: String, timeout: TimeInterval = 1) -> Double? {
         var addr = sockaddr_in()
         addr.sin_len = UInt8(MemoryLayout<sockaddr_in>.size); addr.sin_family = sa_family_t(AF_INET)
@@ -34,10 +34,10 @@ public enum RouterPing {
             var tv = timeval(tv_sec: Int(left / 1_000_000_000), tv_usec: Int32((left % 1_000_000_000) / 1000))
             setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
             let n = recv(fd, &buf, buf.count, 0)
-            guard n > 0 else { return nil }   // süre doldu ya da hata
-            // Yanıt IP başlığıyla gelir (ilk nibble 4); ICMP başlığına atla.
+            guard n > 0 else { return nil }   // timed out or error
+            // The reply arrives with the IP header (first nibble 4); skip to the ICMP header.
             let off = buf[0] >> 4 == 4 ? Int(buf[0] & 0x0f) * 4 : 0
-            guard n >= off + 8, buf[off] == 0, buf[off + 6] == pkt[6], buf[off + 7] == pkt[7] else { continue }   // başka yanıt
+            guard n >= off + 8, buf[off] == 0, buf[off + 6] == pkt[6], buf[off + 7] == pkt[7] else { continue }   // a different reply
             return Double(clock_gettime_nsec_np(CLOCK_UPTIME_RAW) - t0) / 1e6
         }
     }

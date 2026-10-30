@@ -5,7 +5,7 @@ import Synchronization
 import Testing
 @testable import MystatProbes
 
-/// Geçici klasörde kurgu: her test kendi kökünü yaratır ve siler.
+/// Fixtures in a temporary folder: each test creates and deletes its own root.
 final class ScanFixture {
     let root: URL
     init() throws {
@@ -19,7 +19,7 @@ final class ScanFixture {
     }
     func file(_ rel: String, bytes: Int) throws {
         var d = Data(count: bytes)
-        d.withUnsafeMutableBytes { arc4random_buf($0.baseAddress!, bytes) }   // sıkıştırılamaz içerik
+        d.withUnsafeMutableBytes { arc4random_buf($0.baseAddress!, bytes) }   // incompressible content
         try d.write(to: root.appendingPathComponent(rel))
     }
     /// `du -sk` × 1024.
@@ -60,7 +60,7 @@ final class ProgressLog: Sendable {
         #expect(abs(Double(t[0] - du)) <= Double(du) * 0.01, "tarama \(t[0]) du \(du)")
 
         let top = idx.children(of: 0, totals: t)
-        #expect(top.map(\.name) == ["a"])   // c boş: listede yok
+        #expect(top.map(\.name) == ["a"])   // c is empty: not in the list
         guard case .dir(let a)? = top.first?.ref else { Issue.record("a klasör değil"); return }
         let kids = idx.children(of: a, totals: t)
         #expect(kids.map(\.name) == ["büyük.bin", "b", "Diğer"])
@@ -69,7 +69,7 @@ final class ProgressLog: Sendable {
         guard kids.count == 3, case .dir(let b) = kids[1].ref else { Issue.record("b klasör değil"); return }
         #expect(idx.children(of: b, totals: t).map(\.ref) == [.other(count: 3)])
         #expect(idx.dirCount == 4)
-        #expect(log.last.withLock { $0?.bytes } == t[0])   // son ilerleme toplamı verir
+        #expect(log.last.withLock { $0?.bytes } == t[0])   // the last progress report gives the total
         #expect(log.last.withLock { $0?.dirs } == 4)
     }
 
@@ -111,7 +111,7 @@ final class ProgressLog: Sendable {
         let idx = DirectoryScanner(root: fx.root.path).scan(
             onProgress: { _ in }, isCancelled: { checks.add(1, ordering: .relaxed).newValue > 20 })
         #expect(Date().timeIntervalSince(t0) < 0.5)
-        #expect(idx.dirCount < 1000)   // 2.021 klasörün hepsi listelenmedi
+        #expect(idx.dirCount < 1000)   // not all 2,021 folders were listed
     }
 
     @Test(.enabled(if: ProcessInfo.processInfo.environment["MYSTAT_HOME_SCAN"] != nil))
@@ -125,7 +125,7 @@ final class ProgressLog: Sendable {
         #expect(abs(Double(total - du)) <= Double(du) * 0.02)
     }
 
-    /// Tam Disk Erişimi yokken TCC istemi çıkarabilecek klasörler açılmaz, okunamayan sayılır (§10).
+    /// Folders that could trigger a TCC prompt are not opened without Full Disk Access; they count as unreadable.
     @Test func skippedFoldersAreNotOpened() throws {
         let fx = try ScanFixture()
         try fx.dir("Documents"); try fx.file("Documents/a.bin", bytes: 12 * Self.MB)

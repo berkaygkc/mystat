@@ -1,7 +1,7 @@
 import Observation
 import SwiftUI
 
-/// Alt ortada beliren cam bildirim (mockup'taki `toast`), 2,2 sn görünür.
+/// Glass toast that appears at the bottom center, visible for 2.2 s.
 @MainActor @Observable
 public final class ToastCenter {
     public static let shared = ToastCenter()

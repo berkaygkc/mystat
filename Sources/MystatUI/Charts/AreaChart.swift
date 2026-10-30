@@ -11,8 +11,8 @@ public struct ChartSeries {
     }
 }
 
-/// Mockup'taki `drawChart`: kesik ızgara, degrade dolgu, sağda %50/%100 etiketleri, altta eksen,
-/// üzerine gelince dikey çizgi + noktalar + ipucu.
+/// Area chart: dashed grid, gradient fill, 50%/100% labels on the right, axis at the bottom,
+/// and on hover a vertical line + dots + tooltip.
 public struct AreaChart: View {
     let series: [ChartSeries]
     let fixedMax: Double?
@@ -29,7 +29,7 @@ public struct AreaChart: View {
                 showGrid: Bool = true, showXAxis: Bool = true, hoverAt: CGFloat? = nil) {
         self.series = series; self.fixedMax = max; self.height = height; self.range = range
         self.format = format; self.formatY = formatY; self.showGrid = showGrid; self.showXAxis = showXAxis
-        _hoverX = State(initialValue: hoverAt)   // anlık görüntü ve test için başlangıç ipucu
+        _hoverX = State(initialValue: hoverAt)   // initial tooltip for snapshots and tests
     }
 
     public var body: some View {
@@ -52,7 +52,7 @@ public struct AreaChart: View {
                         .frame(width: proxy.size.width).offset(y: height - 14)
                 }
             }
-            // Üst katmanda: ipucu ve noktalar grafiğin yerleşimine hiç katılmaz (ZStack'te hizasını kaydırıyordu).
+            // On the top layer: the tooltip and dots take no part in the chart's layout (in a ZStack they shifted its alignment).
             .overlay(alignment: .topLeading) { if let hx = hoverX { hover(g, hx) } }
             .contentShape(Rectangle())
             .onContinuousHover { phase in
@@ -71,7 +71,7 @@ public struct AreaChart: View {
             }
         }
         for s in series where !s.values.isEmpty {
-            for seg in ChartGeometry.segments(s.values) {   // eksik noktalar (uyku) boşluk olarak kalır
+            for seg in ChartGeometry.segments(s.values) {   // missing points (sleep) are left as gaps
                 var line = Path()
                 for i in seg {
                     let pt = CGPoint(x: g.x(i), y: g.y(s.values[i]))
@@ -125,7 +125,7 @@ public struct AreaChart: View {
     }
 }
 
-/// Mockup'taki `sparkSVG`: küçük, eksensiz grafik.
+/// Sparkline: a small chart without axes.
 public struct Sparkline: View {
     let values: [Double]
     let color: Color
@@ -134,7 +134,7 @@ public struct Sparkline: View {
     let fillOpacity: Double
     let capacity: Int?
 
-    /// `capacity`: değerler bundan azsa sağa yaslanır (canlı geçmiş yeni başladığında).
+    /// `capacity`: if there are fewer values, they are right-aligned (when the live history has just started).
     public init(_ values: [Double], color: Color, height: CGFloat = 30, max: Double? = nil, fillOpacity: Double = 0.18, capacity: Int? = nil) {
         self.values = values; self.color = color; self.height = height; self.fixedMax = max; self.fillOpacity = fillOpacity; self.capacity = capacity
     }

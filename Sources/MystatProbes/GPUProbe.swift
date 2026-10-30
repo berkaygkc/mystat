@@ -2,8 +2,8 @@ import Foundation
 import IOKit
 import MystatCore
 
-/// GPU: kullanım ve çekirdek sayısı `IOAccelerator`'dan (§9.1); uygulama başına GPU süresi istemci kayıtlarından
-/// (`IOUserClientCreator`, `AppUsage[].accumulatedGPUTime`). Root gerektirmez; tarama ≈ 1,6 ms (100 istemci).
+/// GPU: utilization and core count from `IOAccelerator`; per-app GPU time from client records
+/// (`IOUserClientCreator`, `AppUsage[].accumulatedGPUTime`). Needs no root; a scan takes ≈ 1.6 ms (100 clients).
 public enum GPUProbe {
     public static func read(clients wantClients: Bool = true) -> GPUReading? {
         var it: io_iterator_t = 0
@@ -32,7 +32,7 @@ public enum GPUProbe {
         return GPUReading(utilization: util, cores: cores, clients: clients)
     }
 
-    /// "pid 410, WindowServer" → (410, "WindowServer"); ad çekirdekte kırpılmış olabilir ("Brave Browser He").
+    /// "pid 410, WindowServer" → (410, "WindowServer"); the name may be truncated in the kernel ("Brave Browser He").
     public static func parseCreator(_ s: String) -> (pid: Int32, name: String)? {
         guard s.hasPrefix("pid "), let comma = s.firstIndex(of: ","), let pid = Int32(s[s.index(s.startIndex, offsetBy: 4)..<comma]) else { return nil }
         return (pid, s[s.index(after: comma)...].trimmingCharacters(in: .whitespaces))

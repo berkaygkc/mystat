@@ -3,11 +3,11 @@ import IOKit
 import MystatCore
 import Synchronization
 
-/// AppleSMC: sıcaklık anahtarları, fan ve sistem gücü (kullanıcı yetkisiyle, §10). Anahtar okuması ≈ 0,33 ms (iki çağrı).
-/// Çağrı yapısı 80 bayt: anahtar 0, `keyInfo.dataSize` 28, `dataType` 32, sonuç 40, komut 42, indeks 44, veri 48.
+/// AppleSMC: temperature keys, fans and system power (with user privileges). A key read takes ≈ 0.33 ms (two calls).
+/// The call structure is 80 bytes: key 0, `keyInfo.dataSize` 28, `dataType` 32, result 40, command 42, index 44, data 48.
 public final class SMCProbe: Sendable {
     private let conn: Mutex<io_connect_t>
-    /// Anahtarın tipi ve boyutu değişmez: bilgi çağrısı bir kez, sonraki okumalar tek çağrı (maliyet yarıya iner).
+    /// A key's type and size never change: the info call is made once, later reads take a single call (halves the cost).
     private let info = Mutex<[String: (type: String, size: UInt32)]>([:])
     private enum Command: UInt8 { case read = 5, keyAtIndex = 8, info = 9 }
 
@@ -39,7 +39,7 @@ public final class SMCProbe: Sendable {
         return (String(decoding: out[32...35].reversed(), as: UTF8.self), size)
     }
 
-    /// Tüm anahtarlar (≈ 3.300, 1–2 sn): yalnızca bir kez, ölçüm döngüsü dışında çağrılır; sonuç önbelleğe alınır.
+    /// All keys (≈ 3,300, 1–2 s): called only once, outside the sampling loop; the result is cached.
     public func discover() -> SensorMap {
         let count = Int(value("#KEY") ?? 0)
         var temps: [String: Double] = [:]
@@ -75,10 +75,10 @@ public final class SMCProbe: Sendable {
         return r == kIOReturnSuccess && out[40] == 0 ? out : nil
     }
 
-    // MARK: - Önbellek (makine modeli + macOS sürümü)
+    // MARK: - Cache (machine model + macOS version)
 
     static let cacheKey = "mystat.sensorMap"
-    /// Sınıflama kuralı değişince artırılır: eski önbellek yeniden keşfedilir.
+    /// Bumped when the classification rule changes: the old cache is rediscovered.
     static let cacheVersion = 1
     private struct Cached: Codable { let version: Int, model: String, os: String, map: SensorMap }
 
@@ -89,7 +89,7 @@ public final class SMCProbe: Sendable {
     }
 
     public static func storeMap(_ m: SensorMap, model: String, os: String, defaults: UserDefaults) {
-        guard !m.cpu.isEmpty else { return }   // tek seferlik okuma hatası sensörleri macOS güncellemesine kadar kapatmasın
+        guard !m.cpu.isEmpty else { return }   // a one-off read failure must not disable the sensors until the next macOS update
         if let data = try? JSONEncoder().encode(Cached(version: cacheVersion, model: model, os: os, map: m)) { defaults.set(data, forKey: cacheKey) }
     }
 }

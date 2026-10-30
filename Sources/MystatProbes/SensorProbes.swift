@@ -2,8 +2,8 @@ import Foundation
 import MystatCore
 import Synchronization
 
-/// Gerçek sensör okuyucuları. SMC anahtar keşfi ≈ 1–2 sn: önbellekte yoksa ayrı bir görevde bir kez yapılır,
-/// makine modeli + macOS sürümüyle saklanır; o sırada sensörler "yok" sayılır.
+/// Real sensor readers. SMC key discovery takes ≈ 1–2 s: if not cached, it runs once in a separate task and is
+/// stored by machine model + macOS version; sensors are treated as absent meanwhile.
 final class SensorProbes: Sendable {
     let smc = SMCProbe()
     let hid = HIDTemperatureProbe()

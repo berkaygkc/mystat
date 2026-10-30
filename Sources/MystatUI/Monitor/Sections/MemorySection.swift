@@ -1,7 +1,7 @@
 import MystatCore
 import SwiftUI
 
-/// Bellek (mockup `secMem`).
+/// Memory section.
 struct MemorySection<Source: MetricsSource>: View {
     let source: Source
     @Bindable var state: MonitorState

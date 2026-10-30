@@ -1,7 +1,7 @@
 import MystatCore
 import SwiftUI
 
-/// Olay alanı (mockup `incidentBlock`): ne, ne zamandan beri, zirve, sorumlular, eylemler.
+/// Incident area: what, since when, peak, culprits, actions.
 struct IncidentBlock<Source: MetricsSource>: View {
     let source: Source
     let state: MonitorState

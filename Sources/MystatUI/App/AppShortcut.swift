@@ -1,7 +1,7 @@
 import AppKit
 
-/// Uygulama kısayolları. Ana menüye bırakılmaz: panel açıkken uygulama menü kısayollarını işlemeyebilir.
-/// Yerel tuş izleyicisi her tuşu görür; eşleme burada.
+/// App shortcuts. They are not left to the main menu: while the panel is open the app may not process menu shortcuts.
+/// The local key monitor sees every key; the mapping lives here.
 public enum AppShortcut: Equatable, Sendable {
     case quit, closeWindow, openMonitor
 

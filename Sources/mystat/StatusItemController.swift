@@ -1,7 +1,7 @@
 import AppKit
 import MystatCore
 
-/// Tek `NSStatusItem`. Model değişmediyse çizmez; genişlik uyarı öğesi değişince ya da bir değer şablonunu aşınca güncellenir.
+/// A single `NSStatusItem`. Does not redraw if the model is unchanged; the width updates when the alert item changes or a value exceeds its template.
 @MainActor
 final class StatusItemController: NSObject {
     let item: NSStatusItem
@@ -44,7 +44,7 @@ final class StatusItemController: NSObject {
         updateLength()
     }
 
-    /// Kaybolan uyarı geçiş bitene kadar yer kaplar (`drawnModel`); sonra blok daralır.
+    /// A fading alert occupies space until the transition ends (`drawnModel`); then the block shrinks.
     private func updateLength() {
         if let w = StatusBlockLayout.newLength(view.drawnModel, current: item.length, measure: StatusBlockView.measure) { item.length = w }
     }

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Disk okuma/yazma hızı (MB/s, ondalık); aralık ve sayaç kuralları ağla aynı.
+/// Disk read/write rate (MB/s, decimal); interval and counter rules are the same as for the network.
 public struct DiskIOMeter: Sendable {
     private var last: (c: DiskIOCounters, at: Date)?
     public init() {}
@@ -14,7 +14,7 @@ public struct DiskIOMeter: Sendable {
     }
 }
 
-/// Data biriminin doluluğu (spec §7.1, §6.3 Disk). Ondalık GB (Finder ile aynı).
+/// Fill level of the Data volume. Decimal GB (same as Finder).
 public enum DiskMeter {
     public static func state(_ v: VolumeCapacity, io: (read: Double, write: Double)?) -> DiskState {
         let total = Double(v.total) / 1e9

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Docker bölümünün metinleri: eylem onayları ve bildirimleri.
+/// Texts for the Docker section: action confirmations and notifications.
 public enum DockerPresentation {
     public static func confirm(_ a: DockerAction, disk d: DockerDisk) -> (title: String, message: String, confirm: String, destructive: Bool) {
         switch a {
@@ -23,7 +23,7 @@ public enum DockerPresentation {
         }
     }
 
-    /// Onaydan hemen sonra gösterilen ara bildirim.
+    /// Interim notification shown right after confirmation.
     public static func progress(_ a: DockerAction) -> String {
         switch a { case .restart: L10n.t("docker.progress.restart"); case .stop: L10n.t("docker.progress.stop"); default: L10n.t("docker.progress.clean") }
     }
@@ -38,21 +38,21 @@ public enum DockerPresentation {
     }
 }
 
-/// Container tablosunda bir compose projesi (projesizler "diğer container'lar").
+/// A compose project in the container table (containers without a project are "other containers").
 public struct DockerProjectRow: Sendable, Identifiable {
     public var id: String { name }
     public let name: String
-    /// CPU'ya göre azalan.
+    /// Descending by CPU.
     public let containers: [Container]
     public let cpuPercent: Double, memoryGB: Double
-    /// "15 container · hepsi çalışıyor" | "3 container · 1 sorunlu".
+    /// "15 containers · all running" | "3 containers · 1 with problems".
     public let summary: String
-    /// Yeniden başlayan ya da sağlıksız container var.
+    /// A container is restarting or unhealthy.
     public let troubled: Bool
 }
 
 extension DockerPresentation {
-    /// Sorunlu projeler önce, sonra CPU'ya göre.
+    /// Projects with problems first, then by CPU.
     public static func projects(_ d: DockerState) -> [DockerProjectRow] {
         Dictionary(grouping: d.containers, by: \.project).map { project, cs in
             let bad = cs.filter { $0.restarting || !$0.healthy }.count
@@ -65,7 +65,7 @@ extension DockerPresentation {
         .sorted { $0.troubled != $1.troubled ? $0.troubled : $0.cpuPercent != $1.cpuPercent ? $0.cpuPercent > $1.cpuPercent : $0.name < $1.name }
     }
 
-    /// "27 GB · son 30 gün +9 GB": sanal disk dosyası (okunamazsa Docker'ın verisi) ve varsa gidişat.
+    /// "27 GB · last 30 days +9 GB": the virtual disk file (or Docker's data if it cannot be read) and the trend, if any.
     public static func diskNote(_ d: DockerState) -> String {
         let size = "\(Fmt.int(d.disk.rawGB ?? d.disk.dataGB)) GB"
         guard let t = d.trend30GB else { return size }

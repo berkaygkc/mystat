@@ -9,9 +9,9 @@ public struct BasketItem: Sendable, Equatable {
     public let name: String
     public let size: Double
     public let kind: NodeKind
-    /// Tarama ağacında dosya sistemi kimliği; silmeden önce öğenin değişmediği bununla denetlenir.
+    /// Filesystem identity in the scan tree; used to check that the item has not changed before deletion.
     public let fileID: UInt64?
-    /// İçinde yalnızca bulutta duran öğe sayısı (§10 uyarısı).
+    /// Number of cloud-only items inside (for the warning before deletion).
     public let cloudItems: Int
 
     public init(path: [String], name: String, size: Double, kind: NodeKind, fileID: UInt64? = nil, cloudItems: Int = 0) {
@@ -19,7 +19,7 @@ public struct BasketItem: Sendable, Equatable {
     }
 }
 
-/// Disk haritasının toplu seçim sepeti (spec §6.4). Hiçbir öğe iki kez sayılmaz.
+/// Bulk selection basket of the disk map. No item is counted twice.
 public struct SelectionBasket: Sendable, Equatable {
     private var map: [String: BasketItem] = [:]
     public init() {}

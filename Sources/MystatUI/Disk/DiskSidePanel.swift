@@ -1,7 +1,7 @@
 import MystatCore
 import SwiftUI
 
-/// Disk haritasının sağındaki liste ve "Seçilenler" sepeti (mockup `renderDiskSide`).
+/// The list to the right of the disk map and the "Selected" basket.
 struct DiskSidePanel<Source: MetricsSource>: View {
     let source: Source
     @Bindable var disk: DiskUIState
@@ -12,7 +12,7 @@ struct DiskSidePanel<Source: MetricsSource>: View {
         let tree = source.diskTree
         let node = tree.node(at: disk.path) ?? tree.root
         let here = disk.basket.state(of: disk.path)
-        // Tarama sürerken haritadaki balonlarla aynı birikmiş boyutlar; başlık satırların toplamı.
+        // While scanning, the same accumulated sizes as the map's bubbles; the header is the sum of the rows.
         let kids = node.children ?? []
         let total = scanProgress == nil ? node.size : kids.reduce(0) { $0 + scanned($1) }
         VStack(alignment: .leading, spacing: 0) {
@@ -36,7 +36,7 @@ struct DiskSidePanel<Source: MetricsSource>: View {
                 Text(L10n.t("disk.side.startScan")).font(.system(size: 12)).foregroundStyle(Theme.ink3)
             } else {
                 let sorted = kids.sorted { $0.size > $1.size }
-                if sorted.count > Self.plainRows {   // gerçek taramada binlerce satır olabilir (node_modules)
+                if sorted.count > Self.plainRows {   // a real scan can have thousands of rows (node_modules)
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 0) {
                             ForEach(sorted.indices, id: \.self) { i in row(sorted[i], tree: tree) }
@@ -75,7 +75,7 @@ struct DiskSidePanel<Source: MetricsSource>: View {
         return HStack(spacing: 8) {
             Group {
                 if other { Color.clear }
-                else if let locked {   // korunuyor (§6.4): seçilemez, içi seçilebilir
+                else if let locked {   // protected: cannot be selected, but its contents can
                     Image(systemName: "lock.fill").font(.system(size: 9.5, weight: .semibold)).foregroundStyle(Theme.ink3).help(locked)
                 } else { CheckCircle(state: st) { disk.toggle(p, tree: tree) } }
             }
@@ -141,7 +141,7 @@ struct DiskSidePanel<Source: MetricsSource>: View {
                             .background(Theme.orangeSoft, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                             .padding(.top, 10).fixedSize(horizontal: false, vertical: true)
                     }
-                    if disk.basket.cloudItems > 0 {   // §10: bulutta duranlar silinmeden önce uyarı
+                    if disk.basket.cloudItems > 0 {   // items that live in the cloud: warn before deleting
                         Text(L10n.plural("disk.basket.cloud", disk.basket.cloudItems, ["n": Fmt.int(Double(disk.basket.cloudItems))]))
                             .font(.system(size: 12)).lineSpacing(3).foregroundStyle(Theme.ink)
                             .padding(.horizontal, 11).padding(.vertical, 9)
@@ -161,7 +161,7 @@ struct DiskSidePanel<Source: MetricsSource>: View {
     }
 }
 
-/// Seçim dairesi: boş, seçili (mavi ✓) ya da üst klasörle seçili (soluk mavi ✓).
+/// Selection circle: empty, selected (blue ✓), or selected via its parent folder (faded blue ✓).
 struct CheckCircle: View {
     let state: SelState
     let action: () -> Void

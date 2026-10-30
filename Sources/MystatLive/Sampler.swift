@@ -3,40 +3,40 @@ import MystatCore
 import MystatProbes
 import Synchronization
 
-/// Ölçüm döngüsü (spec §9.2). Her 2 sn: CPU, bellek, ağ, disk etkinliği. Süreçler panel/monitör açıkken her tur,
-/// kapalıyken 5 sn'de bir ve hafif modda (port okunmaz). Disk doluluğu ve pil 60 sn, İndirilenler 10 dk (yalnızca
-/// panel/monitör açıkken: klasör TCC korumalı, izin istemi bağlamında çıksın).
+/// Sampling loop. Every 2 s: CPU, memory, network, disk activity. Processes every round while the panel/monitor is open,
+/// every 5 s when closed, and in light mode (ports not read). Disk usage and battery every 60 s, Downloads every 10 min (only while
+/// the panel/monitor is open: the folder is TCC-protected, so any permission prompt appears in context).
 public actor Sampler {
     public struct Output: Sendable {
         public let snapshot: Snapshot
         public let series: SeriesBuffer
         public let groups: GroupHistory
-        /// Son süreç listesindeki kendi süreçlerin başlangıcı: durdururken pid hâlâ aynı süreç mi diye bakılır.
+        /// Start times of our own processes in the last process list: when stopping, checks that the pid is still the same process.
         public let starts: [Int32: Date]
     }
 
     private struct ProcKey: Hashable { let pid: Int32; let start: Date }
 
     private let probe: any SystemProbe
-    /// İndirilenler korumalı klasör: izin yokken okumak macOS'un izin penceresini açar. Öneri 10 dk'da bir denetlenirken sorulur.
+    /// Downloads is a protected folder: reading it without permission opens the macOS permission dialog. The prompt appears while the suggestion is checked every 10 min.
     private let fullDiskAccess: @Sendable () -> Bool
     private let history: HistoryStore?
-    /// Docker kendi temposunda okunur; burada yalnızca son okuma alınır (Docker asılsa da tur beklemez).
+    /// Docker is read at its own pace; only its latest reading is picked up here (the round does not wait even if Docker hangs).
     private let docker: DockerPoller?
     private var dockerReading = DockerPoller.Reading()
     private var lastDockerDisk: Date?
-    /// Docker'ın verisinin 30 günlük farkı; df yenilendikçe geçmişten hesaplanır.
+    /// 30-day delta of Docker's data; computed from history as df is refreshed.
     private var dockerTrend: Double?
-    // Sensörler (§9.2): 5 sn'de bir; boşta ≤ 10 SMC anahtarı, ilgi varken GPU sıcaklığı, IOReport ve GPU uygulamaları.
+    // Sensors: every 5 s; ≤ 10 SMC keys when idle, plus GPU temperature, IOReport and GPU apps while watched.
     private var sensorMap: SensorMap?
     private var sensors: SensorReading?
     private var lastSensors: Date?, lastSlowSensors: Date?
     private var slow: (ssd: Double?, battery: Double?, fanMin: Double) = (nil, nil, 0)
     private var powerMeter = PowerMeter(), gpuShare = GPUShare(), energyMeter = EnergyMeter()
     private var groupNameByPid: [Int32: String] = [:]
-    /// "Bugün" ağ toplamı yeniden başlatmada kaybolmasın (testlerde kapalı).
+    /// So that today's network total is not lost on restart (off in tests).
     private let persistToday: Bool
-    /// Panel ya da monitör açık mı; ana aktörden eşzamanlı yazılır.
+    /// Whether the panel or monitor is open; written concurrently from the main actor.
     nonisolated let interest = Mutex(false)
 
     private var cpuMeter = CPUMeter(), netMeter: NetMeter, ioMeter = DiskIOMeter(), procMeter = ProcessMeter()
@@ -49,7 +49,7 @@ public actor Sampler {
     private var volume: VolumeCapacity?, battery: BatteryReading?, downloads: [(name: String, gb: Double, idleDays: Int)] = []
     private var iface: String?, ip: String?
     private let net: NetDetailPoller?
-    /// Konum izninin durumu (ağ adı yoksa Bağlantı kartında); LiveSource yazar.
+    /// Location permission state (shown on the Connection card when there is no network name); written by LiveSource.
     nonisolated let ssidAccess = Mutex(SSIDAccess.needsPermission)
     private var swap: [Double] = []
     private var recorded: String?
@@ -89,10 +89,10 @@ public actor Sampler {
 
     public func stop() { loop?.cancel() }
 
-    /// Silmeden sonra: disk doluluğu (ve diğer yavaş okumalar) 60 sn beklemeden bir sonraki örnekte okunur.
+    /// After a deletion: disk usage (and other slow readings) are read in the next sample without waiting for the 60 s.
     public func requestVolume() { lastSlow = nil }
 
-    /// Dil değişince: süreç grupları (bağlam metinleri) bir sonraki örnekte yeniden kurulur.
+    /// On language change: process groups (context texts) are rebuilt in the next sample.
     public func requestProcesses() { lastProc = nil }
 
     public func sample(at now: Date) -> Output {
@@ -105,7 +105,7 @@ public actor Sampler {
         swap.append(memory.swapGB)
         if swap.count > 30 { swap.removeFirst(swap.count - 30) }
 
-        // Yavaş olanlar: birincil arayüz, disk doluluğu, pil (60 sn).
+        // Slow ones: primary interface, disk usage, battery (60 s).
         if lastSlow.map({ now.timeIntervalSince($0) >= 60 }) ?? true {
             let primary = probe.primaryInterface()
             if primary != iface { netMeter = NetMeter(primary: primary, today: netMeter.today); iface = primary }
@@ -131,7 +131,7 @@ public actor Sampler {
             lastDownloads = now
         }
 
-        // Seriler ve geçmiş.
+        // Series and history.
         let disk = DiskMeter.state(volume ?? VolumeCapacity(total: 0, available: 0, availableImportant: 0), io: lastIO)
         var samples: [(SeriesKey, Double)] = [(.memUsed, memory.percent), (.memPressure, memory.pressurePercent),
                                                (.netDown, lastNet.down), (.netUp, lastNet.up),
@@ -145,7 +145,7 @@ public actor Sampler {
         let containers = dockerReading.running ? dockerReading.containers : []
         if dockerReading.running {
             samples += [(.dockerCPU, containers.reduce(0) { $0 + $1.cpuPercent }), (.dockerMem, containers.reduce(0) { $0 + $1.memoryMB } / 1024)]
-            if let at = dockerReading.diskAt, at != lastDockerDisk, let d = dockerReading.disk {   // df yenilendikçe (10 dk)
+            if let at = dockerReading.diskAt, at != lastDockerDisk, let d = dockerReading.disk {   // as df is refreshed (10 min)
                 samples.append((.dockerDisk, d.dataGB))
                 lastDockerDisk = at
             }
@@ -157,7 +157,7 @@ public actor Sampler {
         }
         if lastPrune.map({ now.timeIntervalSince($0) >= 3600 }) ?? true { history?.prune(now: now); lastPrune = now }
 
-        // Pil erimesi: pildeyken son 30 dk (1 sa serisinin 30 sn'lik son 61 noktası).
+        // Battery drain: on battery, the last 30 min (the last 61 points of the 1 h series, 30 s apart).
         var drain: Double?
         if let b = battery, !b.onAC {
             let pts = series.series(.battery, .h1).suffix(61)
@@ -173,7 +173,7 @@ public actor Sampler {
             if let i = incident, recorded != "\(i.kind)\(i.startedAt)" { history?.recordIncident(i, at: now); recorded = "\(i.kind)\(i.startedAt)" }
         }
 
-        // Uygulama bazında ağ (Ağ bölümü açıkken, 2 sn'de bir): 5 sn'den eski hızlar yazılmaz.
+        // Per-app network (while the Network section is open, every 2 s): rates older than 5 s are not written.
         let netReading = net?.latest.withLock { $0 }
         var shown = groups
         if let r = netReading, let at = r.ratesAt, now.timeIntervalSince(at) <= 5 { NetRates.apply(r.rates, to: &shown) }
@@ -189,7 +189,7 @@ public actor Sampler {
                       series: series, groups: groupHistory, starts: starts)
     }
 
-    /// Süreçler → gruplar. Başka kullanıcıların süreçleri ölçülemez; toplamdan kalan "macOS" satırına gider.
+    /// Processes → groups. Other users' processes cannot be measured; what remains of the total goes to the "macOS" row.
     private func sampleProcesses(at now: Date, detail: Bool, cpu: CPUState, memory: MemoryState, coreCount: Int) {
         let records = probe.processes()
         let cores = procMeter.update(records, at: now, maxGap: detail ? SampleGap.maxInterval : GroupHistory.gap) ?? [:]
@@ -208,7 +208,7 @@ public actor Sampler {
         groups = DockerGroups.split(groups, containers: dockerReading.running ? dockerReading.containers : [])
         groupNameByPid = Dictionary(groups.flatMap { g in g.pids.map { ($0, g.name) } }, uniquingKeysWith: { a, _ in a })
 
-        // Disk yazımı: süreç başına fark → grup toplamı.
+        // Disk writes: per-process delta → group total.
         var nowWritten: [ProcKey: UInt64] = [:], delta: [Int32: UInt64] = [:]
         for r in own {
             let k = ProcKey(pid: r.pid, start: r.start)
@@ -219,7 +219,7 @@ public actor Sampler {
         var byGroup: [String: UInt64] = [:]
         for g in groups { byGroup[g.id] = g.pids.reduce(0) { $0 &+ (delta[$1] ?? 0) } }
         groupHistory.add(groups, writtenBytes: byGroup, at: now)
-        let avg = groupHistory.wattsAverage()   // anlık watt çok oynak: liste ve olay sorumluları 10 dk ortalamasıyla
+        let avg = groupHistory.wattsAverage()   // instantaneous watts are too jittery: lists and incident culprits use the 10 min average
         for i in groups.indices { groups[i].watts = avg[groups[i].id] ?? groups[i].watts }
         lastProc = now
     }
@@ -231,9 +231,9 @@ public actor Sampler {
                            disk: r.disk ?? DockerState.notRunning.disk, trend30GB: dockerTrend)
     }
 
-    /// Çip ortalaması her zaman aynı en fazla 7 anahtardan (boşta ve açıkken tutarlı); 2 fan ve sistem gücüyle ≤ 10 anahtar.
+    /// The chip average always comes from the same at most 7 keys (consistent when idle and when open); with 2 fans and system power, ≤ 10 keys.
     private func readSensors(at now: Date, detail: Bool) {
-        if sensorMap == nil { sensorMap = probe.sensorMap() }   // keşif sürüyorsa nil, beklenmez
+        if sensorMap == nil { sensorMap = probe.sensorMap() }   // nil while discovery is running; not waited for
         guard let map = sensorMap, !map.cpu.isEmpty else { sensors = nil; return }
         let cpuKeys = map.sample(map.cpu, max: 7), fanKeys = (0..<min(map.fans, 2)).map { "F\($0)Ac" }
         let v = probe.smcValues(cpuKeys + fanKeys + ["PSTR"])
@@ -244,7 +244,7 @@ public actor Sampler {
             slow = (probe.ssdTemperature(), map.battery.flatMap { sv[$0] }, minKeys.compactMap { sv[$0] }.max() ?? 0)
             lastSlowSensors = now
         }
-        // Yalnızca panel/monitör açıkken okunanlar kapalıyken taşınmaz: saatler sonra açılınca eski değer görünmesin.
+        // Readings taken only while the panel/monitor is open are not carried over while closed: so a stale value does not show when it is opened hours later.
         var r = SensorReading(chipTemp: chip, gpuTemp: detail ? sensors?.gpuTemp : nil, ssdTemp: slow.ssd, batteryTemp: slow.battery,
                               fanRPM: fanKeys.compactMap { v[$0] }.max() ?? 0, fanCount: map.fans, fanMinRPM: slow.fanMin,
                               systemWatts: v["PSTR"], cpuWatts: detail ? sensors?.cpuWatts : nil, gpuWatts: detail ? sensors?.gpuWatts : nil,
@@ -252,7 +252,7 @@ public actor Sampler {
         if let g = probe.gpu(clients: detail) {
             r.gpuPercent = g.utilization
             r.gpuCores = g.cores
-            if detail {   // istemci adı çekirdekte kırpılı ("Brave Browser He"): pid'in grubunun adıyla
+            if detail {   // the client name is truncated in the kernel ("Brave Browser He"): use the name of the pid's group instead
                 let named = GPUReading(utilization: g.utilization, cores: g.cores, clients: g.clients.map {
                     GPUClient(pid: $0.pid, name: groupNameByPid[$0.pid] ?? $0.name, gpuTimeNs: $0.gpuTimeNs)
                 })

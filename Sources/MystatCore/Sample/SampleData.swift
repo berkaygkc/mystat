@@ -1,10 +1,10 @@
 import Foundation
 
-/// Mockup'tan (docs/mockups/monitor.html: GROUPS, CONTAINERS, TREE) birebir aktarılan örnek veri.
+/// Sample data for the monitor.
 enum SampleData {
     struct G {
         let id, name, ctx: String
-        let cpu: (Double, Double)      // (sakin, patlama) çekirdek
+        let cpu: (Double, Double)      // (calm, burst) cores
         let ram: Double
         let net: (Double, Double)
         let up: String
@@ -14,7 +14,7 @@ enum SampleData {
         let kids: [(String, Double, Double)]
     }
 
-    /// Metinler seçili dilde: her erişimde yeniden kurulur.
+    /// Texts are in the selected language: rebuilt on every access.
     static var groups: [G] { [
         G(id: "claude-acmecorp", name: "Claude Code", ctx: "acmecorp", cpu: (0.28, 4.2), ram: 1.1, net: (0.2, 0.4), up: Fmt.uptime(134 * 60),
           dir: "~/Documents/apps/acmecorp", term: L10n.t("sample.term", ["n": "2"]), related: "next-web", n: 9,
@@ -37,7 +37,7 @@ enum SampleData {
         G(id: "spark", name: "Spark", ctx: "", cpu: (0.02, 0.02), ram: 0.5, net: (0.2, 0.2), up: Fmt.uptime(72 * 3600), n: 2, kids: []),
     ] }
 
-    /// (ad, image, (sakin, patlama) CPU %, bellek MB, sağlık kontrolü var mı)
+    /// (name, image, (calm, burst) CPU %, memory MB, has a health check)
     static let containers: [(String, String, (Double, Double), Double, Bool)] = [
         ("acmecorp-verifier", "acmecorp-verifier:dev", (0.4, 62), 412, true),
         ("temporal", "temporalio/auto-setup:1.25", (0.6, 12), 286, false),

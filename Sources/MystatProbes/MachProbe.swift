@@ -2,7 +2,7 @@ import Darwin
 import Foundation
 import MystatCore
 
-/// CPU tick'leri, sanal bellek sayaçları, yük ortalaması, swap ve bellek baskısı. Root gerektirmez.
+/// CPU ticks, virtual-memory counters, load average, swap and memory pressure. Needs no root.
 public struct MachProbe: Sendable {
     public init() {}
 

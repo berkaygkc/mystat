@@ -2,22 +2,22 @@ import Foundation
 
 public enum NodeKind: Sendable, Equatable { case folder, regen, docker, file, other }
 
-/// Disk ağacının bir düğümü. Boyut GB cinsinden.
+/// A node of the disk tree. Size in GB.
 public final class DiskNode {
     public let name: String
     public var size: Double
     public let isFile: Bool
     public let isDocker: Bool
     public var children: [DiskNode]?
-    /// Tarama ağacında dizindeki karşılığı; örnek veride nil.
+    /// Its counterpart in the index for a scan tree; nil in sample data.
     public var ref: ScanChild.Ref?
-    /// Dosya sistemi kimliği (inode); silmeden önce öğenin değişmediği bununla denetlenir. Örnek veride nil.
+    /// Filesystem identity (inode); used to verify the item has not changed before deletion. nil in sample data.
     public let fileID: UInt64?
-    /// Alt ağaçta yalnızca bulutta duran (iCloud'a boşaltılmış) öğe sayısı; silmeden önce uyarılır (§10).
+    /// Number of items in the subtree that exist only in the cloud (offloaded to iCloud); the user is warned before deletion.
     public var cloudItems = 0
 
-    /// Tarama ağacındaki yapay düğümlerin adları: NUL dosya adında olamaz, gerçek bir "Diğer" klasörüyle çakışmaz.
-    /// Ekranda "Diğer" yazar (`displayName`).
+    /// Names of synthetic nodes in the scan tree: NUL cannot occur in a file name, so they never collide with a real "Other" folder.
+    /// The screen shows "Other" (`displayName`).
     public static let smallFilesName = "\u{0}küçük"
     public static let restName = "\u{0}kalan"
     public static func display(_ name: String) -> String { name.first == "\u{0}" ? L10n.t("disk.other") : name }
@@ -29,36 +29,36 @@ public final class DiskNode {
         self.ref = ref; self.fileID = fileID
     }
 
-    /// Tür = renk (spec §6.4). Mockup'taki `kindOf`. Tarama ağacında "Diğer" adı değil `ref` belirler: diskte
-    /// "Diğer" adlı gerçek bir klasör klasördür.
+    /// Kind = color. In a scan tree `ref`, not the name "Other", decides: a real folder named
+    /// "Other" on disk is a folder.
     public var kind: NodeKind {
         if case .other? = ref { return .other }
         if isDocker || name == "Docker" { return .docker }
-        if ref == nil, name == L10n.t("disk.other") { return .other }   // örnek veri
+        if ref == nil, name == L10n.t("disk.other") { return .other }   // sample data
         if Self.isRegen(name) { return .regen }
         if isFile { return .file }
         return .folder
     }
 
-    /// İçine girilebilir mi. Örnek veride alt düğüm üretilebilir mi; tarama ağacında klasör mü.
+    /// Whether it can be entered. In sample data: whether child nodes can be generated; in a scan tree: whether it is a folder.
     public var canHaveChildren: Bool {
         if let ref { if case .dir = ref { return true } else { return false } }
         return !isFile && name != L10n.t("disk.other") && size >= 0.03
     }
 
-    /// Yeniden oluşturulabilir klasör adları. `Regex` Sendable değil; arka plan taramasında da güvenle
-    /// okunabilsin diye düz bir küme ve önek denetimi.
+    /// Names of regenerable folders. `Regex` is not Sendable; to be safe to read from the background scan too,
+    /// a plain set and prefix check are used.
     static let regenNames: Set<String> = ["node_modules", ".next", "Caches", "DerivedData", "pnpm", "Homebrew", ".npm", ".cache"]
     static func isRegen(_ name: String) -> Bool { regenNames.contains { name.hasPrefix($0) } }
 }
 
-/// Bir düğümün çocuklarını ilk açılışta üretir: örnek veride `SampleGenerator`, tarama ağacında `ScanIndex`.
+/// Produces a node's children on first open: `SampleGenerator` for sample data, `ScanIndex` for the scan tree.
 public protocol DiskChildProvider: AnyObject {
-    /// Düğümün çocukları; yoksa nil.
+    /// The node's children; nil if none.
     func children(of node: DiskNode, path: [String]) -> [DiskNode]?
 }
 
-/// Örnek veri (Faz 1 davranışı).
+/// Sample data.
 public final class SampleProvider: DiskChildProvider {
     public init() {}
     public func children(of node: DiskNode, path: [String]) -> [DiskNode]? {
@@ -67,11 +67,11 @@ public final class SampleProvider: DiskChildProvider {
     }
 }
 
-/// Tarama dizininden düğüm üretir. Dizin tarama sürerken de büyüyebilir; `totals` son `refresh` anının görüntüsü.
+/// Produces nodes from the scan index. The index can keep growing while a scan runs; `totals` is a snapshot of the last `refresh`.
 final class ScanProvider: DiskChildProvider {
     let index: ScanIndex
     var totals: ScanTotals
-    /// Docker'ın verisi bu klasörlerin altında durur (renk ve silme uyarısı, spec §6.4).
+    /// Docker's data lives under these folders (color and deletion warning).
     static let dockerRoots: [[String]] = [["Library", "Containers", "com.docker.docker"], ["Library", "Group Containers", "group.com.docker"]]
 
     init(index: ScanIndex) { self.index = index; totals = index.totals() }
@@ -101,7 +101,7 @@ public final class DiskTree {
 
     public init(root: DiskNode, provider: DiskChildProvider? = SampleProvider()) { self.root = root; self.provider = provider }
 
-    /// Tarama sonucu: düğümler gezildikçe dizinden üretilir.
+    /// Scan result: nodes are produced from the index as they are visited.
     public static func scanned(_ index: ScanIndex) -> DiskTree {
         let p = ScanProvider(index: index)
         let root = DiskNode(index.rootName, Double(p.totals[0]) / 1e9, ref: .dir(0), fileID: index.fileID(ofDir: 0))
@@ -109,10 +109,10 @@ public final class DiskTree {
         return DiskTree(root: root, provider: p)
     }
 
-    /// Tarama ağacının dizini; örnek veride nil.
+    /// The scan tree's index; nil in sample data.
     public var scanIndex: ScanIndex? { (provider as? ScanProvider)?.index }
 
-    /// Yol boyunca alt düğümleri tembelce üreterek düğümü bulur.
+    /// Finds the node by lazily generating child nodes along the path.
     public func node(at path: [String]) -> DiskNode? {
         var n = root
         expand(n, path: [])
@@ -129,8 +129,8 @@ public final class DiskTree {
         n.children = provider.children(of: n, path: path)
     }
 
-    /// Tarama sürerken dizindeki yeni toplamları açılmış düğümlere yansıtır. Var olan düğüm nesneleri korunur
-    /// (balon kimliği ve animasyon sürer); yeni çocuklar eklenir.
+    /// While a scan runs, reflects new totals in the index into expanded nodes. Existing node objects are kept
+    /// (bubble identity and animation continue); new children are added.
     public func refresh() {
         guard let p = provider as? ScanProvider else { return }
         p.totals = p.index.totals()
@@ -150,7 +150,7 @@ public final class DiskTree {
         }
     }
 
-    /// Yarıda kalan silme: düğümün ve atalarının boyutu boşalan kadar düşer (iç ayrıntı yeniden taramaya kadar eski kalır).
+    /// Interrupted deletion: the node's and its ancestors' sizes drop by the freed amount (inner detail stays stale until a rescan).
     public func shrink(at path: [String], by gb: Double) {
         guard gb > 0, node(at: path) != nil else { return }
         var n = root
@@ -161,8 +161,8 @@ public final class DiskTree {
         }
     }
 
-    /// Düğümü ağaçtan çıkarır, atalarının boyutunu düşer; silinen boyutu döner. Tarama ağacında dizinden de
-    /// çıkarılır (önbellek güncel kalsın).
+    /// Removes the node from the tree and reduces its ancestors' sizes; returns the removed size. In a scan tree it is also removed
+    /// from the index (to keep the cache current).
     @discardableResult
     public func remove(at path: [String]) -> Double {
         guard let last = path.last, let parent = node(at: Array(path.dropLast())),
@@ -188,7 +188,7 @@ public final class DiskTree {
     }
 }
 
-/// Örnek veride sınırsız derinlik için yola bağlı, deterministik alt düğüm üretimi (mockup'taki `genKids`).
+/// Deterministic child node generation tied to the path, for unlimited depth in sample data.
 enum SampleGenerator {
     static let pools: [String: [String]] = [
         "nm": ["next", "@next", "typescript", "@swc", "esbuild", "react-dom", "@prisma", "turbo", "sharp", "lightningcss", "@img", "playwright-core", "@babel", "webpack", "caniuse-lite", "date-fns", "lodash", "@tanstack", "rxjs", "zod"],
@@ -201,7 +201,7 @@ enum SampleGenerator {
 
     static func generate(_ n: DiskNode, path: [String]) {
         guard n.children == nil, n.canHaveChildren else { return }
-        // Mockup: rng(Math.floor(hash01(yol + '#') * 1e9) + 11), hash01 = (fnv % 1000) / 1000.
+        // Seed: rng(Math.floor(hash01(path + '#') * 1e9) + 11), hash01 = (fnv % 1000) / 1000.
         let h01 = Double(fnv1a(path.joined(separator: "/") + "#") % 1000) / 1000
         var r = Mulberry32(seed: UInt32((h01 * 1e9).rounded(.down)) + 11)
         let nm = n.name
@@ -215,7 +215,7 @@ enum SampleGenerator {
         let k = 3 + Int(r.next() * 5)
         let ws = (0..<k).map { _ in pow(r.next(), 2.2) + 0.03 }.sorted(by: >)
         let sum = ws.reduce(0, +)
-        let media = L10n.t("sample.disk.media").components(separatedBy: "|")   // dosya adları seçili dilde
+        let media = L10n.t("sample.disk.media").components(separatedBy: "|")   // file names are in the selected language
         let names = shuffled(pool == "media" ? media : pools[pool]!, &r), fnames = shuffled(pools["files"]!, &r)
         var used = Set<String>()
         var kids: [DiskNode] = ws.enumerated().map { i, w in

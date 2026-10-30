@@ -3,7 +3,7 @@ import Testing
 @testable import MystatProbes
 
 @Suite struct DiskAccessTests {
-    /// Değeri ortama bağlı (Terminal'in Tam Disk Erişimi); izin istemi çıkarmadan bir Bool döner.
+    /// The value depends on the environment (Terminal's Full Disk Access); it returns a Bool without triggering a permission prompt.
     @Test func fdaProbeDoesNotCrash() {
         let a = DiskAccess.hasFullDiskAccess(), b = DiskAccess.hasFullDiskAccess()
         #expect(a == b)

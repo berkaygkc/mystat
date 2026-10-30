@@ -1,7 +1,7 @@
 import Foundation
 
-/// Bir örnekleme turunun ölçümleri (canlı kaynak doldurur, `SnapshotBuilder` anlam verir).
-/// Bir sensör turunun özeti (çip, fan ve sistem gücü her zaman; GPU sıcaklığı, IOReport ve GPU uygulamaları ilgi varken).
+/// Measurements of one sampling round (the live source fills them in, `SnapshotBuilder` gives them meaning).
+/// Summary of one sensor round (chip, fan and system power always; GPU temperature, IOReport and GPU apps only when someone is looking).
 public struct SensorReading: Sendable {
     public var chipTemp: Double
     public var gpuTemp: Double?, ssdTemp: Double?, batteryTemp: Double?
@@ -31,18 +31,18 @@ public struct LiveMeasurements: Sendable {
     public var battery: BatteryReading?
     public var batteryDrain30m: Double?
     public var machine: MachineInfo
-    /// İndirilenler'deki büyük ve eski dosyalar (≥ 2 GB, ≥ 14 gün açılmamış).
+    /// Large, old files in Downloads (≥ 2 GB, not opened for ≥ 14 days).
     public var downloads: [(name: String, gb: Double, idleDays: Int)]
     public var coreCount: Int
     public var docker: DockerState
-    /// Sensör yoksa nil: Sistem bölümü Faz 2a'nın sakin durumunu gösterir.
+    /// nil if there are no sensors: the System section shows its calm state.
     public var sensors: SensorReading?
-    /// Ağ bölümü açıkken: birincil bağlantı, yönlendirici gecikmesi, uygulama bazında ağın okunabilirliği (2e).
+    /// While the Network section is open: primary connection, router latency, whether per-app network is readable.
     public var link: NetLink? = nil
     public var latencyMs: Double? = nil
     public var perAppAvailable = true
     public var perAppReady = true
-    /// Wi‑Fi ağının adı yoksa konum izninin durumu.
+    /// State of the location permission when the Wi-Fi network name is missing.
     public var ssidAccess: SSIDAccess = .needsPermission
 
     public init(cpu: CPUState, memory: MemoryState, disk: DiskState, net: (down: Double, up: Double, todayDown: Double, todayUp: Double),
@@ -57,12 +57,12 @@ public struct LiveMeasurements: Sendable {
     }
 }
 
-/// Ölçümlerden arayüzün gördüğü Snapshot: sakin başlığın en yoğun grubu, öneriler (spec §7.3), ağ ve sistem olguları.
+/// The Snapshot the UI sees, built from measurements: the busiest group for the calm headline, suggestions, network and system facts.
 public enum SnapshotBuilder {
     public static func build(_ m: LiveMeasurements, incident: Incident?, capabilities: SourceCapabilities) -> Snapshot {
         var s = Snapshot.empty(capabilities: capabilities)
         s.cpu = m.cpu
-        // Apple Silicon'da mantıksal CPU'ların başı verimlilik kümesi (ioreg cluster-type); arayüz performansı önce gösterir.
+        // On Apple Silicon the first logical CPUs are the efficiency cluster (ioreg cluster-type); the UI shows performance cores first.
         let e = m.machine.eCores
         if e > 0, m.machine.pCores + e == m.cpu.cores.count { s.cpu.cores = Array(m.cpu.cores[e...] + m.cpu.cores[..<e]) }
         s.memory = m.memory
@@ -76,7 +76,7 @@ public enum SnapshotBuilder {
         let b = m.battery
         s.system = SystemState(chipTemp: 0, gpuTemp: 0, ssdTemp: 0, fanRPM: 0, thermal: m.thermal,
                                battery: Int((b?.percent ?? 0).rounded()), charging: b?.charging ?? false,
-                               batteryDrain30m: incident?.kind == .battery ? m.batteryDrain30m : nil,   // yavaş erime uyarı değil
+                               batteryDrain30m: incident?.kind == .battery ? m.batteryDrain30m : nil,   // slow drain is not a warning
                                watts: 0, adapter: b?.adapterText ?? "—", health: b?.healthText ?? "—", capacity: b?.capacityText ?? "—",
                                cycles: b?.cycles ?? 0, gpuPercent: 0, gpuCores: 0, onAC: b?.onAC ?? true, machine: m.machine)
         s.groups = m.groups
@@ -88,7 +88,7 @@ public enum SnapshotBuilder {
             s.system.gpuPercent = r.gpuPercent; s.system.gpuCores = r.gpuCores; s.system.gpuApps = Array(r.gpuApps.prefix(2))
         }
         s.incident = incident
-        if let top = m.groups.filter({ $0.id != "sys:macos" }).max(by: { $0.cpuCores < $1.cpuCores }) {   // toplu sistem satırı uygulama değil
+        if let top = m.groups.filter({ $0.id != "sys:macos" }).max(by: { $0.cpuCores < $1.cpuCores }) {   // the aggregate system row is not an app
             s.calmTop = (top.name, Int((top.cpuCores / Double(max(1, m.coreCount)) * 100).rounded()))
         }
         s.suggestions = suggestions(m)
@@ -101,7 +101,7 @@ public enum SnapshotBuilder {
             out.append(Suggestion(title: L10n.t("suggest.orphan.title", ["context": g.context.replacingOccurrences(of: " · :", with: " :")]),
                                   detail: L10n.t("suggest.orphan.detail", ["uptime": g.uptime]), target: .group(g.id)))
         }
-        // Kullanıcının kararı: güvenli miktar (adsız volume + image); durmuş projelerin adlı veri volume'leri sayılmaz.
+        // The safe amount counts anonymous volumes and images only; named data volumes of stopped projects are not counted.
         let k = m.docker.disk, safe = k.volumesAnonReclaimGB + k.imagesReclaimGB
         if m.docker.running, safe >= 5 {
             out.append(Suggestion(title: L10n.t("headline.disk.dockerReclaim", ["gb": Fmt.dec1(safe)]),

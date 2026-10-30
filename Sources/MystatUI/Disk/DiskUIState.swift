@@ -2,7 +2,7 @@ import MystatCore
 import Observation
 import SwiftUI
 
-/// Disk bölümünün durumu: konum, toplu seçim, silme modu (spec §6.4). Tarama kaynağın (`MetricsSource.diskScan`).
+/// State of the Disk section: location, bulk selection, delete mode. Scanning belongs to the source (`MetricsSource.diskScan`).
 @MainActor @Observable
 public final class DiskUIState {
     public var path: [String] = []
@@ -10,9 +10,9 @@ public final class DiskUIState {
     public var mode: DeleteMode = .permanent
     public var freedGB: Double = 0
     public var hoverName: String?
-    /// Silme sonrası harita yeniden yerleşsin diye artar.
+    /// Incremented after a deletion so the map re-lays out.
     public private(set) var relayoutToken = 0
-    /// Harita geçiş yaparken gezinme yok sayılır (mockup `openDisk`); haritanın modeli yazar.
+    /// Navigation is ignored while the map is transitioning; the map's model writes this.
     @ObservationIgnored public internal(set) var isMapAnimating = false
 
     public init() {}
@@ -30,14 +30,14 @@ public final class DiskUIState {
         path = p
     }
 
-    /// Sepetteki her şeyi kaynağa sildirir; bulunduğun klasör silindiyse var olan en yakın üst klasöre çıkar.
+    /// Has the source delete everything in the basket; if the current folder was deleted, moves up to the closest existing ancestor.
     public func performDelete(tree: DiskTree, source: some MetricsSource) async {
         if case .scanning = source.diskScan { ToastCenter.shared.show(Self.busyText); return }
         let items = basket.items, mode = mode
         basket.clear()
         ToastCenter.shared.show(L10n.t(mode == .trash ? "disk.toast.trashing" : "disk.toast.deleting"))
         let out = await source.delete(items, mode: mode)
-        if mode == .permanent { freedGB += out.freedGB }   // çöpe taşımak yer açmaz
+        if mode == .permanent { freedGB += out.freedGB }   // moving to the Trash does not free space
         var p = path
         while !p.isEmpty, tree.node(at: p) == nil { p.removeLast() }
         path = p

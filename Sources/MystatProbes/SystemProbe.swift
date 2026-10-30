@@ -1,8 +1,8 @@
 import Foundation
 import MystatCore
 
-/// Canlı kaynağın sistemden okuduğu her şey. Yalnızca ham sayaç döndürür; anlam Core'da hesaplanır.
-/// Testler sahte bir uygulamayla deterministik çalışır. Sonraki tasklar bu protokolü genişletir.
+/// Everything the live source reads from the system. Returns only raw counters; meaning is computed in Core.
+/// Tests run deterministically with a fake implementation.
 public protocol SystemProbe: Sendable {
     func coreTicks() -> [CoreTicks]
     func vm() -> VMCounters
@@ -17,18 +17,18 @@ public protocol SystemProbe: Sendable {
     func thermal() -> Level
     func battery() -> BatteryReading?
     func machine() -> MachineInfo
-    /// İndirilenler'in üst seviyesindeki ≥ 2 GB ve ≥ 14 gündür açılmamış dosyalar (spec §7.3).
+    /// Files at the top level of Downloads that are ≥ 2 GB and unopened for ≥ 14 days.
     func largeOldDownloads(now: Date) -> [(name: String, gb: Double, idleDays: Int)]
-    /// Keşfedilmiş SMC anahtarları; keşif sürerken ya da sensör yoksa nil (ölçüm döngüsü beklemez).
+    /// Discovered SMC keys; nil while discovery is running or if there are no sensors (the sampling loop does not wait).
     func sensorMap() -> SensorMap?
     func smcValues(_ keys: [String]) -> [String: Double]
     func ssdTemperature() -> Double?
     func energy() -> EnergyCounters?
-    /// `clients`: uygulama başına GPU süresi de (tarama ≈ 1,6 ms; yalnızca panel/monitör açıkken).
+    /// `clients`: also per-app GPU time (a scan takes ≈ 1.6 ms; only while the panel/monitor is open).
     func gpu(clients: Bool) -> GPUReading?
 }
 
-/// Sensörü olmayan kaynak (testlerin sahte probe'u, başka Mac'ler): Faz 2a'nın sakin durumu sürer.
+/// A source without sensors (the tests' fake probe, other Macs): the calm "no sensors" state continues.
 public extension SystemProbe {
     func sensorMap() -> SensorMap? { nil }
     func smcValues(_ keys: [String]) -> [String: Double] { [:] }

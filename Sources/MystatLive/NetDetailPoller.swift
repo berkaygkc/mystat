@@ -4,22 +4,22 @@ import MystatCore
 import MystatProbes
 import Synchronization
 
-/// Ağ bölümünün ayrıntıları (spec §6.3, §9.2): yalnızca bölüm görünürken 2 sn'de bir soket sayaçları (uygulama
-/// bazında ağ), yönlendiriciye ping ve ≈ 4 sn'de bir bağlantı okuması. Son okuma `latest`'te; `Sampler` her turda
-/// yalnızca onu alır. Ping ve bağlantı okuması engelleyicidir: actor kendi seri kuyruğunda çalışır (DockerPoller gibi).
+/// Network section details: only while the section is visible, socket counters every 2 s (per-app
+/// network), a ping to the router, and a link reading about every 4 s. The latest reading is in `latest`; `Sampler` picks
+/// up only that each round. Ping and link reading are blocking: the actor runs on its own serial queue (like DockerPoller).
 public actor NetDetailPoller {
     public struct Reading: Sendable {
         public var rates: [Int32: Double] = [:]
         public var ratesAt: Date?
-        /// Soket sayaçları okunamadıysa ya da loopback ölçümü tutmadıysa false.
+        /// False if the socket counters could not be read or the loopback measurement did not check out.
         public var perAppAvailable = true
-        /// Son 5 ölçümün ortancası (ms).
+        /// Median of the last 5 measurements (ms).
         public var latencyMs: Double?
         public var link: NetLink?
     }
 
     public nonisolated let latest = Mutex(Reading())
-    /// Son istenen görünürlük: çağrılar sırasız işlense de bu geçerli olur.
+    /// Last requested visibility: holds even if calls are processed out of order.
     private nonisolated let wanted = Mutex(false)
 
     private let queue = DispatchSerialQueue(label: "mystat.net")
@@ -48,7 +48,7 @@ public actor NetDetailPoller {
         self.clock = clock; self.autoTick = autoTick
     }
 
-    /// Ağ bölümü açıldı/kapandı.
+    /// Network section opened/closed.
     public nonisolated func setVisible(_ visible: Bool) {
         wanted.withLock { $0 = visible }
         Task { await self.sync() }
@@ -60,10 +60,10 @@ public actor NetDetailPoller {
         isVisible = v
         if v {
             pings = []; turns = 0
-            // Loopback ölçümü: çekirdeğin alınanı kaç kez saydığı ve kayıt düzeni (her açılışta, ≈ ms).
+            // Loopback measurement: how many times the kernel counts received bytes, and the record layout (on every open, ≈ ms).
             let factor = receiveFactor()
             rates = factor.map { SocketRates(receiveFactor: $0) }
-            // Taban hemen: ilk turda (≈ 2 sn sonra) hızlar hazır; o zamana kadar liste "Ölçülüyor…".
+            // Baseline immediately: rates are ready on the first round (≈ 2 s later); until then the list shows "Measuring…".
             if rates != nil {
                 if let stats = readSockets() { _ = rates!.update(stats, at: clock()) } else { rates = nil }
             }
@@ -84,7 +84,7 @@ public actor NetDetailPoller {
         }
     }
 
-    /// Konum izni verilince: ağın adı bir sonraki tura kalmadan gelsin.
+    /// When location permission is granted: the network name arrives without waiting for the next round.
     public nonisolated func refreshLink() { Task { await self.readLinkNow() } }
 
     func readLinkNow() {
@@ -99,7 +99,7 @@ public actor NetDetailPoller {
             if let stats = readSockets() {
                 if let r = rates!.update(stats, at: clock()) { latest.withLock { $0.rates = r; $0.ratesAt = Date() } }
             } else {
-                rates = nil   // düzen değişmiş ya da okunamıyor: bu görünürlükte bir daha denenmez
+                rates = nil   // layout changed or unreadable: not retried for this visibility
                 latest.withLock { $0.perAppAvailable = false; $0.rates = [:]; $0.ratesAt = nil }
             }
         }

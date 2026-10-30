@@ -2,7 +2,7 @@ import AppKit
 import MystatCore
 import SwiftUI
 
-/// Sistem (mockup `secSys`).
+/// System section.
 struct SystemSection<Source: MetricsSource>: View {
     let source: Source
     @Bindable var state: MonitorState
@@ -26,7 +26,7 @@ struct SystemSection<Source: MetricsSource>: View {
                          facts: [(L10n.t("section.cpu"), Fmt.int(sys.chipTemp) + "°"), ("GPU", degrees(sys.gpuTemp)), ("SSD", degrees(sys.ssdTemp)),
                                  (L10n.t("sys.fact.slowdown"), SystemPresentation.slowdown(sys))])
                 } else {
-                    // Sensörler 2c'de: sahte sıcaklık yerine termal durum.
+                    // Sensors are not wired up yet: show thermal state instead of a fake temperature.
                     card(title: L10n.t("sys.card.heat"), pill: Pill(text: sys.thermal.thermalWord, level: sys.thermal),
                          big: "—", unit: "", bigLevel: .ok, label: L10n.t("sys.noSensors"),
                          series: ChartSeries([], color: Theme.chart, fill: true, name: "°C"), max: 105, format: { Fmt.int($0) + "°" },
@@ -52,7 +52,7 @@ struct SystemSection<Source: MetricsSource>: View {
                 }
             }
             .padding(.top, 22)
-            if s.capabilities.sensors { energy(s).padding(.top, 26) }   // süreç enerjisi 2c'de
+            if s.capabilities.sensors { energy(s).padding(.top, 26) }   // process energy is not wired up yet
         }
     }
 
@@ -73,7 +73,7 @@ struct SystemSection<Source: MetricsSource>: View {
 
     private func degrees(_ t: Double) -> String { t > 0 ? Fmt.int(t) + "°" : "—" }
 
-    /// Canlı kaynak ekran sayısını bilmez; arayüz NSScreen'den tamamlar (örnek veride sabit 2).
+    /// The live source does not know the display count; the UI fills it in from NSScreen (fixed at 2 in sample data).
     private func withDisplays(_ s: SystemState) -> SystemState {
         var s = s
         if s.displays == 0 { s.displays = NSScreen.screens.count }
@@ -84,7 +84,7 @@ struct SystemSection<Source: MetricsSource>: View {
         let top = SystemPresentation.energyTop(s.groups, n: 5)
         let maxW = max(0.001, top.first?.watts ?? 1)
         return VStack(alignment: .leading, spacing: 0) {
-            SecH(L10n.t("sys.energy.title"), note: L10n.t("sys.energy.note"))   // grup watt'ı 10 dk penceresinin ortalaması
+            SecH(L10n.t("sys.energy.title"), note: L10n.t("sys.energy.note"))   // group watts is the average over a 10-minute window
             ForEach(Array(top.enumerated()), id: \.offset) { i, g in
                 HStack(spacing: 10) {
                     Text("\(i + 1)").foregroundStyle(Theme.ink3).frame(width: 16, alignment: .leading)

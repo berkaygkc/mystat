@@ -1,7 +1,7 @@
 import MystatCore
 import SwiftUI
 
-/// Seçili grubun detayı (mockup `detailPane`): olgular, aynı proje, teşhis ve kapatma.
+/// Detail of the selected group: facts, same project, diagnosis and quit actions.
 public struct DetailPane<Source: MetricsSource>: View {
     let group: ProcessGroup
     let metric: GroupMetric
@@ -89,7 +89,7 @@ public struct DetailPane<Source: MetricsSource>: View {
     }
 }
 
-/// Onay pencereleri ve eylem metinleri (mockup `askKill`, `askPrune`). Onaylanınca kaynak durdurur, bildirim sonucu söyler.
+/// Confirmation sheets and action copy (quit, prune). On confirmation the source stops the target and a toast reports the result.
 @MainActor
 public enum Actions {
     public static func stop(_ g: ProcessGroup, force: Bool, source: any MetricsSource) -> ConfirmRequest {

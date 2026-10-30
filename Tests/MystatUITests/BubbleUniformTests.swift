@@ -4,7 +4,7 @@ import MystatTestSupport
 import Testing
 @testable import MystatUI
 
-/// Shader tamponu mockup'taki `render()` ile aynı sırada ve cihaz pikselinde dolmalı.
+/// The shader buffer must be filled in the same order as the reference renderer, in device pixels.
 @MainActor @Suite(.language("tr")) struct BubbleUniformTests {
     let size = CGSize(width: 655, height: 560)
 
@@ -31,12 +31,12 @@ import Testing
         #expect(m.item.name == "Library")
         #expect(close(u[8], SIMD4(Float(m.x * 2), Float(m.y * 2), Float(m.r * 2), 1)))
         #expect(close(u[32], SIMD4(Float(m.item.phase), Float(m.amp), Float(m.alpha), Float(m.hover))))
-        #expect(close(u[56], SIMD4(0.404, 0.392, 0.961, 0)))      // klasör moru (mockup KIND)
+        #expect(close(u[56], SIMD4(0.404, 0.392, 0.961, 0)))      // folder purple
         let d = f.droplets[0]
         #expect(close(u[80], SIMD4(Float(d.x * 2), Float(d.y * 2), Float(d.r * 2), Float(d.alpha))))
-        #expect(u[3] == .zero)   // zar yok
-        #expect(u[6] == .zero)   // dalga yok
-        #expect(u[7] == .zero)   // kökte arka plan tonu yok
+        #expect(u[3] == .zero)   // no membrane
+        #expect(u[6] == .zero)   // no ripple
+        #expect(u[7] == .zero)   // no background tint at the root
     }
 
     @Test func blendsBackgroundTintTowardsEnteredKind() {
@@ -48,7 +48,7 @@ import Testing
         let k = Float(f.bgT)
         #expect(k > 0 && k < 1)
         #expect(close(u[7], SIMD4(0.404 * k, 0.392 * k, 0.961 * k, k)))
-        #expect(u[3].z > 0)                                       // zar yarıçapı
-        #expect(close(u[5], SIMD4(0.404, 0.392, 0.961, 0)))       // zar rengi
+        #expect(u[3].z > 0)                                       // membrane radius
+        #expect(close(u[5], SIMD4(0.404, 0.392, 0.961, 0)))       // membrane color
     }
 }

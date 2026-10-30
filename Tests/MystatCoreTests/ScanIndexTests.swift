@@ -6,7 +6,7 @@ import Testing
 @Suite(.language("tr")) struct ScanIndexTests {
     static let MB: Int64 = 1_000_000
 
-    /// kök → a(5) → a/b(7 + x 20 MB), kök → c, kök küçük 3.
+    /// root → a(5) → a/b(7 + x 20 MB), root → c, root small files 3.
     static func sample() -> (ScanIndex, a: Int32, b: Int32, c: Int32) {
         let idx = ScanIndex(rootName: "~")
         let a = idx.addDirectory(parent: 0, name: "a", fileID: 1)
@@ -34,7 +34,7 @@ import Testing
             let d = idx.addDirectory(parent: 0, name: "d\(i)", fileID: UInt64(i))
             idx.addFiles(dir: d, big: [], smallBytes: Int64(i) * Self.MB, smallCount: 1)
         }
-        _ = idx.addDirectory(parent: 0, name: "boş", fileID: 99)   // 0 bayt: listede yok
+        _ = idx.addDirectory(parent: 0, name: "boş", fileID: 99)   // 0 bytes: not in the list
         idx.addFiles(dir: 0, big: [], smallBytes: 4 * Self.MB, smallCount: 100)
         let kids = idx.children(of: 0, totals: idx.totals())
         #expect(kids.count == 31)
@@ -71,7 +71,7 @@ import Testing
         #expect(ScanIndex(decoding: Data()) == nil)
         #expect(ScanIndex(decoding: Data((0..<200).map { _ in UInt8.random(in: 0...255) })) == nil)
         #expect(ScanIndex(decoding: data.prefix(data.count - 3)) == nil)
-        var other = data; other[4] &+= 1   // sürüm alanı
+        var other = data; other[4] &+= 1   // version field
         #expect(ScanIndex(decoding: other) == nil)
     }
 
@@ -95,7 +95,7 @@ import Testing
         #expect(idx.storageBytes <= 40_000_000)
     }
 
-    /// iCloud'a boşaltılmış öğeler sayılmaz ama sayısı tutulur (§10 silme uyarısı); alt ağaçtan yukarı toplanır.
+    /// Items evicted to iCloud are not counted in size but their count is kept (for the deletion warning); it is summed up from subtrees.
     @Test func cloudOnlyItemsPropagate() throws {
         let (idx, a, b, _) = Self.sample()
         idx.addFiles(dir: b, big: [], smallBytes: 0, smallCount: 0, cloudCount: 3)
@@ -103,12 +103,12 @@ import Testing
         let t = idx.totals()
         #expect(t.cloud(0) == 4); #expect(t.cloud(a) == 4); #expect(t.cloud(b) == 3)
         #expect(idx.children(of: a, totals: t).first { $0.name == "b" }?.cloud == 3)
-        #expect(idx.totals()[0] == 35 * Self.MB)   // boyuta eklenmez
+        #expect(idx.totals()[0] == 35 * Self.MB)   // not added to the size
         let d = try #require(ScanIndex(decoding: idx.encoded()))
         #expect(d.totals().cloud(0) == 4)
     }
 
-    /// Yapısı geçerli ama boyutları anlamsız önbellek (LZFSE sağlama toplamı yok) yüklenmez; toplarken taşıp çökmesin.
+    /// A cache with a valid structure but meaningless sizes (no LZFSE checksum) is not loaded; summing must not overflow and crash.
     @Test func implausibleSizesRejected() {
         let idx = ScanIndex(rootName: "~")
         for i in 1...3 {

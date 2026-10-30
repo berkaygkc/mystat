@@ -4,7 +4,7 @@ import MystatCore
 import Testing
 @testable import MystatProbes
 
-/// Bu makinede gerçek sistem çağrıları makul değerler döndürmeli.
+/// Real system calls on this machine should return plausible values.
 @Suite struct ProbeSmokeTests {
     @Test func machProbeIsPlausible() {
         let p = MachProbe()
@@ -48,7 +48,7 @@ import Testing
         let p: any SystemProbe = DefaultProbe()
         #expect(!p.coreTicks().isEmpty && !p.interfaces().isEmpty)
     }
-    /// `NET_RT_IFLIST2` alınan baytı 32 bitte sarıyor (macOS 26); sayaçlar `netstat -ib` ile aynı olmalı.
+    /// `NET_RT_IFLIST2` wraps the received byte count at 32 bits (macOS 26); counters must match `netstat -ib`.
     @Test func interfaceBytesMatchNetstat() throws {
         let p = NetDiskProbe()
         let iface = p.primaryInterface() ?? "en0"
@@ -72,7 +72,7 @@ import Testing
         #expect(m.boot < Date() && m.boot > Date().addingTimeInterval(-365 * 86_400))
         let p = PowerProbe()
         #expect([Level.ok, .warn, .crit].contains(p.thermal()))
-        if let b = p.battery() {   // dizüstü
+        if let b = p.battery() {   // laptop
             #expect(b.percent >= 0 && b.percent <= 100)
             #expect((b.cycles ?? 0) >= 0 && (b.designCapacity ?? 1) > 0)
         }

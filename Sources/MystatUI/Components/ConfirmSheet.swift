@@ -1,7 +1,7 @@
 import MystatCore
 import SwiftUI
 
-/// Onay penceresi içeriği (mockup'taki `.sheet`). Perde ve sunum `ConfirmHost` tarafından yapılır.
+/// Content of the confirmation sheet. The scrim and presentation are handled by `ConfirmHost`.
 public struct ConfirmRequest: Identifiable {
     public let id = UUID()
     public let title: String
@@ -36,7 +36,7 @@ public struct ConfirmSheet: View {
     }
 }
 
-/// Pencere üstünde %16 karartılmış perde ve ölçek animasyonuyla onay penceresi.
+/// Confirmation sheet with a 16% dimming scrim over the window and a scale animation.
 public struct ConfirmHost: ViewModifier {
     @Binding var request: ConfirmRequest?
     public func body(content: Content) -> some View {

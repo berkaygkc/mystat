@@ -1,5 +1,5 @@
-// Mockup'ı WebKit'te render edip PNG yazar ve JS hatalarını raporlar.
-// Kullanım: swift tools/mocksnap.swift <html-dosyası|url> <out.png> <genişlik> <yükseklik> [önce-çalışacak-js]
+// Renders an HTML page in WebKit, writes a PNG and reports JS errors.
+// Usage: swift tools/mocksnap.swift <html-file|url> <out.png> <width> <height> [js-to-run-first]
 import AppKit
 import WebKit
 

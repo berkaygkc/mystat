@@ -1,7 +1,7 @@
 import MystatCore
 import SwiftUI
 
-/// Ağ (mockup `secNet`).
+/// Network section.
 struct NetworkSection<Source: MetricsSource>: View {
     let source: Source
     @Bindable var state: MonitorState
@@ -41,7 +41,7 @@ struct NetworkSection<Source: MetricsSource>: View {
                 VStack(alignment: .leading, spacing: 0) {
                     Text(L10n.t("net.connection")).font(.system(size: 18, weight: .semibold)).tracking(-0.27).foregroundStyle(Theme.ink)
                     Text(s.net.ssid.isEmpty ? s.net.iface : "\(s.net.iface) · \(s.net.ssid)").font(.system(size: 12.5)).foregroundStyle(Theme.ink2).padding(.top, 3)
-                    if let line = NetPresentation.accessLine(s.net.ssidAccess) {   // ağ adı için konum izni (yalnızca düğmeyle)
+                    if let line = NetPresentation.accessLine(s.net.ssidAccess) {   // location permission for the network name (button only)
                         (Text(line.text + " ") + Text(line.action).fontWeight(.semibold).foregroundStyle(Theme.ink2))
                             .font(.system(size: 12)).lineSpacing(2).foregroundStyle(Theme.ink3).padding(.top, 6)
                             .fixedSize(horizontal: false, vertical: true)

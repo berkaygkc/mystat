@@ -3,8 +3,8 @@ import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-/// Olay metinleri veriden üretilir: örnek verinin cümleleri olgularından (`Son 24 sa`, `Kalan`) gelir ve aynı kalır;
-/// canlı olayda o olgu yoksa sahte iddia yazılmaz.
+/// Incident texts are generated from data: the sample data's sentences come from its facts (`Last 24 h`, `Remaining`) and stay the same;
+/// if the live incident lacks that fact, no false claim is written.
 @MainActor @Suite(.language("tr")) struct IncidentCopyTests {
     func sample(_ k: IncidentKind) -> Snapshot { SampleSource(seed: 1, incident: true, kind: k).snapshot }
     func lede(_ s: Snapshot) -> String { GroupPresentation.panelHeadline(s).lede }
@@ -17,7 +17,7 @@ import Testing
         #expect(SectionText.system(sample(.battery)).lede == "Prizde değilsin; pil %62. Bu hızla 1 sa 10 dk yeter.")
     }
 
-    /// Canlıya benzeyen durum: sensör ve Docker yok, olayda yalnızca motorun olguları var.
+    /// A live-like state: no sensors and no Docker; the incident has only the engine's facts.
     func live(_ k: IncidentKind, culprits: [String], values: [String], unit: String, cpu: Double = 91, thermal: Level = .ok) -> Snapshot {
         var s = SampleSource(seed: 1).snapshot
         s.capabilities = SourceCapabilities(docker: false, sensors: false, diskScan: false, netDetails: false)
@@ -31,7 +31,7 @@ import Testing
     @Test func cpuSentenceFollowsTotalOrGroup() {
         let a = live(.cpu, culprits: ["claude-acmecorp"], values: ["4,2"], unit: "çekirdek", cpu: 76)
         #expect(MonitorPresentation.incidentSentence(a) == "İşlemci 9 dakikadır %70'in üzerinde. Yükün çoğu acmecorp projesinden geliyor.")
-        #expect(lede(a).hasPrefix("acmecorp projesinde ") && !lede(a).contains("eşlik"))    // tek sorumlu
+        #expect(lede(a).hasPrefix("acmecorp projesinde ") && !lede(a).contains("eşlik"))    // single culprit
         let b = live(.cpu, culprits: ["claude-acmecorp"], values: ["4,2"], unit: "çekirdek", cpu: 40)
         let cores = Fmt.dec1(b.groups.first { $0.id == "claude-acmecorp" }!.cpuCores)
         #expect(MonitorPresentation.incidentSentence(b) == "Claude Code 9 dakikadır \(cores) çekirdek kullanıyor.")
@@ -65,7 +65,7 @@ import Testing
         #expect(SectionText.system(s).lede == "Prizde değilsin; pil %\(s.system.battery).")
     }
 
-    /// Genel Bakış: canlıda ilişkili sunucu yoksa eşlik iddiası, bellek/disk sorunluysa "normal" iddiası yazılmaz.
+    /// Overview: in live mode, if there is no related server the "accompanied by" claim is not written, and if memory/disk is troubled the "normal" claim is not written.
     @Test func overviewLedeFollowsData() {
         let a = live(.cpu, culprits: ["claude-acmecorp"], values: ["4,2"], unit: "çekirdek", cpu: 91)
         let cores = Fmt.dec1(a.groups.first { $0.id == "claude-acmecorp" }!.cpuCores)
@@ -85,7 +85,7 @@ import Testing
         #expect(PanelPresentation.cells(b)[0].sub == "9 dakikadır yoğun")
     }
 
-    /// Bellek baskısı var ama son 10 dakikada belirgin büyüyen grup yok.
+    /// There is memory pressure but no group has grown noticeably in the last 10 minutes.
     @Test func memoryWithoutCulprit() {
         var s = live(.memory, culprits: [], values: [], unit: "GB")
         s.memory.swapGB = 2.5
@@ -95,7 +95,7 @@ import Testing
         #expect(MonitorPresentation.incidentSentence(s) == "Bellek baskısı 9 dakikadır orta.")
     }
 
-    /// Docker olayının metni nedene göre: yoğun, sürekli yeniden başlıyor, sağlıksız.
+    /// A Docker incident's text depends on the cause: busy, restarting continuously, unhealthy.
     @Test func dockerCopyFollowsCause() {
         func snap(_ health: String, _ name: String, _ value: String, project: String, level: Level, others: [Container] = []) -> Snapshot {
             var s = SampleSource(seed: 1).snapshot
@@ -124,7 +124,7 @@ import Testing
         #expect(MonitorPresentation.incidentSentence(sick) == "api 3 dakikadır sağlıksız.")
     }
 
-    /// "hata" yalnızca kritik Docker olayında; dikkat seviyesinde yüzde olmayan değer olduğu gibi gösterilir.
+    /// "error" appears only for a critical Docker incident; at warning level a non-percentage value is shown as is.
     @Test func dockerAlertHataOnlyWhenCritical() {
         var s = SampleSource(seed: 1).snapshot
         s.incident = Incident(kind: .docker, level: .warn, startedAt: "10:00", minutes: 1, peakPercent: 0, culpritIDs: ["web"],

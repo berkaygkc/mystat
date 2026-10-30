@@ -21,7 +21,7 @@ import Testing
         s.select("en")
         #expect(s.code == "en"); #expect(s.choice == "en"); #expect(applied.last == "en")
         #expect(d.string(forKey: LanguageSettings.key) == "en")
-        #expect(LanguageSettings(defaults: d, preferred: ["tr-TR"]) { _ in }.code == "en")   // yeni açılışta da
+        #expect(LanguageSettings(defaults: d, preferred: ["tr-TR"]) { _ in }.code == "en")   // also on a fresh launch
         s.select(nil)
         #expect(s.code == "tr"); #expect(s.choice == nil); #expect(d.string(forKey: LanguageSettings.key) == nil)
     }
@@ -36,7 +36,7 @@ import Testing
         let s = LanguageSettings(defaults: Self.defaults(), preferred: ["en"]) { _ in }
         var calls = 0
         s.onChange = { calls += 1 }
-        s.select("tr"); s.select("tr")   // aynı seçim ikinci kez bildirmez
+        s.select("tr"); s.select("tr")   // selecting the same language a second time does not notify
         #expect(calls == 1)
         #expect(s.menuItems.map(\.title) == ["System (English)", "English", "Türkçe"])
     }

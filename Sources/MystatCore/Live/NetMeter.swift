@@ -1,7 +1,7 @@
 import Foundation
 
-/// Arayüz sayaçlarından ağ hızı (MB/s, ondalık) ve bugünkü toplamlar (GB). Bugün yerel gece yarısında sıfırlanır;
-/// toplam yeniden başlatmada kaybolmasın diye `today` canlı kaynak tarafından saklanıp geri verilir.
+/// Network rate from interface counters (MB/s, decimal) and today's totals (GB). Today resets at local midnight;
+/// `today` is stored and handed back by the live source so the total is not lost on restart.
 public struct NetMeter: Sendable {
     public struct Today: Sendable, Equatable {
         public var day: String
@@ -18,7 +18,7 @@ public struct NetMeter: Sendable {
         self.today = today
     }
 
-    /// Birincil arayüz varsa yalnızca o; yoksa `en*` toplamı (VPN `utun` trafiği çift sayılmasın).
+    /// Only the primary interface if there is one; otherwise the sum of `en*` (so VPN `utun` traffic is not double counted).
     func pick(_ c: [InterfaceCounters]) -> (rx: UInt64, tx: UInt64, names: [String]) {
         let chosen = primary.flatMap { p in c.filter { $0.name == p }.nilIfEmpty } ?? c.filter { $0.name.hasPrefix("en") }
         let sum = chosen.reduce((UInt64(0), UInt64(0))) { ($0.0 &+ $1.rx, $0.1 &+ $1.tx) }
@@ -30,7 +30,7 @@ public struct NetMeter: Sendable {
         defer { last = (now.rx, now.tx, at, now.names) }
         let day = Self.dayKey(at, calendar)
         if today.day != day { today = Today(day: day, downGB: 0, upGB: 0) }
-        // Ölçülen arayüzler değiştiyse (VPN kapandı, dock çıktı) sayaçlar karşılaştırılamaz: yeniden başla.
+        // If the measured interfaces changed (VPN dropped, dock unplugged) the counters are not comparable: start over.
         guard let prev = last, prev.names == now.names else { return nil }
         let dt = at.timeIntervalSince(prev.at)
         guard dt > 0, dt <= SampleGap.maxInterval, now.rx >= prev.rx, now.tx >= prev.tx else { return nil }

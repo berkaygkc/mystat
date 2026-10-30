@@ -4,7 +4,7 @@ import MystatCore
 import Testing
 @testable import MystatProbes
 
-/// Tek bağlantı kabul eden sahte Docker soketi: yanıtı yazıp kapatır ya da (`reply == nil`) hiç yazmadan bekler.
+/// A fake Docker socket that accepts a single connection: it writes the reply and closes, or (`reply == nil`) waits without writing anything.
 final class FakeSocketServer: Sendable {
     let path: String
     private let fd: Int32
@@ -88,7 +88,7 @@ final class FakeSocketServer: Sendable {
         #expect(DockerDiskFile.allocatedGB(path: "/yok/\(UUID().uuidString)") == nil)
     }
 
-    /// Adsız volume Docker'ın etiketiyle tanınır (prune süzgeciyle aynı küme); 64 onaltılık ad tek başına yetmez.
+    /// An unnamed volume is recognized by Docker's label (the same set as the prune filter); a 64-character hex name alone is not enough.
     @Test func anonymousVolumesByLabel() throws {
         let hex = String(repeating: "ab", count: 32)
         let body = #"{"LayersSize":0,"Images":[],"BuildCache":[],"Containers":[],"Volumes":["#

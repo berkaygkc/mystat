@@ -5,7 +5,7 @@ import Testing
 @testable import MystatProbes
 
 @Suite(.serialized) struct SocketStatsProbeTests {
-    /// Loopback'te bağlı bir TCP çifti; `send` baytı istemciden sunucuya aktarılır ve okunur.
+    /// A TCP pair connected over loopback; the `send` bytes are transferred from client to server and read.
     static func transfer(_ bytes: Int) -> (Int32, Int32, Int32) {
         let srv = socket(AF_INET, SOCK_STREAM, 0)
         var a = sockaddr_in(); a.sin_len = UInt8(MemoryLayout<sockaddr_in>.size); a.sin_family = sa_family_t(AF_INET); a.sin_addr.s_addr = inet_addr("127.0.0.1")
@@ -35,8 +35,8 @@ import Testing
         #expect(f == 1 || f == 2)
     }
 
-    /// Elle kurulmuş tampon: başlık (24); her soket için xinpcb_n (104, uzak port 16'da, yerel 18'de, ağ sırası),
-    /// xsocket_n (104, tutamaç 8'de, pid 68'de, kuşak 76'da), xsockstat_n (136, 4 sınıf); sondaki başlık.
+    /// A hand-built buffer: header (24); for each socket xinpcb_n (104, remote port at 16, local at 18, network byte order),
+    /// xsocket_n (104, handle at 8, pid at 68, generation at 76), xsockstat_n (136, 4 classes); trailing header.
     static func buffer(socketLen: UInt32 = 104) -> [UInt8] {
         var b = [UInt8]()
         func u32(_ v: UInt32) { withUnsafeBytes(of: v.littleEndian) { b += $0 } }
@@ -54,7 +54,7 @@ import Testing
             u32(136); u32(0x008)                                                                   // xsockstat_n
             for k in 0..<4 { u64(0); u64(rxBase * UInt64(k + 1)); u64(0); u64(5) }
         }
-        u32(24); u32(1); u64(0); u64(0)                                   // sondaki xinpgen (sayı 1: soket türüyle karışmamalı)
+        u32(24); u32(1); u64(0); u64(0)                                   // trailing xinpgen (count 1: must not be confused with the socket type)
         return b
     }
 
@@ -70,8 +70,8 @@ import Testing
         #expect([UInt8]().withUnsafeBytes { SocketStatsProbe.parse($0, proto: 6) } == nil)
     }
 
-    /// Süreçte başka (kapanmış, TIME_WAIT'teki) bir TCP soketi daha büyük sayaçla dursa da öz denetim kendi soketini
-    /// bağlantı noktalarından bulur.
+    /// Even if another (closed, TIME_WAIT) TCP socket in the process holds a larger counter, the self-check finds its own socket
+    /// by its endpoints.
     @Test func receiveFactorIgnoresOtherSockets() throws {
         let (a, b, c) = Self.transfer(1_000_000)
         close(a); close(b); close(c)

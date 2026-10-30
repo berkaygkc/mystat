@@ -2,18 +2,18 @@ import Foundation
 import MystatCore
 import Observation
 
-/// Uygulamanın dili: kullanıcının seçimi (kalıcı) ya da Mac'in tercih ettiği dillerden desteklenen ilki, yoksa İngilizce.
+/// The app language: the user's choice (persisted), else the first supported language among the Mac's preferred languages, else English.
 @MainActor @Observable
 public final class LanguageSettings {
     public static let key = "mystat.language"
-    /// Uygulamanın ayarı (açılışta kurulur). Görüntü modu ve testlerde yok: kök görünümler dil değişimini izlemez.
+    /// The app's settings instance (set up at launch). Absent in render mode and in tests: root views do not observe language changes.
     public static var current: LanguageSettings?
 
-    /// Kullanıcının seçimi; nil = sistem dili.
+    /// The user's choice; nil = system language.
     public private(set) var choice: String?
-    /// Etkin dil.
+    /// The active language.
     public private(set) var code: String
-    /// Dil değişince (menü çubuğu, panel boyu, ölçüm metinleri).
+    /// Called when the language changes (menu bar, panel height, measurement strings).
     @ObservationIgnored public var onChange: (() -> Void)?
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let preferred: [String]
@@ -32,10 +32,10 @@ public final class LanguageSettings {
 
     public var languages: [Language] { localizer.languages }
 
-    /// Sistem dili tespit edilen dil.
+    /// The language detected from the system settings.
     public var detected: String { L10n.detect(preferred: preferred, available: localizer.languages.map(\.code)) }
 
-    /// `nil`: sistem diline dön. Bilinmeyen kod sistem diline döner.
+    /// `nil`: return to the system language. An unknown code also returns to the system language.
     public func select(_ newChoice: String?) {
         let valid = newChoice.flatMap { c in localizer.languages.contains { $0.code == c } ? c : nil }
         if let valid { defaults.set(valid, forKey: Self.key) } else { defaults.removeObject(forKey: Self.key) }
@@ -54,7 +54,7 @@ public final class LanguageSettings {
         public var id: String { choice ?? "" }
     }
 
-    /// "System (English)", ardından diller kendi adlarıyla.
+    /// "System (English)", followed by the languages under their own names.
     public var menuItems: [MenuItem] {
         let detectedName = localizer.languages.first { $0.code == detected }?.name ?? "English"
         return [MenuItem(choice: nil, title: L10n.t("language.system", ["name": detectedName]))]

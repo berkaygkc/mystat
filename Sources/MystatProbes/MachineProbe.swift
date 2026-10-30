@@ -3,7 +3,7 @@ import Foundation
 import IOKit
 import MystatCore
 
-/// Kenar menüsünün alt satırı için makine bilgisi (bir kez okunur).
+/// Machine info for the sidebar's bottom line (read once).
 public struct MachineProbe: Sendable {
     public init() {}
 

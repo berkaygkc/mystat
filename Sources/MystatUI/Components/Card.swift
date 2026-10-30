@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Mockup'taki `.card`: yarı saydam yüzey + 0,5 pt kenar.
+/// Card: translucent surface with a 0.5 pt border.
 public struct Card<Content: View>: View {
     let radius: CGFloat
     let content: Content

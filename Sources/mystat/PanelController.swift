@@ -3,13 +3,13 @@ import MystatCore
 import MystatUI
 import SwiftUI
 
-/// Esc ve ⌘M alabilmesi için anahtar pencere olabilen, uygulamayı öne getirmeyen panel.
+/// A panel that can become key window (to receive Esc and ⌘M) without bringing the app to the front.
 final class KeyablePanel: NSPanel {
     override var canBecomeKey: Bool { true }
 }
 
-/// Paneli bloğun altında açar; dışarı tıklayınca, Esc'te ya da ikinci tıklamada kapanır.
-/// Açıkken uygulama etkin olur (imleç, üzerine gelme ve ⌘Q ancak öyle çalışır); kapanınca odak önceki uygulamaya döner.
+/// Opens the panel below the block; closes on outside click, Esc or a second click.
+/// While open the app is active (cursor, hover and ⌘Q only work that way); on close, focus returns to the previous app.
 @MainActor
 final class PanelController {
     private var panel: KeyablePanel?
@@ -27,7 +27,7 @@ final class PanelController {
 
     var isOpen: Bool { panel?.isVisible == true }
 
-    /// Gölge pencerenin içinde çizilir (sistem gölgesi yuvarlak paneli kare pencereye göre çiziyordu): gölge payı.
+    /// Shadow is drawn inside the window (the system shadow was drawn for the round panel relative to the square window): shadow margin.
     private static let margin = NSEdgeInsets(top: 44, left: 74, bottom: 104, right: 74)
     private var content = CGRect.zero
 
@@ -46,10 +46,10 @@ final class PanelController {
         let host = NSHostingView(rootView: view)
         let size = host.fittingSize
         let cw = size.width - m.left - m.right, ch = size.height - m.top - m.bottom
-        content = CGRect(x: m.left, y: m.bottom, width: cw, height: ch)   // pencere koordinatı (sol alttan)
+        content = CGRect(x: m.left, y: m.bottom, width: cw, height: ch)   // window coordinates (from bottom left)
         let p = KeyablePanel(contentRect: NSRect(origin: .zero, size: size), styleMask: [.nonactivatingPanel, .borderless], backing: .buffered, defer: false)
         p.isFloatingPanel = true
-        p.hidesOnDeactivate = false   // AppKit sessizce gizlemesin; kapanış hep close() üzerinden (vurgu ve izleyiciler)
+        p.hidesOnDeactivate = false   // so AppKit does not hide it silently; closing always goes through close() (highlight and monitors)
         p.level = .statusBar
         p.backgroundColor = .clear
         p.isOpaque = false
@@ -68,7 +68,7 @@ final class PanelController {
             p.animator().setFrame(target, display: true)
         }
         panel = p
-        // Başka uygulamalara tıklama global, kendi pencerelerimize (ör. monitör) tıklama yerel izleyiciyle gelir.
+        // Clicks on other apps arrive via the global monitor, clicks on our own windows (e.g. the monitor) via the local one.
         outsideMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             MainActor.assumeIsolated { self?.close() }
         }
@@ -82,16 +82,16 @@ final class PanelController {
         }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] e in
             guard let self, self.isOpen else { return e }
-            if e.keyCode == 53 { self.close(); return nil }                                  // Esc (⌘M uygulama düzeyinde)
+            if e.keyCode == 53 { self.close(); return nil }                                  // Esc (⌘M is handled at the app level)
             return e
         }
         onVisibilityChange?(true)
     }
 
-    /// İçerik boyu değişti (dil): pencere sağ üst köşesi yerinde kalacak biçimde yeni boya getirilir.
+    /// Content size changed (language): resized so the window's top-right corner stays in place.
     func relayout() {
         Task { @MainActor [weak self] in
-            await Task.yield()   // SwiftUI yeni dilde çizsin
+            await Task.yield()   // let SwiftUI draw in the new language
             guard let self, let p = self.panel, let host = p.contentView else { return }
             host.layoutSubtreeIfNeeded()
             let size = host.fittingSize, m = Self.margin
@@ -101,7 +101,7 @@ final class PanelController {
         }
     }
 
-    /// `returnFocus`: monitör açılmayacaksa odak önceki uygulamaya döner.
+    /// `returnFocus`: if the monitor will not be opened, focus returns to the previous app.
     func close(returnFocus: Bool = true) {
         guard let p = panel else { return }
         panel = nil

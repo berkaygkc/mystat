@@ -1,6 +1,6 @@
 import Foundation
 
-/// Bellek, Ağ, Docker ve Sistem bölümlerinin başlık ve açıklama cümleleri (mockup `secMem`, `secNet`, `secDocker`, `secSys`).
+/// Headline and description sentences for the Memory, Network, Docker and System sections.
 public enum SectionText {
     public struct Head: Sendable {
         public let title: String
@@ -12,7 +12,7 @@ public enum SectionText {
     public static func memory(_ s: Snapshot) -> Head {
         let m = s.memory
         let soft = m.pressureLevel == .ok ? L10n.t("section.mem.soft.ok") : L10n.t("section.mem.soft", ["pressure": PanelPresentation.pressureWord(m.pressureLevel)])
-        // Örnek veride sıkıştırma oranı ~2,08; Faz 2'de gerçek sıkıştırma öncesi boyut gelir.
+        // Sample data uses a compression ratio of ~2.08 to derive the pre-compression size; live data would supply the real figure.
         let original = Fmt.int(m.compressed * 2.08)
         let swap = m.swapGB > 0 ? L10n.t("section.mem.swap", ["gb": Fmt.dec1(m.swapGB)]) : L10n.t("section.mem.noSwap")
         return Head(title: L10n.t("section.mem.title", ["pct": Fmt.pct(m.percent)]), soft: soft,
@@ -23,7 +23,7 @@ public enum SectionText {
 
     public static func networkLede(_ s: Snapshot) -> String {
         let today = L10n.t("section.net.today", ["down": Fmt.dec1(s.net.todayDownGB), "up": Fmt.dec1(s.net.todayUpGB)])
-        guard s.capabilities.netDetails else {   // Wi‑Fi adı ve uygulama bazında ağ 2e'de
+        guard s.capabilities.netDetails else {   // Wi-Fi name and per-app network are not available yet
             return L10n.t("section.net.name.iface", ["iface": s.net.iface]) + today
         }
         let name = s.net.ssid.isEmpty ? L10n.t("section.net.name.iface", ["iface": s.net.iface])
@@ -37,7 +37,7 @@ public enum SectionText {
             return Head(title: L10n.t("section.docker.notConnected.title"), soft: "", lede: L10n.t("section.docker.notConnected.lede"), level: .ok)
         }
         let d = s.docker
-        guard d.running else {   // Docker Desktop kapalı ya da yok (§9.1): sakin durum
+        guard d.running else {   // Docker Desktop is off or missing: calm state
             return Head(title: L10n.t("section.docker.notRunning.title"), soft: "", lede: L10n.t("section.docker.notRunning.lede"), level: .ok)
         }
         let cpu = d.containers.reduce(0) { $0 + $1.cpuPercent }
@@ -57,10 +57,10 @@ public enum SectionText {
                     level: level)
     }
 
-    /// `home`: tarama ağacının kökü; tarama yoksa (ya da ağaç bellekte değilse) nil veya çocuksuz.
+    /// `home`: root of the scan tree; nil or childless if there is no scan (or the tree is not in memory).
     public static func disk(_ s: Snapshot, home: DiskNode?, freedGB: Double) -> Head {
         let title = L10n.t("section.disk.title", ["pct": Fmt.pct(s.disk.percent)]), soft = L10n.t("section.disk.soft", ["free": Fmt.int(s.disk.freeGB)])
-        guard s.capabilities.diskScan, let home, let kids = home.children else {   // harita kalemleri tarama ister
+        guard s.capabilities.diskScan, let home, let kids = home.children else {   // map items require a scan
             let p = s.disk.purgeableGB
             return Head(title: title, soft: soft, lede: p >= 1 ? L10n.t("section.disk.purgeable", ["gb": Fmt.int(p)]) : "",
                         level: Thresholds.diskFree(s.disk.freeGB))
@@ -88,7 +88,7 @@ public enum SectionText {
             return (L10n.emphasized("section.sys.battery.title", emph: L10n.t("headline.battery.emph", ["drain": Fmt.pct(drain)])),
                     L10n.t("section.sys.battery.lede", ["battery": battery, "left": left]), .warn)
         }
-        if !s.capabilities.sensors {   // sıcaklık ve fan 2c'de; termal durum ve pil
+        if !s.capabilities.sensors {   // temperature and fan data are not available; only thermal state and battery
             let power = L10n.t(!sys.onAC ? "power.onBattery" : sys.charging && sys.battery < 100 ? "power.charging" : "power.pluggedIn", ["battery": battery])
             switch sys.thermal {
             case .ok: return (AttributedString(L10n.t("section.sys.cool.title")), L10n.t("section.sys.thermal.ok") + power, .ok)

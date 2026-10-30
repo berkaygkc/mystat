@@ -3,7 +3,7 @@ import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-/// Docker eylemlerinin onay ve bildirim metinleri (§7.4); volume temizliği kullanıcının kararıyla iki ayrı eylem.
+/// Confirmation and notification texts for Docker actions; volume cleanup is two separate actions so the user decides about volumes separately.
 @MainActor @Suite(.language("tr")) struct DockerPresentationTests {
     let disk = SampleSource(seed: 1).snapshot.docker.disk
 
@@ -43,7 +43,7 @@ import Testing
         #expect(rows.map(\.name) == ["deploy"] && rows[0].summary == "15 container · hepsi çalışıyor" && !rows[0].troubled)
     }
 
-    /// Sorunlu proje önce, sonra CPU'ya göre; projesizler "diğer container'lar"; container'lar CPU'ya göre azalan.
+    /// The problem project comes first, then by CPU; projectless ones go under "other containers"; containers are sorted by CPU descending.
     @Test func projectsGroupAndOrder() {
         var d = SampleSource(seed: 1).snapshot.docker
         d.containers = [c("pg", "deploy", cpu: 4), c("web", "deploy", cpu: 30), c("authgate", "initech", cpu: 0, restarting: true),
@@ -62,6 +62,6 @@ import Testing
         #expect(DockerPresentation.diskNote(d) == "27 GB")
         d.disk.rawGB = nil
         d.trend30GB = -3
-        #expect(DockerPresentation.diskNote(d) == "27 GB · son 30 gün −3 GB")          // veri toplamı 27,0 GB
+        #expect(DockerPresentation.diskNote(d) == "27 GB · son 30 gün −3 GB")          // data total is 27.0 GB
     }
 }

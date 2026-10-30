@@ -3,8 +3,8 @@ import MystatCore
 import MystatProbes
 import Observation
 
-/// Gerçek veri kaynağı. Ölçüm `Sampler` actor'ında, Docker `DockerPoller`'da; burada yalnızca son Snapshot ve seriler tutulur.
-/// Sensörler, disk taraması ve ağ ayrıntısı henüz bağlı değil; bunlar sahte sayı yerine sakin "bağlı değil" durumu gösterir.
+/// Real data source. Sampling runs in the `Sampler` actor and Docker polling in `DockerPoller`; this only holds the latest Snapshot and series.
+/// When a source is unavailable (no SMC sensors, Docker not running), the UI shows a calm "not connected" state instead of fake numbers.
 @MainActor
 @Observable
 public final class LiveSource: MetricsSource {
@@ -15,7 +15,7 @@ public final class LiveSource: MetricsSource {
     public var diskTree: DiskTree { disk.tree }
     public var diskScan: ScanPhase { disk.phase }
     public var diskInaccessible: Int { disk.inaccessible }
-    /// Disk bölümü her açıldığında yeniden denetlenir (izin Sistem Ayarları'ndan verilmiş olabilir).
+    /// Re-checked every time the Disk section opens (permission may have been granted in System Settings).
     public private(set) var diskFullAccess = DiskAccess.hasFullDiskAccess()
     @ObservationIgnored private var buffer = SeriesBuffer()
     @ObservationIgnored private var groupHistory = GroupHistory()
@@ -28,7 +28,7 @@ public final class LiveSource: MetricsSource {
     @ObservationIgnored private let history: HistoryStore?
     @ObservationIgnored private let probe: any SystemProbe
     @ObservationIgnored private var starts: [Int32: Date] = [:]
-    /// Testler gerçek sinyal yerine kaydedici koyar.
+    /// Tests inject a recorder instead of the real signal.
     @ObservationIgnored var signaler: @MainActor ([Int32], Bool) -> StopOutcome = { ProcessActions.signal($0, force: $1) }
 
     public init(probe: some SystemProbe = DefaultProbe(), historyURL: URL? = HistoryStore.defaultURL,
@@ -64,7 +64,7 @@ public final class LiveSource: MetricsSource {
         }
     }
 
-    /// Dil değişince hemen bir ölçüm: olgular, öneriler ve grup bağlamı yeni dilde (seriler kova ortalamalı, ek örnek bozmaz).
+    /// On language change, sample immediately: facts, suggestions and group context are rebuilt in the new language (series use bucket averages, so an extra sample does no harm).
     @ObservationIgnored private(set) var pendingResample: Task<Void, Never>?
 
     public func languageChanged() {
@@ -76,7 +76,7 @@ public final class LiveSource: MetricsSource {
         }
     }
 
-    /// Testler örneklemeyi saatle sürer.
+    /// Tests drive sampling with a clock.
     func step(at date: Date) async { apply(await sampler.sample(at: date)) }
 
     private func apply(_ o: Sampler.Output) {
@@ -101,7 +101,7 @@ public final class LiveSource: MetricsSource {
         return out
     }
 
-    /// Uygulama kapanırken: geçmişin yarım kovaları yazılır.
+    /// On app quit: the history's partial buckets are written.
     public func flushHistory() { history?.flush() }
 
     public func setDetailInterest(_ visible: Bool) {
@@ -130,7 +130,7 @@ public final class LiveSource: MetricsSource {
         Task { await docker.requestDisk(at: Date()) }
     }
 
-    /// `--log-values` (DEBUG) satırı; tools/consistency.sh top, vm_stat ve netstat ile, tools/docker-check.sh docker CLI ile karşılaştırır.
+    /// The `--log-values` (DEBUG) line; tools/consistency.sh compares it with top, vm_stat and netstat, and tools/docker-check.sh with the docker CLI.
     public nonisolated static func logLine(_ s: Snapshot) -> String {
         func f(_ v: Double, _ d: Int) -> String { String(format: "%.\(d)f", v) }
         return "mystat cpu=\(f(s.cpu.percent, 1)) user=\(f(s.cpu.percent - s.cpu.systemPercent, 1)) sys=\(f(s.cpu.systemPercent, 1))"
@@ -143,7 +143,7 @@ public final class LiveSource: MetricsSource {
             + " rtr=\(router(s)) lat=\(s.net.latencyMs.isFinite ? f(s.net.latencyMs, 1) : "-") top=\(topDownloader(s))"
     }
 
-    /// tools/net-check.sh: yönlendirici ve en çok indiren (boşluksuz); bilinmiyorsa "-".
+    /// For tools/net-check.sh: router and top downloader (no spaces); "-" if unknown.
     private nonisolated static func router(_ s: Snapshot) -> String {
         s.net.details.first { $0.label == L10n.t("net.fact.router") }.map(\.value).flatMap { $0 == "—" ? nil : $0 } ?? "-"
     }
@@ -151,8 +151,8 @@ public final class LiveSource: MetricsSource {
         GroupPresentation.networkUsers(s.groups).first.flatMap { $0.netMBps > 0 ? $0.name.replacingOccurrences(of: " ", with: "_") : nil } ?? "-"
     }
 
-    /// Grubun pid'leri o anki listeden yeniden çözülür: o arada biten ya da başka sürece geçmiş pid'e sinyal gitmez.
-    /// Onay penceresi açıkken kimlik başka gruba geçmiş olabilir: yalnızca pencere açıldığındaki üyelerden hâlâ grupta olanlar.
+    /// The group's pids are re-resolved from the current list, so no signal goes to a pid that has exited or been reused by another process.
+    /// While the confirmation dialog is open the identity may have moved to another group: only members from when the dialog opened that are still in the group are used.
     public func stop(groupID: String, pids confirmed: [Int32], force: Bool) -> StopOutcome {
         guard let g = snapshot.groups.first(where: { $0.id == groupID }) else { return .notFound }
         if g.foreign { return .notPermitted(reason: StopOutcome.foreignReason) }
@@ -163,7 +163,7 @@ public final class LiveSource: MetricsSource {
     }
 }
 
-/// Açılış argümanına göre kaynak: varsayılan canlı, `--sample` örnek veri (`--incident`, `--kind k` ile).
+/// Source chosen by launch argument: live by default, `--sample` for sample data (with `--incident`, `--kind k`).
 @MainActor
 public enum SourceFactory {
     public static func make(arguments: [String]) -> any MetricsSource {

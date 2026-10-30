@@ -1,7 +1,7 @@
 import MystatCore
 import SwiftUI
 
-/// İşlemci (mockup `secCPU`).
+/// CPU section.
 struct CPUSection<Source: MetricsSource>: View {
     let source: Source
     @Bindable var state: MonitorState
