@@ -39,7 +39,7 @@ iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 find_identity() { security find-identity -v -p codesigning 2>/dev/null | grep -m1 "$1" | sed -E 's/.*"(.*)"/\1/' || true; }
 IDENTITY="$(find_identity 'Developer ID Application')"
 if [ -n "$IDENTITY" ]; then
-    codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP" >/dev/null
+    codesign --force --options runtime --timestamp --entitlements Resources/mystat.entitlements --sign "$IDENTITY" "$APP" >/dev/null
 else
     IDENTITY="$(find_identity 'Apple Development')"
     codesign --force --sign "${IDENTITY:--}" "$APP" >/dev/null
