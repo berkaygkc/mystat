@@ -5,7 +5,7 @@ import Testing
 @testable import MystatUI
 
 @MainActor @Suite(.language("en")) struct LanguageSettingsTests {
-    static func defaults() -> UserDefaults { UserDefaults(suiteName: "mystat-test-\(UUID().uuidString)")! }
+    static func defaults() -> UserDefaults { scratchDefaults() }
 
     @Test func firstLaunchDetects() {
         var applied: [String] = []

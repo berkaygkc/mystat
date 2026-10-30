@@ -15,6 +15,6 @@ let package = Package(
         .testTarget(name: "MystatCoreTests", dependencies: ["MystatCore", "MystatTestSupport"]),
         .testTarget(name: "MystatUITests", dependencies: ["MystatUI", "MystatTestSupport"]),
         .testTarget(name: "MystatLiveTests", dependencies: ["MystatLive", "MystatTestSupport"]),
-        .testTarget(name: "MystatProbesTests", dependencies: ["MystatProbes"]),
+        .testTarget(name: "MystatProbesTests", dependencies: ["MystatProbes", "MystatTestSupport"]),
     ]
 )

@@ -148,6 +148,17 @@ import Testing
         }
     }
 
+    /// A named defaults suite leaves a plist in ~/Library/Preferences on every test run; tests use `scratchDefaults()`.
+    @Test func testsUseScratchDefaults() {
+        let named = "UserDefaults(suite" + "Name:"   // built from parts so this line doesn't match itself
+        for path in Self.trackedFiles() where path.hasPrefix("Tests/") && path.hasSuffix(".swift") && !path.hasPrefix("Tests/Support/") {
+            guard let text = Self.text(path) else { continue }
+            for (n, line) in text.split(separator: "\n", omittingEmptySubsequences: false).enumerated() where line.contains(named) {
+                Issue.record("\(path):\(n + 1): \(line.trimmingCharacters(in: .whitespaces))")
+            }
+        }
+    }
+
     /// Code adapted from d3-hierarchy (ISC) must carry its notice, in the repository and in the app bundle.
     @Test func thirdPartyNoticesPresent() throws {
         let notices = try #require(Self.text("THIRD_PARTY_NOTICES.md"))
