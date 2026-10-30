@@ -96,6 +96,13 @@ enum SnapshotMode {
             return AnyView(MenubarStrip(model: model, highlighted: o.section == "open"))
         case "panel":
             return AnyView(VStack { HStack { Spacer(); PanelView(source: source) { _, _ in }.padding(.trailing, 140) }.padding(.top, 39); Spacer() })
+        case "panels":
+            // The README's panel pair: calm and during an incident, on one wallpaper, centered on each other.
+            let busy = SampleSource(seed: 1, incident: true, kind: o.kind)
+            return AnyView(HStack(alignment: .center, spacing: 56) {
+                PanelView(source: source) { _, _ in }
+                PanelView(source: busy) { _, _ in }
+            }.frame(maxWidth: .infinity, maxHeight: .infinity))
         case "monitor":
             let state = MonitorState()
             state.go(MonitorSection(rawValue: o.section) ?? .overview)
@@ -142,6 +149,39 @@ enum SnapshotMode {
                     Sparkline(Array(cpu.suffix(60)), color: red ? Theme.red : Theme.chart, height: 30, max: 100)
                 }
             }.frame(width: 960).background(Theme.dyn(.init(white: 0.97, alpha: 1), .init(white: 0.12, alpha: 1))))
+        case "backdrop":
+            // Wallpaper only: tools/readme-screenshots.py diffs against it to find a screenshot's content bounds.
+            return AnyView(Color.clear)
+        case "hero":
+            // The README's first image (--size 1600x…): the menu bar with the mystat block, the panel opened beneath it and
+            // the monitor beside it. 64 pt outer margins; the window is cut just below its first row of metrics and sits
+            // level with the panel's bottom edge.
+            let model = StatusBlockLayout.model(source.snapshot, now: Date(), calendar: Fmt.calendar)
+            let blockWidth = ceil(StatusBlockLayout.width(model, measure: StatusBlockView.measure))
+            let state = MonitorState()
+            state.go(.overview)
+            let margin: CGFloat = 64
+            return AnyView(VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    Spacer()
+                    BlockHost(model: model, highlighted: true).frame(width: blockWidth, height: 33)
+                    Spacer().frame(width: margin)   // the block's right edge lines up with the panel's
+                }
+                .frame(height: 33)
+                .background(o.dark ? Color.black.opacity(0.35) : Color.white.opacity(0.18))
+                HStack(alignment: .bottom, spacing: 0) {
+                    MonitorView(source: source, state: state)
+                        .environment(\.bubbleStill, BubbleStill())
+                        .frame(width: 1080, height: 645)
+                        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+                        .shadow(color: .black.opacity(0.35), radius: 40, y: 30)
+                    Spacer()
+                    PanelView(source: source) { _, _ in }
+                }
+                .padding(.horizontal, margin)
+                .padding(.top, 6)
+                Spacer()
+            })
         default: return AnyView(Text(o.target).font(.largeTitle).foregroundStyle(Theme.ink))
         }
     }

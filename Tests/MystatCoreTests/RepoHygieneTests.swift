@@ -140,8 +140,11 @@ import Testing
         let version = try #require(plist["CFBundleShortVersionString"] as? String)
         let changelog = try #require(Self.text("CHANGELOG.md"))
         #expect(changelog.firstMatch(of: /\n## (\S+)/).map { String($0.1) } == version)
-        for m in readme.matches(of: /src="([^"]+\.png)"/) {
-            #expect(FileManager.default.fileExists(atPath: Self.repo.appendingPathComponent(String(m.1)).path), "\(m.1)")
+        // Images, including the dark variants a <picture> switches to.
+        let images = readme.matches(of: /(?:src|srcset)="([^"]+\.png)"/).map { String($0.1) }
+        #expect(!images.isEmpty)
+        for path in images {
+            #expect(FileManager.default.fileExists(atPath: Self.repo.appendingPathComponent(path).path), "\(path)")
         }
     }
 

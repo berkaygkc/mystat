@@ -22,7 +22,7 @@ Some tests read real hardware (SMC sensors, Wi‑Fi, processes), so run them on 
 | `MystatUI` | SwiftUI views: the panel and the monitor window. |
 | `mystat` | The app: menu bar item, windows, snapshot mode for screenshots. |
 
-Run `.build/debug/mystat --snapshot panel --lang en --out panel.png` to render a screen with sample data. `tools/lang-gallery.sh <lang>` renders all of them.
+Run `.build/debug/mystat --snapshot panel --lang en --out panel.png` to render a screen with sample data. `tools/lang-gallery.sh <lang>` renders all of them, and `python3 tools/readme-screenshots.py` regenerates the README images in `.github/assets/` (needs Pillow).
 
 ## Guidelines
 
