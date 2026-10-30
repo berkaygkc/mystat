@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Renders the README images from sample data into .github/assets/.
+"""Renders the README images and the social preview from sample data into .github/assets/.
 
 Usage (from the repository root, after `swift build` and `scripts/make-app.sh`):
     python3 tools/readme-screenshots.py
@@ -70,6 +70,10 @@ def main():
     window = tuple(v * SCALE for v in (46, 56, 1354, 860))
     for name, section in [("overview.png", "overview"), ("disk.png", "disk"), ("docker.png", "docker"), ("system.png", "sys")]:
         save(crop(render("monitor", "1400x900", "--section", section), window, 40), name, 1600)
+
+    # GitHub's social preview (Settings → General → Social preview), 1280×640 and under 1 MB. Dark reads best as a
+    # thumbnail. The view draws its own 64 pt margins.
+    save(render("social", "1280x640", "--incident", "--kind", "cpu", dark=True), "social-preview.png", 1280)
 
 
 if __name__ == "__main__":

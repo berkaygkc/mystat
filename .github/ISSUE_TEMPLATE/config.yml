@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Add a language
+    url: https://github.com/berkaygkc/mystat/blob/main/Locales/README.md
+    about: Translations are a single JSON file; the guide walks you through it.

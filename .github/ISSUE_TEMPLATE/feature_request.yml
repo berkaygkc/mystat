@@ -1,0 +1,16 @@
+name: Feature request
+description: Something mystat should notice, show or do.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like mystat to do?
+      description: Start with the situation. For example, "my laptop got hot during a build and mystat didn't say why".
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How do you picture it?
+      description: Where it would appear (menu bar, panel, monitor) and what it would say.

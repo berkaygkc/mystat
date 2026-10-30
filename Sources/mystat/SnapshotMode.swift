@@ -149,6 +149,26 @@ enum SnapshotMode {
                     Sparkline(Array(cpu.suffix(60)), color: red ? Theme.red : Theme.chart, height: 30, max: 100)
                 }
             }.frame(width: 960).background(Theme.dyn(.init(white: 0.97, alpha: 1), .init(white: 0.12, alpha: 1))))
+        case "social":
+            // GitHub's social preview (--size 1280x640): icon, name and tagline beside the panel during an incident. The
+            // icon is the README's, so run from the repository root.
+            let icon = NSImage(contentsOfFile: ".github/assets/icon.png") ?? NSImage()
+            let busy = SampleSource(seed: 1, incident: true, kind: o.kind)
+            return AnyView(HStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Image(nsImage: icon).resizable().frame(width: 176, height: 176).padding(.leading, -14)
+                    Text(verbatim: "mystat").font(.system(size: 84, weight: .bold)).tracking(-1.5).padding(.top, 10)
+                    Text(verbatim: "A calm system monitor\nfor the macOS menu bar.").font(.system(size: 36, weight: .medium))
+                        .foregroundStyle(Theme.ink.opacity(0.78)).lineSpacing(4).padding(.top, 6)
+                    Text(verbatim: "Free and open source · macOS 26+").font(.system(size: 22, weight: .medium))
+                        .foregroundStyle(Theme.ink.opacity(0.5)).padding(.top, 26)
+                }
+                .foregroundStyle(Theme.ink)
+                Spacer(minLength: 0)
+                PanelView(source: busy) { _, _ in }.fixedSize().scaleEffect(0.71).frame(width: 250, height: 512)
+            }
+            .padding(.horizontal, 64)
+            .frame(maxWidth: .infinity, maxHeight: .infinity))
         case "backdrop":
             // Wallpaper only: tools/readme-screenshots.py diffs against it to find a screenshot's content bounds.
             return AnyView(Color.clear)
