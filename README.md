@@ -122,9 +122,20 @@ English and Turkish, switchable from the panel. Adding a language is a single JS
 
 ## Install
 
+**With Homebrew:**
+
+```sh
+brew tap berkaygkc/tap
+brew trust --cask berkaygkc/tap/mystat   # Homebrew 7 and later
+brew install --cask berkaygkc/tap/mystat
+```
+
+**Or download it:**
+
 1. Download `mystat-<version>.dmg` from [the latest release](https://github.com/berkaygkc/mystat/releases/latest).
 2. Open it and drag **mystat** to **Applications**.
-3. Open mystat from Applications. It lives in the menu bar (no Dock icon) and adds itself to Login Items, so it starts with your Mac. You can turn that off in System Settings → General → Login Items & Extensions.
+
+Then open mystat from Applications. It lives in the menu bar (no Dock icon) and adds itself to Login Items, so it starts with your Mac. You can turn that off in System Settings → General → Login Items & Extensions.
 
 The app is signed with a Developer ID and notarized by Apple.
 
