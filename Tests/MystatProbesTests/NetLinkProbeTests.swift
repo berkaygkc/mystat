@@ -21,7 +21,8 @@ import Testing
             .first { $0.contains("nameserver[0]") }.map { $0.split(separator: ":", maxSplits: 1).last!.trimmingCharacters(in: .whitespaces) }
         #expect(link.dns.first == ns)
         #expect(!link.bsdName.isEmpty); #expect(!link.displayName.contains("-"))   // kırılmayan tire
-        if let w = link.wifi { #expect(w.rssi < 0); #expect([2.4, 5, 6].contains(w.bandGHz)) }
+        // macOS bazen sinyali 0 dBm (bilinmiyor) bildirir; kart o zaman "—" gösterir.
+        if let w = link.wifi { #expect(w.rssi <= 0); #expect([2.4, 5, 6].contains(w.bandGHz)) }
     }
 
     @Test func pingLoopback() throws {
