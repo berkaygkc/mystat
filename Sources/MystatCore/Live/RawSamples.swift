@@ -37,7 +37,7 @@ public enum SampleGap {
     public static let maxInterval: TimeInterval = 6
 }
 
-/// 64-bit byte counters of a network interface (`NET_RT_IFLIST2`).
+/// 64-bit byte counters of a network interface (`sysctl IFMIB_IFDATA`).
 public struct InterfaceCounters: Sendable, Equatable {
     public let name: String
     public let rx, tx: UInt64

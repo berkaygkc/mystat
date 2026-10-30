@@ -7,7 +7,7 @@ import Testing
 @MainActor @Suite(.language("tr")) struct PlainBreakTextTests {
     /// SwiftUI pushes a word down so the last line is not a single word, which wraps the incident headline differently from the
     /// intended layout. Text with push-out disabled must break as intended.
-    @Test func breaksLikeMockup() {
+    @Test func breaksAsDesigned() {
         var title = AttributedString("Claude Code"); title.inlinePresentationIntent = .emphasized
         title += AttributedString(" işlemciyi zorluyor.")
         let s = PlainBreakText.headline(title, size: 23, level: .crit)
@@ -27,7 +27,7 @@ import Testing
     }
 
     /// Sidebar card (inner width 189): breaks as intended, with the CPU phrase kept together on the first line.
-    @Test func sideCardBreaksLikeMockup() {
+    @Test func sideCardBreaksAsDesigned() {
         #expect(PlainBreakText.lines(PlainBreakText.sideIncident("Claude Code işlemciyi zorluyor"), width: 189) == ["Claude Code işlemciyi ", "zorluyor"])
     }
 }

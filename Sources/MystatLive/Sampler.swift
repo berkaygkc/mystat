@@ -4,8 +4,8 @@ import MystatProbes
 import Synchronization
 
 /// Sampling loop. Every 2 s: CPU, memory, network, disk activity. Processes every round while the panel/monitor is open,
-/// every 5 s when closed, and in light mode (ports not read). Disk usage and battery every 60 s, Downloads every 10 min (only while
-/// the panel/monitor is open: the folder is TCC-protected, so any permission prompt appears in context).
+/// every 5 s when closed, without reading listening ports. Disk usage and battery every 60 s. The Downloads suggestion every
+/// 10 min while the panel/monitor is open, and only with Full Disk Access.
 public actor Sampler {
     public struct Output: Sendable {
         public let snapshot: Snapshot
@@ -18,7 +18,8 @@ public actor Sampler {
     private struct ProcKey: Hashable { let pid: Int32; let start: Date }
 
     private let probe: any SystemProbe
-    /// Downloads is a protected folder: reading it without permission opens the macOS permission dialog. The prompt appears while the suggestion is checked every 10 min.
+    /// Downloads is a protected folder: reading it without Full Disk Access would open a macOS permission dialog, so the
+    /// suggestion is only checked when access is already granted.
     private let fullDiskAccess: @Sendable () -> Bool
     private let history: HistoryStore?
     /// Docker is read at its own pace; only its latest reading is picked up here (the round does not wait even if Docker hangs).

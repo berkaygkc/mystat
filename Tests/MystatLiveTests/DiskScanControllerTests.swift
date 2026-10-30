@@ -157,7 +157,7 @@ import Testing
         #expect(FileManager.default.fileExists(atPath: fx.root.appendingPathComponent("Library/x/veri.bin").path))
     }
 
-    // MARK: Late review
+    // MARK: Deletion and cache edge cases
 
     /// Even if the section changes while a deletion is running, deleted items drop out of the tree and the cache; they do not reappear on return.
     @Test func deleteWhileHiddenStillUpdatesTreeAndCache() async throws {

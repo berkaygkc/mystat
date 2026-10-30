@@ -55,8 +55,8 @@ import Testing
         #expect(ScanPhase.ready(scannedAt: t0).validityText(now: t0 + 3600) == nil)
     }
     /// The seed is `floor(hash01(path + "#") · 1e9) + 11`; the sizes (drawn before shuffling)
-    /// must match the reference JavaScript generator regardless of the browser (taken from a WebKit dump).
-    @Test func generatedSizesMatchMockup() {
+    /// must stay fixed for a given path, so screenshots and tests are reproducible (pinned values).
+    @Test func generatedSizesArePinned() {
         let t = SampleSource(seed: 1).diskTree
         let expected: [String: [Double]] = [
             "Movies": [3.6873, 3.0061, 0.4029, 0.3837, 0.3094, 0.1893, 0.1213, 0.9],

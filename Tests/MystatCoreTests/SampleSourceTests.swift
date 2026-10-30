@@ -22,7 +22,7 @@ import Testing
         #expect(s.snapshot.groups.first { $0.id == "next-web" }?.isOrphan == true)
     }
     @Test func mulberryMatchesJavaScript() {
-        // first value of rng(1) in the reference implementation: computed with Node
+        // first value of mulberry32 with seed 1 (the algorithm's published output)
         var r = Mulberry32(seed: 1)
         #expect(abs(r.next() - 0.6270739405881613) < 1e-12)
     }

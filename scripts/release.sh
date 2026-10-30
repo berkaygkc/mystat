@@ -25,6 +25,10 @@ if ! xcrun notarytool history --keychain-profile "$PROFILE" >/dev/null 2>&1; the
   xcrun notarytool store-credentials $PROFILE --apple-id <Apple ID> --team-id <Team ID>"
 fi
 [ -z "$(git status --porcelain --untracked-files=no)" ] || fail "uncommitted changes; commit or stash them first"
+# SwiftPM compiles every file under Sources/ and make-app.sh copies Locales/ and Resources/: untracked files there would ship.
+UNTRACKED="$(git ls-files --others --exclude-standard -- Sources Locales Resources Package.swift)"
+[ -z "$UNTRACKED" ] || fail "untracked files would be built into the app:
+$UNTRACKED"
 echo "Running tests…"
 mkdir -p build
 swift test >build/release-tests.log 2>&1 || fail "tests failed (see build/release-tests.log)"
@@ -34,11 +38,14 @@ notarize() {
     local out id
     echo "Notarizing $(basename "$1")…"
     out="$(xcrun notarytool submit "$1" --keychain-profile "$PROFILE" --wait 2>&1)" || true
-    echo "$out" | grep -E '^\s*(id|status):' | sed 's/^ */  /'
-    if ! echo "$out" | grep -q 'status: Accepted'; then
-        id="$(echo "$out" | awk '/^ *id:/ { print $2; exit }')"
+    # Here-strings, not pipes: under pipefail a grep with no match would end the script before the error is shown.
+    id="$(awk '/^ *id:/ { print $2; exit }' <<< "$out")"
+    if ! grep -q 'status: Accepted' <<< "$out"; then
+        echo "$out" >&2
         fail "notarization was not accepted${id:+; details: xcrun notarytool log $id --keychain-profile $PROFILE}"
     fi
+    echo "  id: $id"
+    echo "  status: Accepted"
 }
 
 # 1. The app.

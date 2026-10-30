@@ -38,7 +38,7 @@ import Testing
                   dockerID: name, restarting: restarting)
     }
 
-    @Test func sampleProjectsMatchMockup() {
+    @Test func sampleProjectsArePinned() {
         let rows = DockerPresentation.projects(SampleSource(seed: 1).snapshot.docker)
         #expect(rows.map(\.name) == ["deploy"] && rows[0].summary == "15 container · hepsi çalışıyor" && !rows[0].troubled)
     }

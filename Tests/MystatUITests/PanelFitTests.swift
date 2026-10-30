@@ -4,7 +4,7 @@ import MystatTestSupport
 import Testing
 @testable import MystatUI
 
-/// The second line of the English panel cells must fit on one line (the Turkish measurements came from the design; some of those are already truncated there).
+/// The second line of the English panel cells must fit on one line (some Turkish ones are truncated by design; the Turkish layout is pinned).
 @MainActor @Suite(.language("en")) struct PanelFitTests {
     /// Panel is 352 pt, horizontal padding 2 × 22; cells split the width in half, with 14 pt padding right of the left cell and 16 pt left of the right cell.
     static let widths: [CGFloat] = [154 - 14, 154 - 16]

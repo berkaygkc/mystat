@@ -3,7 +3,7 @@ import MystatTestSupport
 import Testing
 @testable import MystatCore
 
-/// Fields that are not wired up yet show no fake numbers; they show calm "not connected" text.
+/// Fields the source can't measure show no fake numbers; they show calm "not connected" text.
 @MainActor @Suite(.language("tr")) struct SourceCapabilitiesTests {
     func live() -> Snapshot {
         var s = SampleSource(seed: 1).snapshot

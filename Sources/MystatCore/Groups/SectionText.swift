@@ -12,7 +12,7 @@ public enum SectionText {
     public static func memory(_ s: Snapshot) -> Head {
         let m = s.memory
         let soft = m.pressureLevel == .ok ? L10n.t("section.mem.soft.ok") : L10n.t("section.mem.soft", ["pressure": PanelPresentation.pressureWord(m.pressureLevel)])
-        // Sample data uses a compression ratio of ~2.08 to derive the pre-compression size; live data would supply the real figure.
+        // macOS doesn't report the pre-compression size; it is estimated with a typical compression ratio of ~2.08.
         let original = Fmt.int(m.compressed * 2.08)
         let swap = m.swapGB > 0 ? L10n.t("section.mem.swap", ["gb": Fmt.dec1(m.swapGB)]) : L10n.t("section.mem.noSwap")
         return Head(title: L10n.t("section.mem.title", ["pct": Fmt.pct(m.percent)]), soft: soft,
@@ -23,7 +23,7 @@ public enum SectionText {
 
     public static func networkLede(_ s: Snapshot) -> String {
         let today = L10n.t("section.net.today", ["down": Fmt.dec1(s.net.todayDownGB), "up": Fmt.dec1(s.net.todayUpGB)])
-        guard s.capabilities.netDetails else {   // Wi-Fi name and per-app network are not available yet
+        guard s.capabilities.netDetails else {   // without network details: no Wi-Fi name or top downloader
             return L10n.t("section.net.name.iface", ["iface": s.net.iface]) + today
         }
         let name = s.net.ssid.isEmpty ? L10n.t("section.net.name.iface", ["iface": s.net.iface])

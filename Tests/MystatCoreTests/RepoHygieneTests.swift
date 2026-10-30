@@ -106,6 +106,15 @@ import Testing
         }
     }
 
+    /// The unpublished design prototype must not be named anywhere in code either (test names included).
+    @Test func noPrototypeNames() {
+        let word = "mock" + "up"   // built from parts so this file passes its own check
+        for path in Self.trackedFiles() where path.hasSuffix(".swift") || path.hasSuffix(".sh") {
+            guard let text = Self.text(path) else { continue }
+            #expect(!text.lowercased().contains(word), "\(path)")
+        }
+    }
+
     @Test func noInternalReferences() {
         for path in Self.trackedFiles() {
             guard let text = Self.text(path) else { continue }
@@ -121,6 +130,8 @@ import Testing
         let history = try #require(Self.text("Sources/MystatLive/HistoryStore.swift"))
         #expect(history.contains(#"appendingPathComponent("mystat")"#) && history.contains(#""history.sqlite""#))
         #expect(readme.contains("~/Library/Application Support/mystat/history.sqlite"))
+        let scan = try #require(Self.text("Sources/MystatLive/DiskScanController.swift"))
+        #expect(scan.contains("mystat/diskscan.cache") && readme.contains("diskscan.cache"))
         let package = try #require(Self.text("Package.swift"))
         let macOS = try #require(package.firstMatch(of: /\.macOS\("(\d+)/)).1
         #expect(readme.contains("macOS \(macOS) or later"))
@@ -132,6 +143,15 @@ import Testing
         for m in readme.matches(of: /src="([^"]+\.png)"/) {
             #expect(FileManager.default.fileExists(atPath: Self.repo.appendingPathComponent(String(m.1)).path), "\(m.1)")
         }
+    }
+
+    /// Code adapted from d3-hierarchy (ISC) must carry its notice, in the repository and in the app bundle.
+    @Test func thirdPartyNoticesPresent() throws {
+        let notices = try #require(Self.text("THIRD_PARTY_NOTICES.md"))
+        #expect(notices.contains("d3-hierarchy") && notices.contains("ISC License") && notices.contains("Mike Bostock"))
+        #expect(Self.text("Sources/MystatCore/Bubbles/CirclePack.swift")?.contains("THIRD_PARTY_NOTICES.md") == true)
+        let makeApp = try #require(Self.text("scripts/make-app.sh"))
+        #expect(makeApp.contains("THIRD_PARTY_NOTICES.md") && makeApp.contains("LICENSE"))
     }
 
     @Test func noPrivateTerms() {

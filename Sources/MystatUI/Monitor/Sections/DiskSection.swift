@@ -118,7 +118,7 @@ struct ScanStatus: View {
 struct DiskMapArea<Map: View>: View {
     @Bindable var disk: DiskUIState
     let scan: ScanPhase
-    /// The real scan is not wired up yet; until then the live source has no button.
+    /// Without the scan capability there is no button, only a note.
     var scanAvailable = true
     /// Shown before scanning when Full Disk Access is missing.
     var accessNote: String?

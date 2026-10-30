@@ -8,7 +8,7 @@ import Testing
                               dns: ["1.1.1.1", "8.8.8.8"],
                               wifi: WiFiReading(ssid: "Ev", rssi: -48, noise: -90, txRateMbps: 1201, channel: 44, bandGHz: 5), linkMbps: nil)
 
-    @Test func factsMatchMockup() {
+    @Test func factsMatchSampleData() {
         #expect(NetPresentation.facts(Self.wifi) == SampleData.netDetails)
     }
 

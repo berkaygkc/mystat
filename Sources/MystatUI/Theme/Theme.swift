@@ -2,7 +2,7 @@ import AppKit
 import MystatCore
 import SwiftUI
 
-/// Color and typography tokens. Light and dark values mirror the design's CSS variables.
+/// Color and typography tokens, with light and dark values.
 public enum Theme {
     public static func dyn(_ light: NSColor, _ dark: NSColor) -> Color {
         Color(nsColor: NSColor(name: nil) { $0.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light })

@@ -19,6 +19,8 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/mystat"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+# License notices travel with the app.
+cp LICENSE THIRD_PARTY_NOTICES.md "$APP/Contents/Resources/"
 # Locale files (Locales/*.json). Without them the app shows keys instead of text, so packaging stops.
 ls Locales/*.json >/dev/null 2>&1 || { echo "Locales/*.json missing" >&2; exit 1; }
 mkdir -p "$APP/Contents/Resources/Locales"

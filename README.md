@@ -51,7 +51,7 @@
 1. Download `mystat-<version>.dmg` from [Releases](../../releases/latest).
 2. Open it and drag **mystat** to **Applications**.
 3. Open mystat from Applications. It lives in the menu bar (no Dock icon) and adds itself to Login Items, so it starts with your Mac.
-   - You can turn that off in System Settings → General → Login Items.
+   - You can turn that off in System Settings → General → Login Items & Extensions.
 
 The app is signed with a Developer ID and notarized by Apple.
 
@@ -64,7 +64,9 @@ mystat works without any extra permission. Two are optional:
 | Permission | What it unlocks |
 |---|---|
 | **Full Disk Access** | A complete disk map, including folders macOS protects, and the "large old file in Downloads" suggestion. |
-| **Location** | The Wi‑Fi network's name. macOS ties network names to Location Services; mystat never reads or stores your location. It only asks when you click **Allow** on the network card. |
+| **Location** | The Wi‑Fi network's name. macOS ties network names to Location Services; mystat never reads or stores your location. It only asks when you click **Allow** on the Connection card in the Network section. |
+
+If you use Docker Desktop, macOS may ask once whether mystat can access data from other apps: mystat reads the size of Docker's disk image to show how much space Docker takes.
 
 ## Privacy
 
@@ -73,6 +75,7 @@ mystat works without any extra permission. Two are optional:
   - a ping to your router, to show latency;
   - a short loopback (`127.0.0.1`) connection, to calibrate per-app network counters.
 - **Local history:** charts for 24 hours and 7 days are stored only on your Mac, in `~/Library/Application Support/mystat/history.sqlite`.
+- **Disk scan cache:** the last disk scan (names and sizes of the files and folders in your home folder) is cached in `~/Library/Application Support/mystat/diskscan.cache`, so the map survives a restart. It's deleted once it's more than an hour old.
 - **No root:** mystat runs as a normal app; no root, no helper tool, no kernel extension.
 
 ## Build from source
@@ -92,4 +95,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for how the code is organized.
 
 ## License
 
-[MIT](LICENSE) © 2026 Berkay Gökçe
+[MIT](LICENSE) © 2026 Berkay Gökçe. The disk map's circle packing is adapted from d3-hierarchy (ISC); see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

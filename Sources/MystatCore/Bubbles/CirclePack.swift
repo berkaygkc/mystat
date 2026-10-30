@@ -13,6 +13,7 @@ public struct PackInput: Sendable {
 }
 
 /// Port of d3-hierarchy 3.1.2 `pack` (src/pack/siblings.js, enclose.js, index.js; src/lcg.js, array.js).
+/// d3-hierarchy is ISC-licensed, Copyright 2010-2021 Mike Bostock; see THIRD_PARTY_NOTICES.md.
 /// Layouts match d3's output exactly.
 public enum CirclePack {
     // MARK: - Randomness (d3 lcg)

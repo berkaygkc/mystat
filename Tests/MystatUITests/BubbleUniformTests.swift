@@ -4,7 +4,7 @@ import MystatTestSupport
 import Testing
 @testable import MystatUI
 
-/// The shader buffer must be filled in the same order as the reference renderer, in device pixels.
+/// The shader buffer must be filled in the layout the Metal shader expects, in device pixels.
 @MainActor @Suite(.language("tr")) struct BubbleUniformTests {
     let size = CGSize(width: 655, height: 560)
 

@@ -7,7 +7,7 @@ import Testing
 @MainActor @Suite(.language("tr")) struct BubbleEngineTests {
     let size = CGSize(width: 655, height: 560)
 
-    @Test func layoutMatchesMockupGeometry() {
+    @Test func layoutMatchesPinnedGeometry() {
         let e = BubbleEngine(tree: SampleSource(seed: 1).diskTree, path: [], viewSize: size)
         #expect(e.items.first?.name == "Library")
         // R0 = min(655, 514)/2 − 22 = 235; all bubbles lie inside the root circle
@@ -46,7 +46,7 @@ import Testing
     @Test func labels() {
         let e = BubbleEngine(tree: SampleSource(seed: 1).diskTree, path: ["Library"], viewSize: size)
         let a = e.items.first { $0.name == "Application Support" }!
-        #expect(e.labelText(for: a, radius: 40)?.name == "Applicat…")   // reference rule: slice(0, floor(r/4,4) − 1) + "…"
+        #expect(e.labelText(for: a, radius: 40)?.name == "Applicat…")   // label rule: first max(floor(r/4), 4) − 1 characters + "…"
         #expect(e.labelText(for: a, radius: 20)?.name == nil); #expect(e.labelText(for: a, radius: 20)?.size == "28 GB")
         #expect(e.labelText(for: a, radius: 10) == nil)
     }

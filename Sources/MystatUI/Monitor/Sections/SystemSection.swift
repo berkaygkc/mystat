@@ -26,7 +26,7 @@ struct SystemSection<Source: MetricsSource>: View {
                          facts: [(L10n.t("section.cpu"), Fmt.int(sys.chipTemp) + "°"), ("GPU", degrees(sys.gpuTemp)), ("SSD", degrees(sys.ssdTemp)),
                                  (L10n.t("sys.fact.slowdown"), SystemPresentation.slowdown(sys))])
                 } else {
-                    // Sensors are not wired up yet: show thermal state instead of a fake temperature.
+                    // No SMC sensors (or still discovering them): show the thermal state instead of a fake temperature.
                     card(title: L10n.t("sys.card.heat"), pill: Pill(text: sys.thermal.thermalWord, level: sys.thermal),
                          big: "—", unit: "", bigLevel: .ok, label: L10n.t("sys.noSensors"),
                          series: ChartSeries([], color: Theme.chart, fill: true, name: "°C"), max: 105, format: { Fmt.int($0) + "°" },
@@ -52,7 +52,7 @@ struct SystemSection<Source: MetricsSource>: View {
                 }
             }
             .padding(.top, 22)
-            if s.capabilities.sensors { energy(s).padding(.top, 26) }   // process energy is not wired up yet
+            if s.capabilities.sensors { energy(s).padding(.top, 26) }   // per-app energy needs the SMC power sensors
         }
     }
 

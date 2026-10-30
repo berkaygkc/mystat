@@ -10,7 +10,7 @@ import Testing
         #expect(LoginItem.shouldRegister(status: .notRegistered, alreadyAsked: false))
         #expect(!LoginItem.shouldRegister(status: .notRegistered, alreadyAsked: true))   // the user removed it from Login Items
         #expect(!LoginItem.shouldRegister(status: .enabled, alreadyAsked: false))
-        #expect(!LoginItem.shouldRegister(status: .requiresApproval, alreadyAsked: false))   // approved in System Settings
+        #expect(!LoginItem.shouldRegister(status: .requiresApproval, alreadyAsked: false))   // awaiting the user's approval in System Settings
         // For an app that was never registered, macOS 26 returns `.notFound` (measured); that is also the first-registration opportunity.
         #expect(LoginItem.shouldRegister(status: .notFound, alreadyAsked: false))
         #expect(!LoginItem.shouldRegister(status: .notFound, alreadyAsked: true))

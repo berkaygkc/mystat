@@ -243,7 +243,7 @@ import Testing
         #expect(ToastCenter.shared.message == "4,2 GB boşaldı (örnek)")
     }
 
-    // MARK: Review fixes
+    // MARK: Edge cases
 
     /// With a real "Other" folder present, Space on the small-files bubble selects nothing (so the wrong folder is not deleted).
     @Test func spaceOnSmallFilesBesideRealOtherSelectsNothing() throws {

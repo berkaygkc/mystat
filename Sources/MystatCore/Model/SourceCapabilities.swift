@@ -1,4 +1,4 @@
-/// Which fields the source can actually measure. Fields that are not wired up show no fake numbers;
+/// Which fields the source can actually measure. Fields it can't measure show no fake numbers;
 /// the presentation layer writes a calm "not connected" text instead.
 public struct SourceCapabilities: Sendable, Equatable {
     public var docker: Bool
