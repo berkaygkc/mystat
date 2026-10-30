@@ -3,7 +3,7 @@ import MystatCore
 import MystatUI
 import SwiftUI
 
-/// `mystat --snapshot <menubar|panel|monitor|bubbles|charts> --out x.png [--lang en|tr] [--dark] [--incident] [--kind k] [--section s] [--size WxH] [--scan s]`
+/// `mystat --snapshot <menubar|panel|monitor|bubbles|charts> --out x.png [--lang en|tr] [--scale 2] [--dark] [--incident] [--kind k] [--section s] [--size WxH] [--scan s]`
 /// Draws the view in an off-screen window and writes it to PNG; for visual comparison.
 @MainActor
 enum SnapshotMode {
@@ -16,6 +16,8 @@ enum SnapshotMode {
         var bmPath: [String] = [], bmSelect: [[String]] = [], bmZoom: String?, bmP = 0.0, bmHover: String?
         var size = CGSize(width: 1400, height: 900)
         var lang = "en"
+        /// Pixel scale of the PNG; 0 = the display's own (README screenshots use 2 on any display).
+        var scale = 0.0
     }
 
     static func parse(_ args: [String]) -> Options {
@@ -26,6 +28,7 @@ enum SnapshotMode {
             case "--snapshot": o.target = next()
             case "--out": o.out = next()
             case "--lang": o.lang = next()
+            case "--scale": o.scale = Double(next()) ?? 0
             case "--dark": o.dark = true
             case "--incident": o.incident = true
             case "--kind": o.kind = IncidentKind(rawValue: next()) ?? .cpu
@@ -71,7 +74,11 @@ enum SnapshotMode {
         root.frame = NSRect(origin: .zero, size: o.size)
         RunLoop.main.run(until: Date().addingTimeInterval(0.8))
         root.layoutSubtreeIfNeeded()
-        guard let rep = root.bitmapImageRepForCachingDisplay(in: root.bounds) else { fatalError("no bitmap") }
+        let fixed = o.scale > 0 ? NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(o.size.width * o.scale), pixelsHigh: Int(o.size.height * o.scale),
+                                                   bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                                                   colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0) : nil
+        fixed?.size = root.bounds.size
+        guard let rep = fixed ?? root.bitmapImageRepForCachingDisplay(in: root.bounds) else { fatalError("no bitmap") }
         root.cacheDisplay(in: root.bounds, to: rep)
         // If written with the display profile, colors shift in tools that ignore profiles; sRGB for comparison.
         let srgb = rep.converting(to: .sRGB, renderingIntent: .default) ?? rep

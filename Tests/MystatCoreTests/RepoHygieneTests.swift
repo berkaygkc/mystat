@@ -80,6 +80,9 @@ import Testing
         "db77ca6bb991f807190b0c8cb00c09b74094f089a2efb2a0e629d00540973846",
     ]
 
+    /// The author's name (in the copyright line) is a proper name, not Turkish text.
+    static let author = "Berkay G\u{F6}k\u{E7}e"
+
     /// The maintainer's home folder; built from parts so this file doesn't contain it.
     static let localHome = "/Users/" + "berkay" + "gokce"
 
@@ -97,7 +100,7 @@ import Testing
     @Test func commentsAreEnglish() {
         for path in Self.trackedFiles() {
             guard let text = Self.text(path) else { continue }
-            for (n, line) in Self.checkedLines(path, text) where line.contains(Self.turkish) {
+            for (n, line) in Self.checkedLines(path, text) where line.replacingOccurrences(of: Self.author, with: "").contains(Self.turkish) {
                 Issue.record("\(path):\(n): \(line.trimmingCharacters(in: .whitespaces))")
             }
         }
@@ -109,6 +112,25 @@ import Testing
             for (n, line) in Self.checkedLines(path, text) where line.contains(Self.internalRef) {
                 Issue.record("\(path):\(n): \(line.trimmingCharacters(in: .whitespaces))")
             }
+        }
+    }
+
+    /// README statements that must stay true: data location, minimum macOS, license, version, screenshots.
+    @Test func readmeClaimsMatchCode() throws {
+        let readme = try #require(Self.text("README.md"))
+        let history = try #require(Self.text("Sources/MystatLive/HistoryStore.swift"))
+        #expect(history.contains(#"appendingPathComponent("mystat")"#) && history.contains(#""history.sqlite""#))
+        #expect(readme.contains("~/Library/Application Support/mystat/history.sqlite"))
+        let package = try #require(Self.text("Package.swift"))
+        let macOS = try #require(package.firstMatch(of: /\.macOS\("(\d+)/)).1
+        #expect(readme.contains("macOS \(macOS) or later"))
+        #expect(Self.text("LICENSE")?.hasPrefix("MIT License") == true)
+        let plist = try #require(NSDictionary(contentsOf: Self.repo.appendingPathComponent("Resources/Info.plist")))
+        let version = try #require(plist["CFBundleShortVersionString"] as? String)
+        let changelog = try #require(Self.text("CHANGELOG.md"))
+        #expect(changelog.firstMatch(of: /\n## (\S+)/).map { String($0.1) } == version)
+        for m in readme.matches(of: /src="([^"]+\.png)"/) {
+            #expect(FileManager.default.fileExists(atPath: Self.repo.appendingPathComponent(String(m.1)).path), "\(m.1)")
         }
     }
 
